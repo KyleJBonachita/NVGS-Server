@@ -12,4 +12,4 @@ backups/
 secrets/*
 !secrets/.gitkeep
 nvgs-local-ca.crt
-
+/appscript-ticketing-system/
