@@ -6,8 +6,10 @@ __pycache__
 *.pyc
 *.sqlite3
 backups
+imports
+local-backups
+appscript-ticketing-system
 media
 secrets
 staticfiles
 nvgs-local-ca.crt
-

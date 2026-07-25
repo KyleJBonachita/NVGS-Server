@@ -8,7 +8,7 @@ from .managers import UserManager
 
 class UserRole(models.TextChoices):
     AGENT = "agent", "Agent"
-    TEAM = "team", "Tech Team / TL"
+    TEAM = "team", "Tech Team / TL / Manager"
     SYSTEM_ADMIN = "system_admin", "System administrator"
 
 
@@ -21,6 +21,7 @@ class User(AbstractUser):
         default=UserRole.AGENT,
         db_index=True,
     )
+    department = models.CharField(max_length=120, blank=True)
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []
@@ -59,4 +60,3 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.display_name
-

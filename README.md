@@ -29,8 +29,11 @@ This repository currently provides the backend/server foundation:
 - Email-based local accounts restricted to approved domains
 - `agent`, `team`, and `system_admin` roles
 - Ticket creation, assignment, status, priority, resolution, and comments
+- Apps Script-compatible ticket fields, statuses, escalation, downtime, impact,
+  root cause, and reopen tracking
 - Private internal notes for Tech Team/TL users
 - Per-ticket audit events
+- Repeatable CSV import for Users, Tickets, Comments, and StatusHistory exports
 - Caddy HTTPS with a local certificate authority
 - Database health checks and permission-restricted Docker secret files
 - Backup tooling
@@ -152,6 +155,10 @@ network. A DNS hostname can be used instead of the IP when one is available.
 | `GET, POST` | `/api/tickets/` | Role-filtered ticket queue/create |
 | `GET, PUT, PATCH` | `/api/tickets/{id}/` | Role-filtered ticket detail |
 | `GET, POST` | `/api/tickets/{id}/comments/` | Ticket comments |
+| `GET` | `/api/tickets/configuration/` | Existing workflow choices |
+| `POST` | `/api/tickets/{id}/assign/` | Team assignment |
+| `POST` | `/api/tickets/{id}/transition/` | Validated status change |
+| `GET` | `/api/tickets/{id}/history/` | Audit/status history |
 | `GET` | `/admin/` | System administrators |
 
 Tickets cannot be deleted through the API because their history is an audit

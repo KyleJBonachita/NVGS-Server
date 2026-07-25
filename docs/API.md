@@ -25,14 +25,34 @@ rights based only on email domain are intentionally unavailable.
 
 ## Ticket visibility
 
-- Agents receive only tickets where they are the reporter.
-- Tech Team/TL users receive the complete queue.
+- Agents receive only tickets where they are the requester or creator.
+- Tech Team/TL/Manager users receive the complete queue.
 - Object lookup uses the same filtered query, so an agent receives `404` for a
   different agent's ticket.
-- Agents cannot set assignee, priority, status, or resolution during creation.
-- Only Tech Team/TL and system-administrator roles can update tickets.
+- Agents may select ticket priority, type, impact, workstation, and location
+  while creating a ticket. They cannot set assignee, status, resolution,
+  escalation, or server-calculated counters.
+- Only Tech Team/TL/Manager and system-administrator roles can update tickets.
 - Internal comments are omitted from agent responses.
 - Ticket deletion is disabled.
+
+## Ticket workflow endpoints
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/tickets/configuration/` | Existing priorities, types, statuses, and transitions |
+| `GET` | `/api/auth/users/assignable/` | Active team assignees |
+| `GET` | `/api/auth/users/` | Active users for team-created tickets |
+| `POST` | `/api/tickets/{id}/assign/` | Assign to a team account |
+| `POST` | `/api/tickets/{id}/assign-to-me/` | Team member self-assignment |
+| `POST` | `/api/tickets/{id}/transition/` | Validated status change |
+| `POST` | `/api/tickets/{id}/escalate/` | Record escalation |
+| `GET` | `/api/tickets/{id}/history/` | Audit/status history |
+| `GET, POST` | `/api/tickets/{id}/comments/` | Comments and internal notes |
+| `POST` | `/api/tickets/bulk-status/` | Update up to 50 tickets |
+
+Imported tickets return their original `GRTKT-` value as `ticket_id`. New
+tickets use an `NVGS-` reference.
 
 ## Desktop Python clients
 
@@ -40,4 +60,3 @@ Do not embed a user's password or PostgreSQL password in a packaged executable.
 The future desktop-client authentication mechanism should be corporate OIDC
 with short-lived tokens. Until that is available, use the browser application
 or a reviewed session-login implementation over trusted HTTPS.
-

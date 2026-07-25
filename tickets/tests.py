@@ -1,3 +1,9 @@
+import csv
+import tempfile
+from pathlib import Path
+
+from django.core.management import call_command
+from django.test import TestCase
 from django.urls import reverse
 from rest_framework.test import APITestCase
 
@@ -30,11 +36,13 @@ class TicketAccessTests(APITestCase):
         )
         self.agent_one_ticket = Ticket.objects.create(
             reporter=self.agent_one,
+            created_by=self.agent_one,
             title="Robot console issue",
             description="The console does not load.",
         )
         self.agent_two_ticket = Ticket.objects.create(
             reporter=self.agent_two,
+            created_by=self.agent_two,
             title="Keyboard issue",
             description="Several keys do not respond.",
         )
@@ -57,17 +65,17 @@ class TicketAccessTests(APITestCase):
         )
         self.assertEqual(response.status_code, 404)
 
-    def test_agent_created_ticket_cannot_self_assign_or_set_priority(self):
+    def test_agent_can_choose_priority_but_cannot_self_assign_or_set_status(self):
         self.authenticate(self.agent_one)
         response = self.client.post(
             reverse("ticket-list"),
             {
                 "title": "Application error",
                 "description": "The robotics application displays an error.",
-                "category": "robotics",
+                "category": "Others",
                 "priority": TicketPriority.URGENT,
                 "status": TicketStatus.RESOLVED,
-                "resolution": "Untrusted client-provided resolution",
+                "resolution_notes": "Untrusted client-provided resolution",
                 "assignee": 999999,
             },
             format="json",
@@ -75,10 +83,11 @@ class TicketAccessTests(APITestCase):
         self.assertEqual(response.status_code, 201)
         ticket = Ticket.objects.get(pk=response.data["id"])
         self.assertEqual(ticket.reporter, self.agent_one)
-        self.assertEqual(ticket.priority, TicketPriority.NORMAL)
-        self.assertEqual(ticket.status, TicketStatus.NEW)
+        self.assertEqual(ticket.created_by, self.agent_one)
+        self.assertEqual(ticket.priority, TicketPriority.URGENT)
+        self.assertEqual(ticket.status, TicketStatus.OPEN)
         self.assertIsNone(ticket.assignee)
-        self.assertEqual(ticket.resolution, "")
+        self.assertEqual(ticket.resolution_notes, "")
         self.assertTrue(
             TicketEvent.objects.filter(ticket=ticket, action="created").exists()
         )
@@ -98,7 +107,7 @@ class TicketAccessTests(APITestCase):
         self.authenticate(self.agent_one)
         response = self.client.patch(
             reverse("ticket-detail", args=[self.agent_one_ticket.id]),
-            {"status": TicketStatus.CLOSED, "resolution": "Done"},
+            {"status": TicketStatus.CLOSED, "resolution_notes": "Done"},
             format="json",
         )
         self.assertEqual(response.status_code, 403)
@@ -109,12 +118,26 @@ class TicketAccessTests(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["count"], 2)
 
-        response = self.client.patch(
-            reverse("ticket-detail", args=[self.agent_one_ticket.id]),
+        response = self.client.post(
+            reverse("ticket-assign", args=[self.agent_one_ticket.id]),
+            {"assignee": self.team_user.id},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], TicketStatus.ASSIGNED)
+
+        response = self.client.post(
+            reverse("ticket-transition", args=[self.agent_one_ticket.id]),
+            {"status": TicketStatus.IN_PROGRESS},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        response = self.client.post(
+            reverse("ticket-transition", args=[self.agent_one_ticket.id]),
             {
-                "assignee": self.team_user.id,
                 "status": TicketStatus.RESOLVED,
-                "resolution": "Restarted the robotics console service.",
+                "resolution_notes": "Restarted the robotics console service.",
+                "root_cause": "Software Bug",
             },
             format="json",
         )
@@ -123,22 +146,25 @@ class TicketAccessTests(APITestCase):
         self.assertEqual(self.agent_one_ticket.assignee, self.team_user)
         self.assertEqual(self.agent_one_ticket.status, TicketStatus.RESOLVED)
         self.assertIsNotNone(self.agent_one_ticket.resolved_at)
+        self.assertEqual(self.agent_one_ticket.resolved_by, self.team_user)
         self.assertTrue(
             TicketEvent.objects.filter(
                 ticket=self.agent_one_ticket,
-                action="updated",
+                action="status_changed",
             ).exists()
         )
 
     def test_resolution_is_required(self):
+        self.agent_one_ticket.status = TicketStatus.IN_PROGRESS
+        self.agent_one_ticket.save(update_fields=["status"])
         self.authenticate(self.team_user)
-        response = self.client.patch(
-            reverse("ticket-detail", args=[self.agent_one_ticket.id]),
+        response = self.client.post(
+            reverse("ticket-transition", args=[self.agent_one_ticket.id]),
             {"status": TicketStatus.RESOLVED},
             format="json",
         )
         self.assertEqual(response.status_code, 400)
-        self.assertIn("resolution", response.data)
+        self.assertIn("resolution_notes", response.data)
 
     def test_internal_comments_are_hidden_from_agents(self):
         TicketComment.objects.create(
@@ -170,10 +196,232 @@ class TicketAccessTests(APITestCase):
                 "reporter_id": self.agent_two.id,
                 "title": "Created after walk-up request",
                 "description": "Agent could not open the ticketing page.",
-                "category": "network",
+                "category": "Network Issue",
             },
             format="json",
         )
         self.assertEqual(response.status_code, 201)
         ticket = Ticket.objects.get(pk=response.data["id"])
         self.assertEqual(ticket.reporter, self.agent_two)
+        self.assertEqual(ticket.created_by, self.team_user)
+
+    def test_agent_cannot_assign_a_ticket(self):
+        self.authenticate(self.agent_one)
+        response = self.client.post(
+            reverse("ticket-assign", args=[self.agent_one_ticket.id]),
+            {"assignee": self.team_user.id},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_invalid_status_transition_is_rejected(self):
+        self.authenticate(self.team_user)
+        response = self.client.post(
+            reverse("ticket-transition", args=[self.agent_one_ticket.id]),
+            {
+                "status": TicketStatus.RESOLVED,
+                "resolution_notes": "Attempted to skip required workflow steps.",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("status", response.data)
+
+    def test_configuration_matches_existing_appscript_values(self):
+        self.authenticate(self.agent_one)
+        response = self.client.get(reverse("ticket-configuration"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.data["statuses"],
+            [
+                "Open",
+                "Assigned",
+                "In Progress",
+                "On Hold",
+                "Resolved",
+                "Closed",
+                "Reopened",
+            ],
+        )
+        self.assertIn("Data Quality Issue", response.data["ticket_types"])
+        self.assertIn("Gear01", response.data["workstations"])
+        self.assertEqual(response.data["priority_colors"]["Urgent"], "#ef4444")
+        self.assertEqual(
+            response.data["status_transitions"]["Open"],
+            ["Assigned", "In Progress"],
+        )
+
+    def test_imported_ticket_keeps_its_apps_script_id(self):
+        self.agent_one_ticket.source_ticket_id = "GRTKT-00123"
+        self.agent_one_ticket.save(update_fields=["source_ticket_id"])
+        self.authenticate(self.agent_one)
+        response = self.client.get(
+            reverse("ticket-detail", args=[self.agent_one_ticket.id])
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["ticket_id"], "GRTKT-00123")
+
+
+class AppScriptImportTests(TestCase):
+    def write_csv(self, directory, name, headers, rows):
+        file_name = Path(directory) / name
+        with file_name.open("w", encoding="utf-8", newline="") as csv_file:
+            writer = csv.DictWriter(csv_file, fieldnames=headers)
+            writer.writeheader()
+            writer.writerows(rows)
+        return str(file_name)
+
+    def test_imports_source_ids_roles_ticket_comments_and_history(self):
+        with tempfile.TemporaryDirectory() as directory:
+            users = self.write_csv(
+                directory,
+                "Users.csv",
+                ["email", "name", "role", "department", "isActive"],
+                [
+                    {
+                        "email": "agent@nvidia.com",
+                        "name": "Example Agent",
+                        "role": "Agent",
+                        "department": "Robotics",
+                        "isActive": "TRUE",
+                    },
+                    {
+                        "email": "tech@nvidia.com",
+                        "name": "Example Tech",
+                        "role": "Tech Team",
+                        "department": "Robotics",
+                        "isActive": "TRUE",
+                    },
+                ],
+            )
+            tickets = self.write_csv(
+                directory,
+                "Tickets.csv",
+                [
+                    "ticketId",
+                    "createdAt",
+                    "updatedAt",
+                    "downtimeStart",
+                    "downtimeEnd",
+                    "downtimeMinutes",
+                    "title",
+                    "description",
+                    "ticketType",
+                    "priority",
+                    "workstation",
+                    "location",
+                    "status",
+                    "assignedTo",
+                    "assignedName",
+                    "requesterEmail",
+                    "requesterName",
+                    "createdByEmail",
+                    "createdByName",
+                    "resolutionNotes",
+                    "resolutionMinutes",
+                    "responseMinutes",
+                    "escalatedCount",
+                    "escalatedTo",
+                    "reopenCount",
+                    "tags",
+                    "rootCause",
+                    "impactLevel",
+                    "affectedStations",
+                ],
+                [
+                    {
+                        "ticketId": "GRTKT-00042",
+                        "createdAt": "2026-07-24T09:00:00+08:00",
+                        "updatedAt": "2026-07-24T09:15:00+08:00",
+                        "downtimeStart": "2026-07-24T09:00:00+08:00",
+                        "title": "Fake calibration example",
+                        "description": "Synthetic test data only.",
+                        "ticketType": "Calibration Issue",
+                        "priority": "High",
+                        "workstation": "Gear01",
+                        "location": "Room A",
+                        "status": "Assigned",
+                        "assignedTo": "tech@nvidia.com",
+                        "assignedName": "Example Tech",
+                        "requesterEmail": "agent@nvidia.com",
+                        "requesterName": "Example Agent",
+                        "createdByEmail": "agent@nvidia.com",
+                        "createdByName": "Example Agent",
+                        "responseMinutes": "15",
+                        "escalatedCount": "0",
+                        "reopenCount": "0",
+                        "tags": "synthetic",
+                        "impactLevel": "Medium",
+                        "affectedStations": "Gear01",
+                    }
+                ],
+            )
+            comments = self.write_csv(
+                directory,
+                "Comments.csv",
+                [
+                    "commentId",
+                    "ticketId",
+                    "authorEmail",
+                    "authorName",
+                    "authorRole",
+                    "content",
+                    "isInternal",
+                    "createdAt",
+                ],
+                [
+                    {
+                        "commentId": "CMT-00000042",
+                        "ticketId": "GRTKT-00042",
+                        "authorEmail": "tech@nvidia.com",
+                        "authorName": "Example Tech",
+                        "authorRole": "Tech Team",
+                        "content": "Synthetic troubleshooting note.",
+                        "isInternal": "TRUE",
+                        "createdAt": "2026-07-24T09:16:00+08:00",
+                    }
+                ],
+            )
+            history = self.write_csv(
+                directory,
+                "StatusHistory.csv",
+                [
+                    "eventId",
+                    "ticketId",
+                    "eventType",
+                    "fromStatus",
+                    "toStatus",
+                    "actorEmail",
+                    "actorName",
+                    "note",
+                    "createdAt",
+                ],
+                [
+                    {
+                        "eventId": "EVT-0000042",
+                        "ticketId": "GRTKT-00042",
+                        "eventType": "ASSIGNED",
+                        "fromStatus": "Open",
+                        "toStatus": "Assigned",
+                        "actorEmail": "tech@nvidia.com",
+                        "actorName": "Example Tech",
+                        "note": "Synthetic assignment.",
+                        "createdAt": "2026-07-24T09:15:00+08:00",
+                    }
+                ],
+            )
+
+            call_command(
+                "import_appscript_csv",
+                users=users,
+                tickets=tickets,
+                comments=comments,
+                history=history,
+            )
+
+        ticket = Ticket.objects.get(source_ticket_id="GRTKT-00042")
+        self.assertEqual(ticket.priority, TicketPriority.HIGH)
+        self.assertEqual(ticket.status, TicketStatus.ASSIGNED)
+        self.assertEqual(ticket.assignee.role, UserRole.TEAM)
+        self.assertEqual(ticket.comments.get().source_comment_id, "CMT-00000042")
+        self.assertEqual(ticket.events.get().source_event_id, "EVT-0000042")

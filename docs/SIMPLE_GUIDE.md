@@ -132,6 +132,7 @@ It does not block a proper shutdown or reboot.
 - Webhook URLs
 - Corporate identity secrets
 - Real ticket exports
+- Anything in `imports/`, `local-backups/`, or `appscript-ticketing-system/`
 
 The repository ignores the relevant local files, but always inspect
 `git status` before committing.

@@ -26,31 +26,44 @@ Browser -> NVGS HTTPS API -> PostgreSQL
 The visible HTML, CSS, and JavaScript may be reusable. Calls such as
 `google.script.run` will need to become normal web requests using `fetch()`.
 
-## Information needed before conversion
+## What we found in the existing system
 
-Add these to the repository only after removing real employee/ticket data:
+The local source was inspected without changing it. It already has:
 
-1. Apps Script `.gs` source files
-2. HTML, CSS, and browser JavaScript files
-3. A list of Google Sheet column names
-4. Existing ticket statuses and categories
-5. A few fake example tickets
-6. Any automatic email or notification rules
+- A complete browser interface in `Index.html`
+- Agent, Tech Team, and Management roles
+- Ticket creation, assignment, transfer, status changes, resolution, close,
+  reopen, escalation, comments, internal notes, bulk updates, and export
+- Agent and operations dashboards
+- Downtime, trend, and workstation-health reports
+- Power Automate/Teams notification queues
+- Users, Tickets, Comments, StatusHistory, Settings, ShiftLog, and queue sheets
 
-Do not commit a real Sheet export containing names, emails, workstation IDs, or
-ticket descriptions.
+Tech Team and Management have the same ticket authority in its permission
+matrix. The local server represents both with the `team` role. System
+administrators additionally manage accounts and server settings.
+
+The original folder and the local safety backup are ignored by Git. Do not
+remove these ignore rules. A backup on the same Windows laptop is useful for
+accidental edits, but it is not a complete disaster-recovery backup; keep
+another approved encrypted copy.
+
+See [`APPS_SCRIPT_FIELD_MAP.md`](APPS_SCRIPT_FIELD_MAP.md) for the exact mapping.
 
 ## Safe migration order
 
-1. Copy the existing user interface into a development branch.
-2. Map its ticket fields to the PostgreSQL ticket model.
-3. Replace Google Sheet reads/writes with API calls.
-4. Test using fake tickets.
-5. Export the real Sheet once the new system is ready.
-6. Import into a temporary database and compare row counts.
-7. Ask a small Tech Team/TL group to test.
-8. Perform the final export and switch users to the local URL.
-9. Keep the old Sheet read-only for an agreed period.
+1. Keep the original Apps Script folder unchanged.
+2. Match its fields and status rules in PostgreSQL. **Implemented.**
+3. Test CSV import using fake data. **Implemented.**
+4. Copy the interface into the NVGS Server only after the original has a second
+   approved backup.
+5. Replace the single `google.script.run` bridge with HTTPS `fetch()` calls.
+6. Test every action using fake users and tickets.
+7. Export the real Sheets and perform a dry-run import.
+8. Import into a temporary database and compare row counts and sample tickets.
+9. Ask a small Tech Team/TL/Manager group to test.
+10. Perform the final export, import, and switch users to the local URL.
+11. Keep the old Sheet read-only for an agreed period.
 
 Do not make both systems writable for a long period. Two writable databases will
 eventually disagree about the correct ticket status.
@@ -63,3 +76,39 @@ SSO can be added later when an approved identity application is available.
 Checking only that text ends in `@nvidia.com` is not authentication. The user
 must prove ownership through a password managed by this server or through
 corporate SSO.
+
+## Importing Sheet exports
+
+Export these tabs as separate CSV files:
+
+- `Users`
+- `Tickets`
+- `Comments`
+- `StatusHistory`
+
+On Ubuntu, place the CSV files in the ignored `imports/` directory:
+
+```bash
+mkdir -p imports
+```
+
+That directory is mounted read-only inside the application container and is
+excluded from Git. First validate the files without saving:
+
+```bash
+docker compose exec app python manage.py import_appscript_csv \
+  --users /imports/Users.csv \
+  --tickets /imports/Tickets.csv \
+  --comments /imports/Comments.csv \
+  --history /imports/StatusHistory.csv \
+  --dry-run
+```
+
+Remove `--dry-run` only after validation succeeds and a database backup exists.
+The importer is repeatable: rows with the same Apps Script IDs are updated
+rather than duplicated.
+
+Imported accounts have no usable local password until a system administrator
+sets one. This prevents an imported email address from silently becoming a
+login credential. Delete the CSV files from `imports/` after the migration and
+verification are complete; they contain production information.

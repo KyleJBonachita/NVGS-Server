@@ -13,7 +13,15 @@ class TicketCommentInline(admin.TabularInline):
 class TicketEventInline(admin.TabularInline):
     model = TicketEvent
     extra = 0
-    readonly_fields = ["actor", "action", "changes", "created_at"]
+    readonly_fields = [
+        "actor",
+        "action",
+        "from_status",
+        "to_status",
+        "note",
+        "changes",
+        "created_at",
+    ]
     can_delete = False
 
 
@@ -34,7 +42,8 @@ class TicketAdmin(admin.ModelAdmin):
         "description",
         "reporter__email",
         "assignee__email",
-        "area",
+        "source_ticket_id",
+        "location",
         "workstation",
     ]
     readonly_fields = ["created_at", "updated_at", "resolved_at"]
@@ -50,5 +59,13 @@ class TicketCommentAdmin(admin.ModelAdmin):
 @admin.register(TicketEvent)
 class TicketEventAdmin(admin.ModelAdmin):
     list_display = ["ticket", "actor", "action", "created_at"]
-    readonly_fields = ["ticket", "actor", "action", "changes", "created_at"]
-
+    readonly_fields = [
+        "ticket",
+        "actor",
+        "action",
+        "from_status",
+        "to_status",
+        "note",
+        "changes",
+        "created_at",
+    ]

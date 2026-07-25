@@ -9,7 +9,15 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["id", "email", "first_name", "last_name", "display_name", "role"]
+        fields = [
+            "id",
+            "email",
+            "first_name",
+            "last_name",
+            "display_name",
+            "department",
+            "role",
+        ]
         read_only_fields = fields
 
 
@@ -29,4 +37,3 @@ class LoginSerializer(serializers.Serializer):
             raise serializers.ValidationError("Invalid email or password.")
         attrs["user"] = user
         return attrs
-

@@ -42,6 +42,8 @@ services:
     secrets:
       - postgres_password
       - django_secret_key
+    volumes:
+      - ./imports:/imports:ro
     depends_on:
       db:
         condition: service_healthy

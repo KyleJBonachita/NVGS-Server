@@ -79,3 +79,19 @@ class AuthenticationApiTests(TestCase):
             HTTP_X_CSRFTOKEN=token,
         )
         self.assertEqual(response.status_code, 200)
+
+    def test_only_team_users_can_list_assignable_accounts(self):
+        team_user = User.objects.create_user(
+            email="team@nvidia.com",
+            password=self.password,
+            role=UserRole.TEAM,
+        )
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get("/api/auth/users/assignable/")
+        self.assertEqual(response.status_code, 403)
+
+        self.client.force_authenticate(user=team_user)
+        response = self.client.get("/api/auth/users/assignable/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["email"], team_user.email)
