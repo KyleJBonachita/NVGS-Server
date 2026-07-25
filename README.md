@@ -1,0 +1,155 @@
+# NVGS Server
+
+NVGS Server is the on-premises foundation for the Robotics Team ticketing
+system. It runs the application API and PostgreSQL on one Ubuntu laptop while
+keeping PostgreSQL inaccessible from user laptops.
+
+## Current scope
+
+This repository currently provides the backend/server foundation:
+
+- PostgreSQL 17 with a persistent Docker volume
+- Django 5.2 LTS API and administration
+- Email-based local accounts restricted to approved domains
+- `agent`, `team`, and `system_admin` roles
+- Ticket creation, assignment, status, priority, resolution, and comments
+- Private internal notes for Tech Team/TL users
+- Per-ticket audit events
+- Caddy HTTPS with a local certificate authority
+- Database health checks and permission-restricted Docker secret files
+- Backup tooling
+
+It does not yet contain the end-user browser interface or NVIDIA SSO. Local
+accounts are the initial authentication method. Corporate SSO can replace the
+login endpoint later without changing the ticket database.
+
+## Security boundary
+
+```text
+Production laptop -> HTTPS 443 -> Caddy -> Django -> PostgreSQL
+                                               |
+                                      private Docker network
+```
+
+Only Caddy publishes a host port. PostgreSQL has no host port mapping. Users,
+browser JavaScript, and Python desktop tools must never receive PostgreSQL
+credentials.
+
+The default bind address is `127.0.0.1`. The server is therefore local-only
+until an administrator deliberately sets `SERVER_BIND_IP` in `.env`.
+
+## Roles
+
+| Role | Purpose |
+| --- | --- |
+| `agent` | Raise tickets, view own tickets, and add public comments |
+| `team` | Shared Tech Team/TL authority over the complete queue |
+| `system_admin` | Manage accounts and server configuration |
+
+Managers who need the same queue authority can be assigned `team`. An
+`@nvidia.com` address establishes the allowed email domain; it does not grant
+elevated rights automatically.
+
+## Ubuntu quick start
+
+Install Docker Engine and the Docker Compose plugin using Docker's official
+Ubuntu instructions:
+
+- <https://docs.docker.com/engine/install/ubuntu/>
+
+Then:
+
+```bash
+git clone https://github.com/KyleJBonachita/NVGS-Server.git
+cd NVGS-Server
+chmod +x scripts/*.sh
+./scripts/bootstrap-secrets.sh
+nano .env
+docker compose up -d --build
+docker compose exec app python manage.py createsuperuser \
+  --email your.name@nvidia.com
+docker compose ps
+```
+
+Before LAN deployment, keep these values:
+
+```dotenv
+SERVER_BIND_IP=127.0.0.1
+SERVER_ADDRESS=localhost
+DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1
+DJANGO_CSRF_TRUSTED_ORIGINS=https://localhost
+```
+
+Open `https://localhost/admin/` on the server. Export and trust the local
+certificate authority as described in
+[`docs/UBUNTU_DEPLOYMENT.md`](docs/UBUNTU_DEPLOYMENT.md).
+
+## Activating LAN access
+
+After the Ethernet interface has an assigned static address or DHCP
+reservation, edit `.env`. For example only:
+
+```dotenv
+SERVER_BIND_IP=10.20.30.20
+SERVER_ADDRESS=10.20.30.20
+DJANGO_ALLOWED_HOSTS=10.20.30.20
+DJANGO_CSRF_TRUSTED_ORIGINS=https://10.20.30.20
+```
+
+Apply it:
+
+```bash
+docker compose up -d
+```
+
+Do not copy the example address. Use the address assigned for the actual
+network. A DNS hostname can be used instead of the IP when one is available.
+
+## Important endpoints
+
+| Method | Endpoint | Access |
+| --- | --- | --- |
+| `GET` | `/api/health/` | Health check |
+| `GET` | `/api/auth/csrf/` | Obtain browser CSRF token |
+| `POST` | `/api/auth/login/` | Local account login |
+| `POST` | `/api/auth/logout/` | Authenticated user |
+| `GET` | `/api/auth/me/` | Current user |
+| `GET, POST` | `/api/tickets/` | Role-filtered ticket queue/create |
+| `GET, PUT, PATCH` | `/api/tickets/{id}/` | Role-filtered ticket detail |
+| `GET, POST` | `/api/tickets/{id}/comments/` | Ticket comments |
+| `GET` | `/admin/` | System administrators |
+
+Tickets cannot be deleted through the API because their history is an audit
+record.
+
+## Backups
+
+Create a PostgreSQL custom-format backup:
+
+```bash
+./scripts/backup.sh
+```
+
+The resulting file under `backups/` is only the first copy. Copy it to a second
+approved, encrypted device. See [`docs/BACKUP_RESTORE.md`](docs/BACKUP_RESTORE.md).
+
+## Development and tests
+
+The local development configuration uses SQLite so tests do not require Docker:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+DJANGO_ENVIRONMENT=test python manage.py test
+```
+
+On PowerShell:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+$env:DJANGO_ENVIRONMENT = "test"
+python manage.py test
+```

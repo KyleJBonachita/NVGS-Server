@@ -1,0 +1,13 @@
+.git
+.gitignore
+.venv
+.env
+__pycache__
+*.pyc
+*.sqlite3
+backups
+media
+secrets
+staticfiles
+nvgs-local-ca.crt
+
