@@ -136,27 +136,16 @@ administrator network and use SSH keys.
 
 ## 7. Lid behavior
 
-To prevent lid closure from suspending the server, create a root-owned drop-in:
-
-```text
-/etc/systemd/logind.conf.d/50-nvgs-server.conf
-```
-
-Contents:
-
-```ini
-[Login]
-HandleLidSwitch=ignore
-HandleLidSwitchExternalPower=ignore
-HandleLidSwitchDocked=ignore
-```
-
-Apply during a maintenance window because restarting `systemd-logind` can
-interrupt desktop sessions:
+The repository installs anti-sleep and monitoring for you:
 
 ```bash
-sudo systemctl restart systemd-logind
+sudo ./scripts/install-ubuntu-host.sh
 ```
+
+It installs the lid configuration, blocks suspend/hibernate targets, and starts
+the condition and rejected-login monitors. Reboot once after the first
+installation instead of restarting `systemd-logind` during an active desktop
+session.
 
 Keeping the lid physically open with the display switched off is preferable if
 the laptop exhausts heat through the hinge or keyboard.
@@ -181,3 +170,10 @@ docker compose ps
 Never run `docker compose down -v` on the production server. The `-v` option
 deletes the persistent database volume.
 
+For the normal Windows-to-GitHub-to-Ubuntu workflow, use:
+
+```bash
+./scripts/update-ubuntu-server.sh
+```
+
+It performs the backup, pull, rebuild, and monitor refresh in order.

@@ -2,10 +2,10 @@ from rest_framework import serializers
 
 from accounts.models import User, UserRole
 from accounts.serializers import UserSerializer
+
 from .models import (
     Ticket,
     TicketComment,
-    TicketPriority,
     TicketStatus,
 )
 

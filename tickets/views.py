@@ -9,7 +9,6 @@ from rest_framework.viewsets import ModelViewSet
 
 from .models import (
     Ticket,
-    TicketComment,
     TicketEvent,
     TicketPriority,
     TicketStatus,
