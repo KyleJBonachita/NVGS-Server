@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 def _private_response(response):
     response["Cache-Control"] = "no-store"
     response["Pragma"] = "no-cache"
-    response["Referrer-Policy"] = "no-referrer"
+    response["Referrer-Policy"] = "same-origin"
     response["X-Content-Type-Options"] = "nosniff"
     return response
 

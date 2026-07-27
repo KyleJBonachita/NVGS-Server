@@ -185,6 +185,12 @@ class AppsScriptSsoTests(TestCase):
         response = client.get("/api/auth/appscript/onboarding/")
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Never enter your NVIDIA or Google password")
+        self.assertContains(
+            response,
+            '<meta name="referrer" content="same-origin">',
+            html=True,
+        )
+        self.assertEqual(response["Referrer-Policy"], "same-origin")
         csrf_token = client.cookies["csrftoken"].value
         return client.post(
             "/api/auth/appscript/onboarding/",
@@ -273,6 +279,64 @@ class AppsScriptSsoTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 403)
+
+    def test_onboarding_rejects_null_origin(self):
+        client = Client(enforce_csrf_checks=True)
+        state = self._start(client)
+        self._post_callback(
+            client,
+            self._token("agent@nvidia.com", state),
+        )
+        client.get("/api/auth/appscript/onboarding/", secure=True)
+        csrf_token = client.cookies["csrftoken"].value
+
+        response = client.post(
+            "/api/auth/appscript/onboarding/",
+            {
+                "first_name": "Test",
+                "last_name": "Agent",
+                "password1": "a-new-local-password-123",
+                "password2": "a-new-local-password-123",
+                "csrfmiddlewaretoken": csrf_token,
+            },
+            secure=True,
+            HTTP_ORIGIN="null",
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_onboarding_accepts_same_origin_post(self):
+        client = Client(enforce_csrf_checks=True)
+        state = self._start(client)
+        self._post_callback(
+            client,
+            self._token("agent@nvidia.com", state),
+        )
+        response = client.get(
+            "/api/auth/appscript/onboarding/",
+            secure=True,
+        )
+        self.assertEqual(response["Referrer-Policy"], "same-origin")
+        csrf_token = client.cookies["csrftoken"].value
+
+        response = client.post(
+            "/api/auth/appscript/onboarding/",
+            {
+                "first_name": "Test",
+                "last_name": "Agent",
+                "password1": "a-new-local-password-123",
+                "password2": "a-new-local-password-123",
+                "csrfmiddlewaretoken": csrf_token,
+            },
+            secure=True,
+            HTTP_ORIGIN="https://testserver",
+        )
+
+        self.assertRedirects(
+            response,
+            "/api/auth/me/",
+            fetch_redirect_response=False,
+        )
 
     def test_invalid_onboarding_password_is_not_saved(self):
         client = Client(enforce_csrf_checks=True)

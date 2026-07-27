@@ -231,7 +231,9 @@ If disabled, repeat the `enable` command with the deployed `/exec` URL.
 Update the Ubuntu repository and restart **NVGS Server Control**. Current
 versions use the signed 60-second assertion and the one-time browser-session
 state to protect only the bridge callback. The normal profile form keeps
-Django's standard CSRF protection.
+Django's standard CSRF protection. Local Django bridge pages use
+`Referrer-Policy: same-origin`; do not add `null` to
+`CSRF_TRUSTED_ORIGINS`.
 
 ### Signed response is invalid
 
