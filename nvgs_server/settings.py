@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from django.core.exceptions import ImproperlyConfigured
 
@@ -155,6 +156,58 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 ALLOWED_EMAIL_DOMAINS = [
     domain.lower() for domain in env_list("ALLOWED_EMAIL_DOMAINS", "nvidia.com")
 ]
+
+APPSCRIPT_SSO_ENABLED = env_bool("APPSCRIPT_SSO_ENABLED", False)
+APPSCRIPT_SSO_URL = os.getenv("APPSCRIPT_SSO_URL", "").strip()
+APPSCRIPT_SSO_SECRET = env_secret("APPSCRIPT_SSO_SECRET", "") or ""
+APPSCRIPT_SSO_ISSUER = os.getenv(
+    "APPSCRIPT_SSO_ISSUER",
+    "nvgs-appscript",
+).strip()
+APPSCRIPT_SSO_AUDIENCE = os.getenv(
+    "APPSCRIPT_SSO_AUDIENCE",
+    "nvgs-server",
+).strip()
+APPSCRIPT_SSO_AUTO_CREATE_USERS = env_bool(
+    "APPSCRIPT_SSO_AUTO_CREATE_USERS",
+    True,
+)
+APPSCRIPT_SSO_SUCCESS_REDIRECT = os.getenv(
+    "APPSCRIPT_SSO_SUCCESS_REDIRECT",
+    "/api/auth/me/",
+).strip()
+APPSCRIPT_SSO_TOKEN_TTL_SECONDS = 60
+APPSCRIPT_SSO_STATE_TTL_SECONDS = 300
+APPSCRIPT_SSO_CLOCK_SKEW_SECONDS = 15
+
+if APPSCRIPT_SSO_ENABLED:
+    appscript_url = urlsplit(APPSCRIPT_SSO_URL)
+    if (
+        appscript_url.scheme != "https"
+        or appscript_url.hostname != "script.google.com"
+        or not appscript_url.path.endswith("/exec")
+        or appscript_url.username
+        or appscript_url.password
+        or appscript_url.fragment
+    ):
+        raise ImproperlyConfigured(
+            "APPSCRIPT_SSO_URL must be a deployed "
+            "https://script.google.com/.../exec URL."
+        )
+    if len(APPSCRIPT_SSO_SECRET) < 32:
+        raise ImproperlyConfigured(
+            "APPSCRIPT_SSO_SECRET must contain at least 32 characters."
+        )
+    if not APPSCRIPT_SSO_ISSUER or not APPSCRIPT_SSO_AUDIENCE:
+        raise ImproperlyConfigured(
+            "The Apps Script SSO issuer and audience must not be blank."
+        )
+    if not APPSCRIPT_SSO_SUCCESS_REDIRECT.startswith("/") or (
+        APPSCRIPT_SSO_SUCCESS_REDIRECT.startswith("//")
+    ):
+        raise ImproperlyConfigured(
+            "APPSCRIPT_SSO_SUCCESS_REDIRECT must be a local absolute path."
+        )
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [

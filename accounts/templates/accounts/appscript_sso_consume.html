@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="referrer" content="no-referrer">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Signing in to NVGS</title>
+    <style nonce="{{ content_nonce }}">
+      body {
+        align-items: center;
+        background: #111827;
+        color: #f9fafb;
+        display: flex;
+        font-family: system-ui, sans-serif;
+        justify-content: center;
+        margin: 0;
+        min-height: 100vh;
+      }
+      main {
+        max-width: 38rem;
+        padding: 2rem;
+        text-align: center;
+      }
+      .error { color: #fca5a5; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Signing in to NVGS...</h1>
+      <p id="status">Verifying your NVIDIA Google account.</p>
+      <form id="bridge-form" method="post" action="{% url 'appscript-sso-callback' %}">
+        {% csrf_token %}
+        <input id="bridge-token" name="token" type="hidden">
+      </form>
+    </main>
+    <script nonce="{{ content_nonce }}">
+      (() => {
+        const status = document.getElementById("status");
+        const parameters = new URLSearchParams(window.location.hash.slice(1));
+        const token = parameters.get("token");
+        window.history.replaceState(null, "", window.location.pathname);
+        if (!token) {
+          status.textContent = "The login response did not contain a token.";
+          status.className = "error";
+          return;
+        }
+        document.getElementById("bridge-token").value = token;
+        document.getElementById("bridge-form").submit();
+      })();
+    </script>
+  </body>
+</html>

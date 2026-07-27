@@ -30,6 +30,7 @@ This repository currently provides the backend/server foundation:
 - PostgreSQL 17 with a persistent Docker volume
 - Django 5.2 LTS API and administration
 - Email-based local accounts restricted to approved domains
+- Optional signed login bridge for the existing domain-restricted Apps Script
 - `agent`, `team`, and `system_admin` roles
 - Ticket creation, assignment, status, priority, resolution, and comments
 - Apps Script-compatible ticket fields, statuses, escalation, downtime, impact,
@@ -49,9 +50,10 @@ This repository currently provides the backend/server foundation:
 - An optional permanent always-on Ubuntu mode
 - A safe Ubuntu update command that backs up before pulling
 
-It does not yet contain the end-user browser interface or NVIDIA SSO. Local
-accounts are the initial authentication method. Corporate SSO can replace the
-login endpoint later without changing the ticket database.
+It does not yet contain the end-user browser interface or approved corporate
+NVIDIA SSO. Local accounts remain available. An optional Apps Script bridge can
+reuse the verified Google Workspace email from the existing domain-restricted
+ticketing app until approved corporate SSO is available.
 
 The existing Apps Script login feels automatic because its manifest restricts
 access to the Google Workspace domain, runs as the accessing user, and
@@ -65,10 +67,11 @@ There are three authentication paths:
 2. **Approved corporate SSO:** register this Django application with the
    corporate Google/OIDC/SAML identity provider and receive a client ID,
    secret, issuer information, and approved callback address.
-3. **Temporary Apps Script bridge:** the existing domain-restricted Apps Script
-   could issue a short-lived signed login token containing its verified active
-   email. This retains an Apps Script dependency and requires security review
-   before implementation.
+3. **Apps Script bridge (implemented, disabled by default):** the existing
+   domain-restricted Apps Script issues a short-lived signed login token
+   containing its verified active email. This retains an Apps Script dependency
+   and should be reviewed before production use. See the
+   **[bridge setup guide](appscript-bridge/README.md)**.
 
 Accepting a typed `@nvidia.com` address without a password or signed identity
 token is not authentication and must not grant access.
@@ -181,6 +184,7 @@ network. A DNS hostname can be used instead of the IP when one is available.
 | `GET` | `/api/health/` | Health check |
 | `GET` | `/api/auth/csrf/` | Obtain browser CSRF token |
 | `POST` | `/api/auth/login/` | Local account login |
+| `GET` | `/api/auth/appscript/start/` | Start optional Apps Script login |
 | `POST` | `/api/auth/logout/` | Authenticated user |
 | `GET` | `/api/auth/me/` | Current user |
 | `GET, POST` | `/api/tickets/` | Role-filtered ticket queue/create |

@@ -22,8 +22,16 @@ if [[ ! -s secrets/django_secret_key ]]; then
     echo "Created secrets/django_secret_key."
 fi
 
-chmod 600 .env secrets/postgres_password secrets/django_secret_key
+if [[ ! -s secrets/appscript_bridge_secret ]]; then
+    openssl rand -base64 48 > secrets/appscript_bridge_secret
+    echo "Created secrets/appscript_bridge_secret."
+fi
+
+chmod 600 \
+    .env \
+    secrets/postgres_password \
+    secrets/django_secret_key \
+    secrets/appscript_bridge_secret
 
 echo
 echo "Secrets are ready. Review .env before starting the server."
-

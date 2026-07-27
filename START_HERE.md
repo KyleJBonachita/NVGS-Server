@@ -189,7 +189,10 @@ In `https://localhost/admin/`, open **Users**.
 - Use a separate local password. Never enter an NVIDIA corporate password into
   this local server.
 
-Local accounts are temporary until approved NVIDIA SSO is available.
+Local accounts can remain as a fallback. To reuse the existing Google
+Workspace login, follow
+[`appscript-bridge/README.md`](appscript-bridge/README.md) after the server is
+reachable through its approved LAN HTTPS address.
 
 ## 11. Create the first backup
 
@@ -216,8 +219,9 @@ Complete these in order:
 4. Enable the approved LAN address in `.env`, limit network access, and test
    from one approved client.
 5. Install `nvgs-local-ca.crt` on each approved client so HTTPS has no warning.
-6. Create local `agent` and `team` accounts, or obtain identity-administrator
-   approval and registration details for NVIDIA SSO.
+6. Create local `agent` and `team` accounts, enable the reviewed Apps Script
+   login bridge, or obtain identity-administrator approval and registration
+   details for corporate NVIDIA SSO.
 7. Test a database restore and keep a second backup on an approved encrypted
    device.
 8. Configure an approved remote webhook or another approved device to detect

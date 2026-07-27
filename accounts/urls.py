@@ -7,9 +7,27 @@ from .views import (
     LoginView,
     LogoutView,
     UserListView,
+    appscript_sso_callback,
+    appscript_sso_consume,
+    appscript_sso_start,
 )
 
 urlpatterns = [
+    path(
+        "appscript/start/",
+        appscript_sso_start,
+        name="appscript-sso-start",
+    ),
+    path(
+        "appscript/consume/",
+        appscript_sso_consume,
+        name="appscript-sso-consume",
+    ),
+    path(
+        "appscript/callback/",
+        appscript_sso_callback,
+        name="appscript-sso-callback",
+    ),
     path("csrf/", CsrfView.as_view(), name="csrf"),
     path("login/", LoginView.as_view(), name="login"),
     path("logout/", LogoutView.as_view(), name="logout"),

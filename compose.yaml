@@ -39,9 +39,11 @@ services:
       POSTGRES_PORT: "5432"
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
       DJANGO_SECRET_KEY_FILE: /run/secrets/django_secret_key
+      APPSCRIPT_SSO_SECRET_FILE: /run/secrets/appscript_bridge_secret
     secrets:
       - postgres_password
       - django_secret_key
+      - appscript_bridge_secret
     volumes:
       - ./imports:/imports:ro
     depends_on:
@@ -95,6 +97,8 @@ secrets:
     file: ./secrets/postgres_password
   django_secret_key:
     file: ./secrets/django_secret_key
+  appscript_bridge_secret:
+    file: ./secrets/appscript_bridge_secret
 
 volumes:
   postgres_data:

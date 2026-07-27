@@ -70,8 +70,14 @@ eventually disagree about the correct ticket status.
 
 ## Authentication
 
-The current server uses administrator-created local accounts. Corporate NVIDIA
-SSO can be added later when an approved identity application is available.
+The server supports administrator-created local accounts. It also has an
+optional signed bridge that reuses the verified active-user email from the
+existing domain-restricted Apps Script. See
+[`../appscript-bridge/README.md`](../appscript-bridge/README.md).
+
+The bridge is not the same as a corporate NVIDIA SSO registration: it still
+depends on Apps Script and a shared secret. Approved corporate OIDC or SAML can
+replace it later without changing the ticket database.
 
 Checking only that text ends in `@nvidia.com` is not authentication. The user
 must prove ownership through a password managed by this server or through
