@@ -17,6 +17,17 @@ MAX_TITLE_LENGTH = 120
 MAX_DETAIL_LENGTH = 700
 
 
+def load_gtk3_modules() -> tuple[Any, Any, Any]:
+    """Select matching GTK 3 namespaces before PyGObject imports either one."""
+    import gi
+
+    gi.require_version("Gdk", "3.0")
+    gi.require_version("Gtk", "3.0")
+    from gi.repository import Gdk, GLib, Gtk
+
+    return Gdk, GLib, Gtk
+
+
 def parse_alert(raw: bytes) -> dict[str, str] | None:
     try:
         payload: Any = json.loads(raw.decode("utf-8"))
@@ -59,13 +70,10 @@ def open_alert_socket(socket_path: Path) -> socket.socket:
 
 def run_overlay(socket_path: Path) -> int:
     try:
-        import gi
-
-        gi.require_version("Gtk", "3.0")
-        from gi.repository import Gdk, GLib, Gtk
+        Gdk, GLib, Gtk = load_gtk3_modules()
     except (ImportError, ValueError) as exc:
         print(
-            "Full-screen alerts require python3-gi and GTK 3 "
+            "Full-screen alerts require matching GDK 3 and GTK 3 libraries "
             f"({type(exc).__name__}).",
             file=sys.stderr,
             flush=True,

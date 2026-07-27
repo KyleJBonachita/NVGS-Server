@@ -1,5 +1,6 @@
 import os
 import sys
+import types
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -179,6 +180,40 @@ class AlertHelperTests(unittest.TestCase):
 
 
 class FullscreenOverlayTests(unittest.TestCase):
+    def test_gdk_and_gtk_are_both_pinned_to_version_3(self):
+        requested_versions = []
+        gi_module = types.ModuleType("gi")
+        repository_module = types.ModuleType("gi.repository")
+        repository_module.Gdk = object()
+        repository_module.GLib = object()
+        repository_module.Gtk = object()
+        gi_module.repository = repository_module
+        gi_module.require_version = lambda namespace, version: (
+            requested_versions.append((namespace, version))
+        )
+
+        with patch.dict(
+            sys.modules,
+            {
+                "gi": gi_module,
+                "gi.repository": repository_module,
+            },
+        ):
+            modules = nvgs_alert_overlay.load_gtk3_modules()
+
+        self.assertEqual(
+            requested_versions,
+            [("Gdk", "3.0"), ("Gtk", "3.0")],
+        )
+        self.assertEqual(
+            modules,
+            (
+                repository_module.Gdk,
+                repository_module.GLib,
+                repository_module.Gtk,
+            ),
+        )
+
     def test_valid_warning_payload_is_parsed(self):
         alert = nvgs_alert_overlay.parse_alert(
             b'{"title":"AC power","detail":"charger unplugged",'

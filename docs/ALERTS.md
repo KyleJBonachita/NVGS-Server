@@ -33,6 +33,16 @@ sudo ./scripts/test-alert.sh
 
 Dismiss the full-screen warning with its button, `Enter`, or `Escape`.
 
+If the controller says full-screen alerts could not start, verify that
+PyGObject can load matching GDK 3 and GTK 3 namespaces:
+
+```bash
+python3 -c 'import gi; gi.require_version("Gdk", "3.0"); gi.require_version("Gtk", "3.0"); from gi.repository import Gdk, Gtk; print("GTK 3 OK")'
+```
+
+The command must print `GTK 3 OK`. The overlay explicitly selects both
+versions so an installed GDK 4 cannot be chosen accidentally.
+
 Every alert is also recorded in the local journal:
 
 Watch the laptop/application checks:

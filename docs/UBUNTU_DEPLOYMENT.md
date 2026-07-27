@@ -169,6 +169,9 @@ sudo apt install python3-gi gir1.2-gtk-3.0
 sudo ./scripts/install-app-controlled-mode.sh
 ```
 
+The overlay explicitly selects both GDK 3 and GTK 3 before importing either
+library. This prevents PyGObject from accidentally pairing GDK 4 with GTK 3.
+
 For a permanent approved deployment that must start at boot instead, use:
 
 ```bash
