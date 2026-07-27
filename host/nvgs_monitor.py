@@ -184,7 +184,7 @@ def check_application() -> CheckResult:
 
 
 def run() -> None:
-    interval = max(5, int(os.getenv("NVGS_CHECK_INTERVAL_SECONDS", "15")))
+    interval = max(5, int(os.getenv("NVGS_CHECK_INTERVAL_SECONDS", "5")))
     reminder = max(60, int(os.getenv("NVGS_REPEAT_ALERT_SECONDS", "1800")))
     interface = find_default_interface()
     previous: dict[str, bool | None] = {}
@@ -196,17 +196,21 @@ def run() -> None:
     )
 
     while True:
-        checks = {
-            "AC power": check_ac_power(),
-            "Battery": check_battery(),
-            "Network link": check_network_link(interface),
-            "Internet": check_internet(),
-            "Application": check_application(),
-            "Laptop lid": check_lid(),
-        }
-        now = time.monotonic()
+        cycle_started = time.monotonic()
+        checks = (
+            ("AC power", check_ac_power),
+            ("Battery", check_battery),
+            ("Network link", lambda: check_network_link(interface)),
+            ("Laptop lid", check_lid),
+            ("Internet", check_internet),
+            ("Application", check_application),
+        )
 
-        for name, result in checks.items():
+        # Handle each result immediately. Slow Internet/application timeouts no
+        # longer delay an already-detected charger, cable, or lid warning.
+        for name, check in checks:
+            result = check()
+            now = time.monotonic()
             old_state = previous.get(name)
             previous[name] = result.healthy
 
@@ -229,7 +233,8 @@ def run() -> None:
             elif old_state is None:
                 log(f"OK: {name} - {result.detail}.")
 
-        time.sleep(interval)
+        elapsed = time.monotonic() - cycle_started
+        time.sleep(max(1, interval - elapsed))
 
 
 if __name__ == "__main__":

@@ -123,6 +123,7 @@ window remains open:
 
 - The ticket website and database are running.
 - Charger, network, application, lid, and rejected-login alerts are running.
+- A warning opens a red full-screen acknowledgement on the server laptop.
 - Sleep, hibernate, idle sleep, and lid-close suspension are blocked.
 
 Press Enter or close that window to stop NVGS. The database closes cleanly,

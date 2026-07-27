@@ -12,16 +12,26 @@ sudo ./scripts/install-app-controlled-mode.sh
 For a permanent server, `sudo ./scripts/install-ubuntu-host.sh
 --force-always-on` starts the alerts at boot.
 
-Warnings and recoveries appear as Ubuntu desktop notifications. Warning
-notifications request critical urgency and a warning sound. Ubuntu's
-notification settings may mute the sound or hide details while the screen is
-locked.
+Warnings take over the Ubuntu display with a red full-screen acknowledgement
+screen while **NVGS Server Control** is open. A normal desktop notification and
+the journal remain as fallbacks. Recovery events use a normal desktop
+notification instead of interrupting the whole screen.
+
+The monitor checks every five seconds. Charger, battery, cable, and lid results
+are handled before slower Internet/application requests, so those slow checks
+do not hold up an already-detected hardware warning.
+
+The warning requests a sound, but Ubuntu's notification settings may mute it.
+Ubuntu does not allow an application to cover its secure lock screen; an alert
+raised while locked remains recorded and can appear after unlocking.
 
 Send one harmless local test while the controller is open:
 
 ```bash
 sudo ./scripts/test-alert.sh
 ```
+
+Dismiss the full-screen warning with its button, `Enter`, or `Escape`.
 
 Every alert is also recorded in the local journal:
 

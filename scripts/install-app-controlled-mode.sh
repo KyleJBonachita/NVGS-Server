@@ -107,11 +107,20 @@ set_monitor_env_value() {
 
 set_monitor_env_value "NVGS_DESKTOP_NOTIFICATIONS" "true"
 set_monitor_env_value "NVGS_DESKTOP_USER" "$desktop_user"
+set_monitor_env_value "NVGS_FULLSCREEN_ALERTS" "true"
+set_monitor_env_value "NVGS_CHECK_INTERVAL_SECONDS" "5"
 chmod 0600 /etc/nvgs-monitor.env
 
 if ! command -v notify-send >/dev/null 2>&1; then
     echo "WARNING: notify-send is missing, so desktop popups cannot appear." >&2
     echo "Install it with: sudo apt install libnotify-bin" >&2
+fi
+if ! python3 -c \
+    'import gi; gi.require_version("Gtk", "3.0"); from gi.repository import Gtk' \
+    >/dev/null 2>&1; then
+    echo "WARNING: GTK Python support is missing; full-screen alerts cannot appear." >&2
+    echo "Install it with:" >&2
+    echo "  sudo apt install python3-gi gir1.2-gtk-3.0" >&2
 fi
 
 set_env_value() {

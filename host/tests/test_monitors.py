@@ -7,9 +7,14 @@ from unittest.mock import MagicMock, patch
 HOST_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(HOST_DIR))
 
+import nvgs_alert_overlay  # noqa: E402
 import nvgs_auth_monitor  # noqa: E402
 import nvgs_monitor  # noqa: E402
-from nvgs_alerts import send_alert, send_desktop_notification  # noqa: E402
+from nvgs_alerts import (  # noqa: E402
+    send_alert,
+    send_desktop_notification,
+    send_fullscreen_alert,
+)
 
 
 class ConditionMonitorTests(unittest.TestCase):
@@ -80,6 +85,7 @@ class AlertHelperTests(unittest.TestCase):
             {
                 "NVGS_ALERT_WEBHOOK_URL": "",
                 "NVGS_DESKTOP_NOTIFICATIONS": "false",
+                "NVGS_FULLSCREEN_ALERTS": "false",
             },
             clear=False,
         ):
@@ -139,6 +145,57 @@ class AlertHelperTests(unittest.TestCase):
 
         self.assertFalse(delivered)
         which.assert_not_called()
+
+    @patch("nvgs_alerts.socket.AF_UNIX", new=1, create=True)
+    @patch("nvgs_alerts.socket.socket")
+    @patch("nvgs_alerts.Path.is_socket", return_value=True)
+    @patch("nvgs_alerts.desktop_user_id", return_value="1000")
+    def test_warning_is_sent_to_fullscreen_overlay(
+        self,
+        desktop_user_id,
+        path_is_socket,
+        socket_factory,
+    ):
+        del desktop_user_id, path_is_socket
+        client = socket_factory.return_value.__enter__.return_value
+
+        with patch.dict(
+            os.environ,
+            {
+                "NVGS_FULLSCREEN_ALERTS": "true",
+                "NVGS_DESKTOP_USER": "robotics",
+            },
+            clear=False,
+        ):
+            delivered = send_fullscreen_alert(
+                "Network link",
+                "Ethernet cable disconnected",
+            )
+
+        self.assertTrue(delivered)
+        payload, destination = client.sendto.call_args.args
+        self.assertIn(b"Ethernet cable disconnected", payload)
+        self.assertTrue(destination.endswith("nvgs-alert-overlay.sock"))
+
+
+class FullscreenOverlayTests(unittest.TestCase):
+    def test_valid_warning_payload_is_parsed(self):
+        alert = nvgs_alert_overlay.parse_alert(
+            b'{"title":"AC power","detail":"charger unplugged",'
+            b'"level":"warning","server":"NVGS-Server"}'
+        )
+
+        self.assertIsNotNone(alert)
+        self.assertEqual(alert["title"], "AC power")
+        self.assertEqual(alert["detail"], "charger unplugged")
+
+    def test_recovery_payload_does_not_take_over_the_screen(self):
+        alert = nvgs_alert_overlay.parse_alert(
+            b'{"title":"AC power","detail":"charger connected",'
+            b'"level":"recovery"}'
+        )
+
+        self.assertIsNone(alert)
 
 
 if __name__ == "__main__":

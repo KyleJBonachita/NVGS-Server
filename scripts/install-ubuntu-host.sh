@@ -139,6 +139,8 @@ set_monitor_env_value() {
 }
 
 set_monitor_env_value "NVGS_DESKTOP_NOTIFICATIONS" "true"
+set_monitor_env_value "NVGS_FULLSCREEN_ALERTS" "true"
+set_monitor_env_value "NVGS_CHECK_INTERVAL_SECONDS" "5"
 desktop_user="${SUDO_USER:-}"
 if [[ -n "$desktop_user" && "$desktop_user" != "root" ]] \
     && id "$desktop_user" >/dev/null 2>&1; then

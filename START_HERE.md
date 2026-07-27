@@ -145,7 +145,8 @@ After logging in again, open Ubuntu Applications, search for **NVGS Server
 Control**, and enter your Ubuntu password.
 
 - Keep its terminal window open while people need the server.
-- Visible alerts and anti-sleep are active while that window is open.
+- Full-screen warning alerts and anti-sleep are active while that window is
+  open.
 - Press Enter or close the window to stop the website, database, and alerts.
 - Closing it restores normal sleep behavior. Ticket data is not deleted.
 
@@ -155,6 +156,10 @@ Test the popup:
 cd ~/NVGS-Server
 sudo ./scripts/test-alert.sh
 ```
+
+The red warning screen can be dismissed with its button, `Enter`, or `Escape`.
+Hardware checks run about every five seconds, although an event can occur
+between checks.
 
 Using **Lock** or pressing `Super+L` does not stop NVGS and does not let the
 laptop sleep. Do not choose **Log Out** or **Sign Out** while NVGS is running,
@@ -232,4 +237,5 @@ cd ~/NVGS-Server
 
 This update command creates a database backup before pulling new code.
 In desktop-controller mode, open **NVGS Server Control** before running the
-update so the database is available for that backup.
+update so the database is available for that backup. When the update finishes,
+stop and reopen the controller so launcher/overlay changes take effect.

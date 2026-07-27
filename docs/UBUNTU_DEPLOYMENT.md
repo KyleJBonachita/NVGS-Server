@@ -147,7 +147,8 @@ After reboot, open **NVGS Server Control** from Ubuntu Applications. The
 launcher:
 
 - Starts PostgreSQL, Django, Caddy, and both alert monitors
-- Shows desktop notifications for warnings and recoveries
+- Shows a red full-screen acknowledgement for warnings and a normal desktop
+  notification for recoveries
 - Temporarily blocks sleep and lid-close suspension
 - Keeps a terminal window open to show that NVGS is running
 - Stops the containers and monitors when you press Enter or close the window
@@ -159,6 +160,14 @@ Locking the screen does not close the controller or release its sleep
 inhibitor. Logging out closes the graphical session and is not supported while
 NVGS is running. Notification details can be hidden by Ubuntu while locked;
 the journal and configured webhook still receive the event.
+
+Full-screen alerts use GTK 3. If the installer reports that GTK Python support
+is missing, install the Ubuntu packages and refresh the controller:
+
+```bash
+sudo apt install python3-gi gir1.2-gtk-3.0
+sudo ./scripts/install-app-controlled-mode.sh
+```
 
 For a permanent approved deployment that must start at boot instead, use:
 
@@ -199,4 +208,5 @@ For the normal Windows-to-GitHub-to-Ubuntu workflow, use:
 It performs the backup, pull, rebuild, and monitor refresh in order.
 In desktop-controlled mode, run the update while **NVGS Server Control** is
 open, because the first update step backs up the running database. Keep the
-controller window open after the update.
+controller window open during the update, then stop and reopen it so launcher
+changes take effect.

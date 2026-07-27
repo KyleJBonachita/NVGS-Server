@@ -27,6 +27,64 @@ def setting_enabled(name: str, default: bool = False) -> bool:
     return value in {"1", "true", "yes", "on"}
 
 
+def desktop_user_id(desktop_user: str) -> str | None:
+    try:
+        user_id = subprocess.check_output(
+            ["id", "-u", desktop_user],
+            text=True,
+            timeout=3,
+        ).strip()
+    except (OSError, subprocess.SubprocessError):
+        log(f"Desktop alert skipped: user {desktop_user!r} was not found.")
+        return None
+
+    if not user_id.isdigit():
+        log("Desktop alert skipped: the desktop user ID was invalid.")
+        return None
+    return user_id
+
+
+def send_fullscreen_alert(
+    title: str,
+    detail: str,
+    level: str = "warning",
+) -> bool:
+    """Send a warning to the controller's full-screen desktop overlay."""
+    if level.lower() != "warning" or not setting_enabled(
+        "NVGS_FULLSCREEN_ALERTS",
+        default=True,
+    ):
+        return False
+
+    desktop_user = os.getenv("NVGS_DESKTOP_USER", "").strip()
+    if not desktop_user:
+        return False
+
+    user_id = desktop_user_id(desktop_user)
+    if user_id is None:
+        return False
+
+    socket_path = Path("/run/user") / user_id / "nvgs-alert-overlay.sock"
+    if not socket_path.is_socket():
+        return False
+
+    payload = json.dumps(
+        {
+            "title": title,
+            "detail": detail,
+            "level": level,
+            "server": server_name(),
+        }
+    ).encode("utf-8")
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM) as client:
+            client.sendto(payload, str(socket_path))
+    except OSError:
+        log("Full-screen alert delivery failed.")
+        return False
+    return True
+
+
 def send_desktop_notification(
     title: str,
     detail: str,
@@ -47,18 +105,8 @@ def send_desktop_notification(
         log("Desktop notification skipped: notify-send or runuser was not found.")
         return False
 
-    try:
-        user_id = subprocess.check_output(
-            ["id", "-u", desktop_user],
-            text=True,
-            timeout=3,
-        ).strip()
-    except (OSError, subprocess.SubprocessError):
-        log(f"Desktop notification skipped: user {desktop_user!r} was not found.")
-        return False
-
-    if not user_id.isdigit():
-        log("Desktop notification skipped: the desktop user ID was invalid.")
+    user_id = desktop_user_id(desktop_user)
+    if user_id is None:
         return False
 
     runtime_dir = Path("/run/user") / user_id
@@ -110,6 +158,7 @@ def send_alert(title: str, detail: str, level: str = "warning") -> bool:
     """Log every alert, notify the desktop, and optionally send a webhook."""
     message = f"[{level.upper()}] {server_name()}: {title} - {detail}"
     log(message)
+    send_fullscreen_alert(title, detail, level)
     send_desktop_notification(title, detail, level)
 
     webhook_url = os.getenv("NVGS_ALERT_WEBHOOK_URL", "").strip()

@@ -35,4 +35,5 @@ echo
 echo "Update complete. The pre-update database backup is under backups/."
 if grep -q '^[[:space:]]*NVGS_HOST_MODE[[:space:]]*=[[:space:]]*on_demand' .env; then
     echo "NVGS remains controlled by the open 'NVGS Server Control' window."
+    echo "Close and reopen that controller now to activate launcher updates."
 fi

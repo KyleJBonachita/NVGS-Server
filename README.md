@@ -42,7 +42,8 @@ This repository currently provides the backend/server foundation:
 - Backup tooling
 - Ubuntu charger, battery, network, Internet, application, lid, and rejected
   login monitoring
-- Ubuntu desktop warning/recovery notifications with optional remote webhook
+- Full-screen Ubuntu warning acknowledgements, recovery notifications, and an
+  optional remote webhook
 - A desktop launcher that starts the server, alerts, and temporary anti-sleep
   only while its terminal window is open
 - An optional permanent always-on Ubuntu mode
@@ -51,6 +52,26 @@ This repository currently provides the backend/server foundation:
 It does not yet contain the end-user browser interface or NVIDIA SSO. Local
 accounts are the initial authentication method. Corporate SSO can replace the
 login endpoint later without changing the ticket database.
+
+The existing Apps Script login feels automatic because its manifest restricts
+access to the Google Workspace domain, runs as the accessing user, and
+`Auth.js` reads Google's verified active-user email. A local Django site does
+not receive that Google identity automatically.
+
+There are three authentication paths:
+
+1. **Local accounts now:** use the NVIDIA email as the username and a separate
+   local password.
+2. **Approved corporate SSO:** register this Django application with the
+   corporate Google/OIDC/SAML identity provider and receive a client ID,
+   secret, issuer information, and approved callback address.
+3. **Temporary Apps Script bridge:** the existing domain-restricted Apps Script
+   could issue a short-lived signed login token containing its verified active
+   email. This retains an Apps Script dependency and requires security review
+   before implementation.
+
+Accepting a typed `@nvidia.com` address without a password or signed identity
+token is not authentication and must not grant access.
 
 The existing Google Apps Script ticketing system is the reference for the
 future browser interface. See
@@ -194,7 +215,8 @@ cd NVGS-Server
 
 This backs up PostgreSQL before pulling, rebuilds the application, and refreshes
 the selected Ubuntu run mode. In desktop-controller mode, open **NVGS Server
-Control** before updating so the database is available for the backup.
+Control** before updating so the database is available for the backup. Stop and
+reopen the controller after an update so launcher changes take effect.
 
 ## Development and tests
 

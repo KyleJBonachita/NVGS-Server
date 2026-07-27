@@ -5,7 +5,54 @@ project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$project_dir"
 
 if [[ "${EUID}" -ne 0 ]]; then
-    exec sudo -- "$0"
+    user_id="$(id -u)"
+    runtime_dir="${XDG_RUNTIME_DIR:-/run/user/${user_id}}"
+    overlay_socket="$runtime_dir/nvgs-alert-overlay.sock"
+    controller_lock="$runtime_dir/nvgs-server-control.lock"
+
+    exec 8> "$controller_lock"
+    if ! flock -n 8; then
+        echo "NVGS Server Control is already open." >&2
+        read -r -p "Press Enter to close..." _
+        exit 1
+    fi
+
+    overlay_pid=""
+    stop_overlay() {
+        trap - EXIT HUP INT TERM
+        if [[ -n "$overlay_pid" ]] && kill -0 "$overlay_pid" 2>/dev/null; then
+            kill "$overlay_pid" 2>/dev/null || true
+            wait "$overlay_pid" 2>/dev/null || true
+        fi
+        rm -f -- "$overlay_socket"
+    }
+    trap stop_overlay EXIT HUP INT TERM
+
+    rm -f -- "$overlay_socket"
+    python3 host/nvgs_alert_overlay.py --socket "$overlay_socket" &
+    overlay_pid="$!"
+
+    for _attempt in {1..50}; do
+        if [[ -S "$overlay_socket" ]]; then
+            break
+        fi
+        if ! kill -0 "$overlay_pid" 2>/dev/null; then
+            break
+        fi
+        sleep 0.1
+    done
+
+    if [[ ! -S "$overlay_socket" ]]; then
+        echo "WARNING: Full-screen alerts could not start." >&2
+        echo "Small desktop notifications and journal alerts remain active." >&2
+    fi
+
+    set +e
+    sudo -- "$0"
+    controller_status="$?"
+    set -e
+    stop_overlay
+    exit "$controller_status"
 fi
 
 if [[ ! -f .env ]]; then
@@ -62,7 +109,7 @@ echo
 docker compose ps
 echo
 echo "NVGS IS RUNNING"
-echo "- Alerts are active."
+echo "- Full-screen warnings and alert monitoring are active."
 echo "- Sleep and lid-close suspension are blocked while this window is open."
 echo "- Keep the charger and Ethernet cable connected."
 echo
