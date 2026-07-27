@@ -112,7 +112,7 @@ class AuthenticationApiTests(TestCase):
     APPSCRIPT_SSO_ISSUER="nvgs-appscript",
     APPSCRIPT_SSO_AUDIENCE="nvgs-server",
     APPSCRIPT_SSO_AUTO_CREATE_USERS=True,
-    APPSCRIPT_SSO_SUCCESS_REDIRECT="/api/auth/me/",
+    APPSCRIPT_SSO_SUCCESS_REDIRECT="/tickets/",
     APPSCRIPT_SSO_TOKEN_TTL_SECONDS=60,
     APPSCRIPT_SSO_STATE_TTL_SECONDS=300,
     APPSCRIPT_SSO_ONBOARDING_TTL_SECONDS=900,
@@ -227,7 +227,7 @@ class AppsScriptSsoTests(TestCase):
         response = self._complete_onboarding(client)
         self.assertRedirects(
             response,
-            "/api/auth/me/",
+            "/tickets/",
             fetch_redirect_response=False,
         )
         user.refresh_from_db()
@@ -334,7 +334,7 @@ class AppsScriptSsoTests(TestCase):
 
         self.assertRedirects(
             response,
-            "/api/auth/me/",
+            "/tickets/",
             fetch_redirect_response=False,
         )
 
@@ -385,7 +385,7 @@ class AppsScriptSsoTests(TestCase):
 
         self.assertRedirects(
             response,
-            "/api/auth/me/",
+            "/tickets/",
             fetch_redirect_response=False,
         )
         user.refresh_from_db()

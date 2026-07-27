@@ -106,10 +106,11 @@ if DATABASE_ENGINE == "postgresql":
         }
     }
 else:
+    sqlite_database_path = os.getenv("SQLITE_DATABASE_PATH", "").strip()
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
+            "NAME": sqlite_database_path or BASE_DIR / "db.sqlite3",
         }
     }
 
@@ -133,7 +134,7 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 AUTH_USER_MODEL = "accounts.User"
-LOGIN_URL = "/admin/login/"
+LOGIN_URL = "/login/"
 
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = os.getenv("DJANGO_TIME_ZONE", "Asia/Singapore")
@@ -147,7 +148,11 @@ STORAGES = {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
     },
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        "BACKEND": (
+            "whitenoise.storage.CompressedManifestStaticFilesStorage"
+            if ENVIRONMENT in {"production", "build"}
+            else "django.contrib.staticfiles.storage.StaticFilesStorage"
+        ),
     },
 }
 
@@ -174,7 +179,7 @@ APPSCRIPT_SSO_AUTO_CREATE_USERS = env_bool(
 )
 APPSCRIPT_SSO_SUCCESS_REDIRECT = os.getenv(
     "APPSCRIPT_SSO_SUCCESS_REDIRECT",
-    "/api/auth/me/",
+    "/tickets/",
 ).strip()
 APPSCRIPT_SSO_TOKEN_TTL_SECONDS = 60
 APPSCRIPT_SSO_STATE_TTL_SECONDS = 300

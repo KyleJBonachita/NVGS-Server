@@ -1,0 +1,244 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="same-origin">
+  <title>NVGS Ticketing</title>
+  <link rel="stylesheet" href="{% static 'tickets/dashboard.css' %}">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-left">
+      <button id="menu-button" class="icon-button mobile-only" type="button"
+              aria-label="Open navigation" aria-controls="sidebar">☰</button>
+      <a class="brand" href="/tickets/">
+        <span class="brand-mark" aria-hidden="true">N</span>
+        <span><strong>NVIDIA</strong> Gr00t Ticketing</span>
+      </a>
+    </div>
+    <div class="account-summary">
+      <span>
+        <strong id="user-name">Loading…</strong>
+        <small id="user-email"></small>
+      </span>
+      <span id="user-role" class="role-chip"></span>
+      <button id="logout-button" class="button button-ghost" type="button">Sign out</button>
+    </div>
+  </header>
+
+  <div class="app-shell">
+    <aside id="sidebar" class="sidebar">
+      <nav aria-label="Ticketing">
+        <p class="nav-label">Workspace</p>
+        <button class="nav-button active" type="button" data-view="overview">
+          <span aria-hidden="true">⌂</span> Overview
+        </button>
+        <button class="nav-button" type="button" data-view="create">
+          <span aria-hidden="true">＋</span> Raise a ticket
+        </button>
+        <button class="nav-button" type="button" data-view="tickets">
+          <span aria-hidden="true">▤</span>
+          <span id="tickets-nav-label">My tickets</span>
+          <span id="active-ticket-count" class="count-badge" hidden></span>
+        </button>
+        <div id="team-navigation" hidden>
+          <p class="nav-label nav-label-spaced">Team</p>
+          <button class="nav-button" type="button" data-view="tickets" data-team-queue="true">
+            <span aria-hidden="true">◎</span> Complete queue
+          </button>
+        </div>
+      </nav>
+      <div class="sidebar-bottom">
+        <a id="admin-link" class="admin-link" href="/admin/" hidden>Django administration</a>
+        <span>Local database • HTTPS</span>
+      </div>
+    </aside>
+
+    <main id="main-content" class="main-content">
+      <section id="view-loading" class="view active" aria-live="polite">
+        <div class="loading-card">
+          <span class="spinner" aria-hidden="true"></span>
+          <p>Loading the ticketing system…</p>
+        </div>
+      </section>
+
+      <section id="view-overview" class="view" aria-labelledby="overview-heading">
+        <div class="page-heading">
+          <div>
+            <p class="eyebrow">Robotics Team</p>
+            <h1 id="overview-heading">Welcome, <span id="welcome-name"></span></h1>
+            <p id="overview-subtitle" class="muted">Here is your ticket activity.</p>
+          </div>
+          <button class="button button-primary" type="button" data-view-target="create">
+            Raise a ticket
+          </button>
+        </div>
+        <div id="summary-cards" class="summary-grid"></div>
+        <section class="panel">
+          <div class="panel-heading">
+            <div>
+              <h2 id="recent-heading">Recent tickets</h2>
+              <p class="muted">Select a ticket to see its complete record.</p>
+            </div>
+            <button class="button button-ghost" type="button" data-view-target="tickets">
+              View all
+            </button>
+          </div>
+          <div id="recent-tickets" class="ticket-list"></div>
+        </section>
+      </section>
+
+      <section id="view-create" class="view" aria-labelledby="create-heading">
+        <div class="page-heading">
+          <div>
+            <p class="eyebrow">New request</p>
+            <h1 id="create-heading">Report a production issue</h1>
+            <p class="muted">Give the Tech Team, TLs, and Managers enough detail to respond.</p>
+          </div>
+        </div>
+        <form id="create-ticket-form" class="panel form-panel" novalidate>
+          <div id="reporter-field" class="field field-wide" hidden>
+            <label for="ticket-reporter">File for an agent</label>
+            <select id="ticket-reporter" name="reporter_id">
+              <option value="">Myself</option>
+            </select>
+            <small>Team members can file a ticket on behalf of an agent.</small>
+          </div>
+          <div class="field field-wide">
+            <label for="ticket-title">Title <span aria-hidden="true">*</span></label>
+            <input id="ticket-title" name="title" maxlength="180" required
+                   placeholder="Example: Camera feed frozen on Gear05">
+          </div>
+          <div class="field">
+            <label for="ticket-category">Issue type <span aria-hidden="true">*</span></label>
+            <select id="ticket-category" name="category" required></select>
+          </div>
+          <div class="field">
+            <label for="ticket-priority">Urgency <span aria-hidden="true">*</span></label>
+            <select id="ticket-priority" name="priority" required></select>
+          </div>
+          <div class="field">
+            <label for="ticket-workstation">Workstation <span aria-hidden="true">*</span></label>
+            <select id="ticket-workstation" name="workstation" required></select>
+          </div>
+          <div class="field">
+            <label for="ticket-location">Location</label>
+            <select id="ticket-location" name="location"></select>
+          </div>
+          <div class="field">
+            <label for="ticket-downtime">Downtime started</label>
+            <input id="ticket-downtime" name="downtime_start" type="datetime-local">
+          </div>
+          <div class="field">
+            <label for="ticket-impact">Business impact</label>
+            <select id="ticket-impact" name="impact_level"></select>
+          </div>
+          <div class="field field-wide">
+            <label for="ticket-description">Description <span aria-hidden="true">*</span></label>
+            <textarea id="ticket-description" name="description" required rows="5"
+                      placeholder="What happened? Include error messages, symptoms, and troubleshooting already tried."></textarea>
+          </div>
+          <div class="field">
+            <label for="ticket-tags">Tags</label>
+            <input id="ticket-tags" name="tags" placeholder="camera, glove, usb">
+          </div>
+          <div class="field">
+            <label for="ticket-affected">Affected stations</label>
+            <input id="ticket-affected" name="affected_stations"
+                   placeholder="Gear01, Gear03">
+          </div>
+          <div class="form-actions field-wide">
+            <p id="create-error" class="form-error" role="alert" hidden></p>
+            <button id="create-ticket-button" class="button button-primary" type="submit">
+              Submit ticket
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section id="view-tickets" class="view" aria-labelledby="tickets-heading">
+        <div class="page-heading">
+          <div>
+            <p class="eyebrow">Ticket queue</p>
+            <h1 id="tickets-heading">My tickets</h1>
+            <p id="tickets-description" class="muted">Tickets you have filed.</p>
+          </div>
+          <button class="button button-primary" type="button" data-view-target="create">
+            Raise a ticket
+          </button>
+        </div>
+        <form id="ticket-filters" class="filter-bar">
+          <label>
+            Search
+            <input id="filter-search" name="q" type="search"
+                   placeholder="ID, title, workstation…">
+          </label>
+          <label>
+            Status
+            <select id="filter-status" name="status"></select>
+          </label>
+          <label>
+            Priority
+            <select id="filter-priority" name="priority"></select>
+          </label>
+          <label>
+            Type
+            <select id="filter-category" name="category"></select>
+          </label>
+          <button class="button button-secondary" type="submit">Apply</button>
+          <button id="clear-filters" class="button button-ghost" type="button">Clear</button>
+        </form>
+        <section class="panel table-panel">
+          <div id="queue-status" class="queue-status" aria-live="polite"></div>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Ticket</th>
+                  <th>Priority</th>
+                  <th>Status</th>
+                  <th>Workstation</th>
+                  <th id="requester-column">Requester</th>
+                  <th>Updated</th>
+                </tr>
+              </thead>
+              <tbody id="tickets-table-body"></tbody>
+            </table>
+          </div>
+          <div class="pagination">
+            <span id="pagination-label"></span>
+            <button id="previous-page" class="button button-ghost" type="button">Previous</button>
+            <button id="next-page" class="button button-ghost" type="button">Next</button>
+          </div>
+        </section>
+      </section>
+
+      <section id="view-fatal" class="view" aria-labelledby="fatal-heading">
+        <div class="empty-state">
+          <span class="empty-icon" aria-hidden="true">!</span>
+          <h1 id="fatal-heading">Ticketing could not load</h1>
+          <p id="fatal-message" class="muted"></p>
+          <button id="retry-button" class="button button-primary" type="button">Try again</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="ticket-dialog" class="ticket-dialog">
+    <div class="dialog-header">
+      <div>
+        <p id="dialog-reference" class="eyebrow"></p>
+        <h2 id="dialog-title">Ticket details</h2>
+      </div>
+      <button id="close-dialog" class="icon-button" type="button"
+              aria-label="Close ticket details">×</button>
+    </div>
+    <div id="dialog-body" class="dialog-body"></div>
+  </dialog>
+
+  <div id="toast-region" class="toast-region" aria-live="polite"></div>
+  <script src="{% static 'tickets/dashboard.js' %}" defer></script>
+</body>
+</html>

@@ -147,7 +147,7 @@ enable_bridge() {
     set_env_value "APPSCRIPT_SSO_ISSUER" "nvgs-appscript"
     set_env_value "APPSCRIPT_SSO_AUDIENCE" "nvgs-server"
     set_env_value "APPSCRIPT_SSO_AUTO_CREATE_USERS" "true"
-    set_env_value "APPSCRIPT_SSO_SUCCESS_REDIRECT" "/api/auth/me/"
+    set_env_value "APPSCRIPT_SSO_SUCCESS_REDIRECT" "/tickets/"
     chmod 600 .env secrets/appscript_bridge_secret
 
     restart_if_running

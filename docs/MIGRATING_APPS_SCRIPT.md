@@ -1,5 +1,13 @@
 # Moving the existing Apps Script ticketing system
 
+The first Django browser interface is now implemented at `/tickets/`. It keeps
+the important agent and Team workflow while using the local API/database:
+ticket creation, personal/complete queues, assignment, valid status changes,
+resolution, escalation, comments, internal notes, and audit history.
+
+The unbacked `appscript-ticketing-system/` folder remains excluded from Git and
+was used only as a read-only interface/workflow reference.
+
 The current Google Apps Script system is useful because it already tells us:
 
 - Which ticket fields agents use

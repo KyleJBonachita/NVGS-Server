@@ -158,8 +158,8 @@ Expected flow:
 4. Select **Continue to NVGS** within 60 seconds.
 5. On the first login, NVGS asks for first name, last name, and a separate
    local NVGS password.
-6. After the profile is saved, NVGS displays the authenticated account
-   information from `/api/auth/me/`.
+6. After the profile is saved, NVGS opens the ticketing dashboard at
+   `/tickets/`.
 
 Never enter an NVIDIA or Google password into the NVGS profile form. The local
 password is an independent fallback credential stored only by the local Django

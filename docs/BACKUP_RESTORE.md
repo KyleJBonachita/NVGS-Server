@@ -36,32 +36,33 @@ A restore replaces or adds database data and must not be tested against the
 production database. Use a separate PostgreSQL container or an isolated test
 machine.
 
-Example isolated validation:
+The included command creates an isolated PostgreSQL container with no published
+port, restores the latest backup, checks user/ticket/comment counts, writes a
+PASS report, and removes the temporary container:
 
 ```bash
-docker run --name nvgs-restore-test \
-  -e POSTGRES_PASSWORD=temporary-test-password \
-  -e POSTGRES_DB=nvgs_restore_test \
-  -d postgres:17.10-bookworm
+./scripts/verify-backup-restore.sh
 ```
 
-Wait for PostgreSQL to become ready, copy the selected dump, and restore it:
+Select a specific backup when needed:
 
 ```bash
-docker cp backups/SELECTED_BACKUP.dump \
-  nvgs-restore-test:/tmp/restore.dump
-
-docker exec nvgs-restore-test pg_restore \
-  --username postgres \
-  --dbname nvgs_restore_test \
-  --clean \
-  --if-exists \
-  /tmp/restore.dump
+./scripts/verify-backup-restore.sh backups/SELECTED_BACKUP.dump
 ```
 
-Inspect table counts and representative tickets before declaring the backup
-valid. Remove the isolated test container only after the validation is
-complete.
+Reports are saved under `backups/restore-verifications/`.
+
+## Encrypted second copy
+
+Attach an approved second storage device and use its mounted folder:
+
+```bash
+./scripts/copy-backup-encrypted.sh /media/YOUR_APPROVED_DEVICE/NVGS
+```
+
+The helper uses GnuPG symmetric AES-256 encryption. Use a unique passphrase
+stored in the approved password manager. The helper refuses to call a folder
+inside this project a second backup.
 
 Production restoration should be performed during an announced maintenance
 window after taking one final backup of the current state.

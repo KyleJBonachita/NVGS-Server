@@ -276,6 +276,40 @@ class TicketViewSet(ModelViewSet):
             }
         )
 
+    @action(detail=False, methods=["get"])
+    def summary(self, request):
+        queryset = self.get_queryset()
+        active_statuses = [
+            TicketStatus.OPEN,
+            TicketStatus.ASSIGNED,
+            TicketStatus.IN_PROGRESS,
+            TicketStatus.ON_HOLD,
+            TicketStatus.REOPENED,
+        ]
+        return Response(
+            queryset.aggregate(
+                total=Count("id"),
+                active=Count("id", filter=Q(status__in=active_statuses)),
+                resolved=Count(
+                    "id",
+                    filter=Q(
+                        status__in=[TicketStatus.RESOLVED, TicketStatus.CLOSED]
+                    ),
+                ),
+                urgent=Count(
+                    "id",
+                    filter=Q(priority=TicketPriority.URGENT),
+                ),
+                unassigned=Count(
+                    "id",
+                    filter=Q(
+                        assignee__isnull=True,
+                        status__in=active_statuses,
+                    ),
+                ),
+            )
+        )
+
     @action(detail=True, methods=["post"])
     def assign(self, request, pk=None):
         ticket = self.get_object()

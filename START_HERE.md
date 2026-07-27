@@ -211,31 +211,57 @@ cd ~/NVGS-Server
 The command prints the new backup filename under `backups/`. A real deployment
 also needs a copy on a second approved encrypted device.
 
-## 12. Remaining work before team use
+## 12. Open the normal ticketing page
 
-At this point the database, administration, HTTPS, optional monitoring and
-anti-sleep, accounts, and backups are ready.
+The end-user dashboard is now included. Open:
 
-Complete these in order:
+```text
+https://localhost/
+```
 
-1. Copy and connect the normal ticketing interface.
-2. Test ticket creation, assignment, comments, status changes, and permissions
-   with fake users and fake tickets.
-3. Obtain an approved DHCP reservation/static address and, preferably, an
-   internal DNS name. Do not select an unassigned address yourself.
-4. Enable the approved LAN address in `.env`, limit network access, and test
-   from one approved client.
-5. Install `nvgs-local-ca.crt` on each approved client so HTTPS has no warning.
-6. Create local `agent` and `team` accounts, enable the reviewed Apps Script
-   login bridge, or obtain identity-administrator approval and registration
-   details for corporate NVIDIA SSO.
-7. Test a database restore and keep a second backup on an approved encrypted
-   device.
-8. Configure an approved remote webhook or another approved device to detect
-   a fully offline server.
-9. Import real ticket data only after the pilot succeeds.
+After Google/Apps Script login, the browser should end at `/tickets/`. The
+`/api/auth/me/` page is only a developer diagnostic response.
 
-Do not configure a random static IP or expose the server to the LAN yet.
+Create the fake pilot users/tickets and follow every check in
+[`docs/PILOT.md`](docs/PILOT.md).
+
+## 13. Finish the external deployment items
+
+These items need a real address, real client laptops, a real second storage
+device, or a real second monitoring device. Code cannot truthfully complete
+them by itself.
+
+After the network administrator supplies the address and Ubuntu is using it:
+
+```bash
+./scripts/configure-approved-lan.sh ASSIGNED_IPV4
+```
+
+Export the public client certificate:
+
+```bash
+./scripts/export-client-ca.sh
+```
+
+Verify a real backup restore without changing production:
+
+```bash
+./scripts/verify-backup-restore.sh
+```
+
+Copy the latest backup to an approved second device with encryption:
+
+```bash
+./scripts/copy-backup-encrypted.sh /media/YOUR_APPROVED_DEVICE/BACKUPS
+```
+
+The second-device outage watcher and certificate installers are explained in
+[`docs/UBUNTU_DEPLOYMENT.md`](docs/UBUNTU_DEPLOYMENT.md) and
+[`docs/ALERTS.md`](docs/ALERTS.md).
+
+See the exact completion status in
+[`docs/PRODUCTION_READINESS.md`](docs/PRODUCTION_READINESS.md). Do not import
+real tickets until the pilot succeeds.
 
 ## Getting future updates
 

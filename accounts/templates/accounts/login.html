@@ -1,0 +1,65 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="same-origin">
+  <title>Sign in | NVGS Ticketing</title>
+  <link rel="stylesheet" href="{% static 'tickets/dashboard.css' %}">
+</head>
+<body class="login-page">
+  <main class="login-shell" aria-labelledby="login-title">
+    <section class="login-card">
+      <div class="brand brand-large">
+        <span class="brand-mark" aria-hidden="true">N</span>
+        <span><strong>NVIDIA</strong> Gr00t Ticketing</span>
+      </div>
+      <p class="eyebrow">Robotics Team</p>
+      <h1 id="login-title">Welcome back</h1>
+      <p class="muted">
+        Sign in with your verified NVIDIA Google account. Your separate NVGS
+        password remains available as a local fallback.
+      </p>
+
+      {% if appscript_sso_enabled %}
+        <a class="button button-primary button-wide" href="{% url 'appscript-sso-start' %}">
+          Continue with NVIDIA Google
+        </a>
+        <div class="login-divider"><span>or use local NVGS access</span></div>
+      {% else %}
+        <div class="notice notice-warning">
+          NVIDIA Google login is not enabled on this server yet. Use your
+          separate NVGS password.
+        </div>
+      {% endif %}
+
+      <form id="local-login-form" class="stack" novalidate>
+        {% csrf_token %}
+        <label>
+          NVIDIA email
+          <input id="login-email" name="email" type="email"
+                 autocomplete="username" required
+                 placeholder="name@nvidia.com">
+        </label>
+        <label>
+          NVGS password
+          <input id="login-password" name="password" type="password"
+                 autocomplete="current-password" required>
+        </label>
+        <p id="login-error" class="form-error" role="alert" hidden></p>
+        <button id="local-login-button" class="button button-secondary button-wide"
+                type="submit">
+          Sign in with NVGS password
+        </button>
+      </form>
+
+      <p class="security-note">
+        Never enter your NVIDIA or Google corporate password here. The local
+        password is the separate one created during NVGS setup.
+      </p>
+    </section>
+  </main>
+  <script src="{% static 'accounts/login.js' %}" defer></script>
+</body>
+</html>

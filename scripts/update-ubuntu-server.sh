@@ -20,6 +20,15 @@ git pull --ff-only
 echo "3/6 Checking local secret files..."
 ./scripts/bootstrap-secrets.sh
 
+if grep -q \
+    '^[[:space:]]*APPSCRIPT_SSO_SUCCESS_REDIRECT[[:space:]]*=[[:space:]]*/api/auth/me/[[:space:]]*$' \
+    .env; then
+    sed -i \
+        's|^[[:space:]]*APPSCRIPT_SSO_SUCCESS_REDIRECT[[:space:]]*=.*|APPSCRIPT_SSO_SUCCESS_REDIRECT=/tickets/|' \
+        .env
+    echo "Updated the successful login destination to the ticket dashboard."
+fi
+
 echo "4/6 Downloading updated server images..."
 docker compose pull
 

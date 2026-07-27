@@ -102,6 +102,30 @@ Reliable immediate "server is completely offline" alerts require either:
 - A Wi-Fi fallback connection
 - An approved cellular connection
 
+## Second-device watcher
+
+The repository includes a watcher specifically for a second approved Ubuntu
+device. Copy or clone the repository and the public `nvgs-local-ca.crt` onto
+that device, then run there:
+
+```bash
+sudo ./scripts/install-remote-watch.sh \
+  https://ASSIGNED_SERVER_ADDRESS/api/health/ \
+  /path/to/nvgs-local-ca.crt
+```
+
+Add an approved webhook to `/etc/nvgs-remote-watch.env`, restart the service,
+and watch its log:
+
+```bash
+sudo systemctl restart nvgs-remote-watch.service
+journalctl -u nvgs-remote-watch.service -f
+```
+
+It waits for three consecutive failures by default before alerting, then sends
+a recovery when the server returns. Installing it on the NVGS server itself
+does not provide offline detection; the installer rejects localhost addresses.
+
 ## Privacy
 
 Rejected-login monitoring records the attempted username and source IP when

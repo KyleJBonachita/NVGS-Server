@@ -1,9 +1,11 @@
 import csv
+import os
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
-from django.core.management import call_command
-from django.test import TestCase
+from django.core.management import CommandError, call_command
+from django.test import Client, TestCase
 from django.urls import reverse
 from rest_framework.test import APITestCase
 
@@ -251,6 +253,23 @@ class TicketAccessTests(APITestCase):
             ["Assigned", "In Progress"],
         )
 
+    def test_summary_respects_agent_and_team_permissions(self):
+        self.agent_one_ticket.priority = TicketPriority.URGENT
+        self.agent_one_ticket.save(update_fields=["priority"])
+
+        self.authenticate(self.agent_one)
+        response = self.client.get(reverse("ticket-summary"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["total"], 1)
+        self.assertEqual(response.data["active"], 1)
+        self.assertEqual(response.data["urgent"], 1)
+
+        self.authenticate(self.team_user)
+        response = self.client.get(reverse("ticket-summary"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["total"], 2)
+        self.assertEqual(response.data["unassigned"], 2)
+
     def test_imported_ticket_keeps_its_apps_script_id(self):
         self.agent_one_ticket.source_ticket_id = "GRTKT-00123"
         self.agent_one_ticket.save(update_fields=["source_ticket_id"])
@@ -425,3 +444,97 @@ class AppScriptImportTests(TestCase):
         self.assertEqual(ticket.assignee.role, UserRole.TEAM)
         self.assertEqual(ticket.comments.get().source_comment_id, "CMT-00000042")
         self.assertEqual(ticket.events.get().source_event_id, "EVT-0000042")
+
+
+class PilotDataTests(TestCase):
+    def test_pilot_seed_requires_explicit_confirmation(self):
+        with self.assertRaises(CommandError):
+            call_command("seed_pilot_data")
+
+    @patch.dict(
+        os.environ,
+        {"NVGS_PILOT_PASSWORD": "temporary-pilot-password"},
+    )
+    def test_pilot_seed_creates_fake_roles_and_marked_tickets(self):
+        call_command("seed_pilot_data", confirm=True)
+
+        self.assertEqual(
+            User.objects.filter(department="Robotics Pilot").count(),
+            5,
+        )
+        self.assertEqual(
+            User.objects.filter(
+                department="Robotics Pilot",
+                role=UserRole.TEAM,
+            ).count(),
+            3,
+        )
+        self.assertEqual(
+            Ticket.objects.filter(tags__contains="nvgs-pilot").count(),
+            4,
+        )
+
+
+class TicketDashboardTests(TestCase):
+    def setUp(self):
+        self.password = "a-long-test-password"
+        self.agent = User.objects.create_user(
+            email="dashboard.agent@nvidia.com",
+            password=self.password,
+            first_name="Dashboard",
+            last_name="Agent",
+        )
+
+    def test_dashboard_requires_login(self):
+        response = self.client.get("/tickets/")
+        self.assertRedirects(
+            response,
+            "/login/?next=/tickets/",
+            fetch_redirect_response=False,
+        )
+
+    def test_dashboard_sets_csrf_and_security_headers(self):
+        self.client.force_login(self.agent)
+        response = self.client.get("/tickets/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Report a production issue")
+        self.assertContains(response, "tickets/dashboard.js")
+        self.assertIn("csrftoken", response.cookies)
+        self.assertEqual(response["Referrer-Policy"], "same-origin")
+        self.assertIn("default-src 'self'", response["Content-Security-Policy"])
+        self.assertNotIn("'unsafe-inline'", response["Content-Security-Policy"])
+
+    def test_login_page_offers_apps_script_and_local_fallback(self):
+        response = self.client.get("/login/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Sign in with NVGS password")
+        self.assertContains(response, "NVIDIA or Google corporate password")
+        self.assertNotContains(response, "Continue with NVIDIA Google")
+
+    def test_browser_style_csrf_ticket_creation(self):
+        client = Client(enforce_csrf_checks=True)
+        client.force_login(self.agent)
+        dashboard = client.get("/tickets/", secure=True)
+        csrf_token = dashboard.cookies["csrftoken"].value
+
+        response = client.post(
+            "/api/tickets/",
+            data={
+                "title": "Synthetic browser workflow",
+                "description": "Created through the dashboard API contract.",
+                "category": "Software Issue",
+                "priority": "High",
+                "workstation": "Gear05",
+            },
+            content_type="application/json",
+            secure=True,
+            HTTP_X_CSRFTOKEN=csrf_token,
+            HTTP_ORIGIN="https://testserver",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        ticket = Ticket.objects.get(title="Synthetic browser workflow")
+        self.assertEqual(ticket.reporter, self.agent)
+        self.assertEqual(ticket.status, TicketStatus.OPEN)

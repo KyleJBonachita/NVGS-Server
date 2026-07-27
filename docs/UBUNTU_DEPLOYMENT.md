@@ -100,7 +100,22 @@ Expected result:
 
 ## 5. Enable LAN binding
 
-Once the server address is confirmed, update all four `.env` values:
+Once the server address is confirmed and Ubuntu is already using it, run:
+
+```bash
+./scripts/configure-approved-lan.sh ASSIGNED_IPV4
+```
+
+If an approved internal DNS name exists:
+
+```bash
+./scripts/configure-approved-lan.sh ASSIGNED_IPV4 APPROVED_DNS_NAME
+```
+
+The helper does not choose an address or change NetworkManager. Without an
+assigned/reserved address already present on Ubuntu, it stops.
+
+The equivalent manual `.env` values are:
 
 ```dotenv
 SERVER_BIND_IP=ASSIGNED_IP
@@ -118,6 +133,33 @@ docker compose ps
 
 Changing `SERVER_BIND_IP` from `127.0.0.1` is the action that makes the service
 reachable from the LAN.
+
+## 5a. Install the public CA on approved clients
+
+Export and print the fingerprint:
+
+```bash
+./scripts/export-client-ca.sh
+```
+
+On an approved Ubuntu client, after verifying the fingerprint:
+
+```bash
+sudo ./scripts/install-ca-ubuntu-client.sh \
+  /path/to/nvgs-local-ca.crt \
+  --install
+```
+
+On an approved Windows client, first inspect without changing trust:
+
+```powershell
+.\scripts\install-ca-windows-client.ps1 `
+  -CertificatePath .\nvgs-local-ca.crt
+```
+
+After approval and fingerprint verification, open PowerShell as Administrator
+and add `-Install`. Corporate policy may prevent this; do not bypass that
+policy.
 
 ## 6. Firewall limitation
 

@@ -32,6 +32,7 @@ This repository currently provides the backend/server foundation:
 - Email-based local accounts restricted to approved domains
 - Optional signed standalone Apps Script login bridge
 - `agent`, `team`, and `system_admin` roles
+- End-user Django ticketing dashboard with local and Apps Script login entry
 - Ticket creation, assignment, status, priority, resolution, and comments
 - Apps Script-compatible ticket fields, statuses, escalation, downtime, impact,
   root cause, and reopen tracking
@@ -41,6 +42,7 @@ This repository currently provides the backend/server foundation:
 - Caddy HTTPS with a local certificate authority
 - Database health checks and permission-restricted Docker secret files
 - Backup tooling
+- Isolated restore verification and encrypted second-copy helpers
 - Ubuntu charger, battery, network, Internet, application, lid, and rejected
   login monitoring
 - Full-screen Ubuntu warning acknowledgements, recovery notifications, and an
@@ -50,10 +52,10 @@ This repository currently provides the backend/server foundation:
 - An optional permanent always-on Ubuntu mode
 - A safe Ubuntu update command that backs up before pulling
 
-It does not yet contain the end-user browser interface or approved corporate
-NVIDIA SSO. Local accounts remain available. An optional Apps Script bridge can
-reuse the verified Google Workspace email through a separate domain-restricted
-login project until approved corporate SSO is available.
+It does not contain approved corporate NVIDIA SSO. Local accounts remain
+available. The optional Apps Script bridge can reuse the verified Google
+Workspace email through a separate domain-restricted login project until
+approved corporate SSO is available.
 
 The existing Apps Script login feels automatic because its manifest restricts
 access to the Google Workspace domain, runs as the accessing user, and
@@ -142,6 +144,10 @@ Open `https://localhost/admin/` on the server. Export and trust the local
 certificate authority as described in
 [`docs/UBUNTU_DEPLOYMENT.md`](docs/UBUNTU_DEPLOYMENT.md).
 
+Normal users open `https://localhost/`, which sends them to the login page or
+the `/tickets/` dashboard. `/api/auth/me/` is a diagnostic API response, not
+the user interface.
+
 After exporting `nvgs-local-ca.crt`, install the app-controlled Ubuntu mode:
 
 ```bash
@@ -182,6 +188,9 @@ network. A DNS hostname can be used instead of the IP when one is available.
 
 | Method | Endpoint | Access |
 | --- | --- | --- |
+| `GET` | `/` | Login/dashboard entry |
+| `GET` | `/login/` | Apps Script and local login choices |
+| `GET` | `/tickets/` | End-user ticketing dashboard |
 | `GET` | `/api/health/` | Health check |
 | `GET` | `/api/auth/csrf/` | Obtain browser CSRF token |
 | `POST` | `/api/auth/login/` | Local account login |
@@ -193,6 +202,7 @@ network. A DNS hostname can be used instead of the IP when one is available.
 | `GET, PUT, PATCH` | `/api/tickets/{id}/` | Role-filtered ticket detail |
 | `GET, POST` | `/api/tickets/{id}/comments/` | Ticket comments |
 | `GET` | `/api/tickets/configuration/` | Existing workflow choices |
+| `GET` | `/api/tickets/summary/` | Role-filtered ticket counts |
 | `POST` | `/api/tickets/{id}/assign/` | Team assignment |
 | `POST` | `/api/tickets/{id}/transition/` | Validated status change |
 | `GET` | `/api/tickets/{id}/history/` | Audit/status history |
@@ -211,6 +221,12 @@ Create a PostgreSQL custom-format backup:
 
 The resulting file under `backups/` is only the first copy. Copy it to a second
 approved, encrypted device. See [`docs/BACKUP_RESTORE.md`](docs/BACKUP_RESTORE.md).
+
+Verify the latest backup without touching production:
+
+```bash
+./scripts/verify-backup-restore.sh
+```
 
 ## Updating Ubuntu after a Windows push
 
@@ -232,6 +248,11 @@ Prepare the optional standalone Apps Script login with:
 
 Then follow the
 **[complete bridge setup guide](appscript-bridge/README.md)**.
+
+The current completion status and remaining external approvals are listed in
+[`docs/PRODUCTION_READINESS.md`](docs/PRODUCTION_READINESS.md). Run the
+synthetic workflow in [`docs/PILOT.md`](docs/PILOT.md) before importing real
+tickets.
 
 ## Development and tests
 
