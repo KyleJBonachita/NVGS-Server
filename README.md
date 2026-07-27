@@ -8,6 +8,9 @@ If the technical names below are unfamiliar, start with the
 **[simple guide](docs/SIMPLE_GUIDE.md)**. It explains the system as a filing
 cabinet, receptionist, and secure front door.
 
+For the Ubuntu installation commands in one file, use
+**[START_HERE.md](START_HERE.md)**.
+
 ## How we work
 
 ```text
