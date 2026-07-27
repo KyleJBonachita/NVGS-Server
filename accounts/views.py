@@ -8,10 +8,10 @@ from django.contrib.auth import login, logout
 from django.db import IntegrityError, transaction
 from django.http import HttpResponse, HttpResponseRedirect
 from django.middleware.csrf import get_token
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from django.utils.decorators import method_decorator
-from django.views.decorators.csrf import csrf_protect
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.csrf import csrf_exempt, csrf_protect
+from django.views.decorators.http import require_GET, require_http_methods, require_POST
 from rest_framework import status
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -20,6 +20,7 @@ from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 
 from .appscript_sso import BridgeTokenError, verify_bridge_token
+from .forms import SsoOnboardingForm
 from .models import User, UserRole
 from .serializers import LoginSerializer, UserSerializer
 
@@ -44,11 +45,24 @@ def _bridge_error(message: str, status_code: int):
     )
 
 
+def _needs_onboarding(user: User) -> bool:
+    return (
+        not user.first_name.strip()
+        or not user.last_name.strip()
+        or not user.has_usable_password()
+    )
+
+
 @require_GET
 def appscript_sso_start(request):
     if not settings.APPSCRIPT_SSO_ENABLED:
         return _bridge_error("Apps Script login is not enabled.", 503)
 
+    if request.user.is_authenticated:
+        logout(request)
+
+    request.session.pop("appscript_onboarding_user_id", None)
+    request.session.pop("appscript_onboarding_started_at", None)
     state = secrets.token_urlsafe(32)
     request.session["appscript_sso_state"] = state
     request.session["appscript_sso_started_at"] = int(time.time())
@@ -98,8 +112,10 @@ def appscript_sso_consume(request):
     return _private_response(response)
 
 
+# The signed assertion and one-time browser-session state are this endpoint's
+# CSRF protection. Exempting only this handoff avoids cross-site cookie failures.
+@csrf_exempt
 @require_POST
-@csrf_protect
 def appscript_sso_callback(request):
     if not settings.APPSCRIPT_SSO_ENABLED:
         return _bridge_error("Apps Script login is not enabled.", 503)
@@ -146,6 +162,10 @@ def appscript_sso_callback(request):
     if not user.is_active:
         return _bridge_error("This NVGS account is disabled.", 403)
 
+    if _needs_onboarding(user):
+        request.session["appscript_onboarding_user_id"] = user.pk
+        request.session["appscript_onboarding_started_at"] = current_time
+        return _private_response(redirect("appscript-sso-onboarding"))
     login(
         request,
         user,
@@ -155,6 +175,88 @@ def appscript_sso_callback(request):
     return _private_response(
         HttpResponseRedirect(settings.APPSCRIPT_SSO_SUCCESS_REDIRECT)
     )
+
+
+@require_http_methods(["GET", "POST"])
+def appscript_sso_onboarding(request):
+    if not settings.APPSCRIPT_SSO_ENABLED:
+        return _bridge_error("Apps Script login is not enabled.", 503)
+
+    user_id = request.session.get("appscript_onboarding_user_id")
+    started_at = request.session.get("appscript_onboarding_started_at")
+    current_time = int(time.time())
+    onboarding_ttl = settings.APPSCRIPT_SSO_ONBOARDING_TTL_SECONDS
+    if (
+        isinstance(user_id, bool)
+        or not isinstance(user_id, int)
+        or not isinstance(started_at, int)
+        or started_at < current_time - onboarding_ttl
+        or started_at > current_time + settings.APPSCRIPT_SSO_CLOCK_SKEW_SECONDS
+    ):
+        request.session.pop("appscript_onboarding_user_id", None)
+        request.session.pop("appscript_onboarding_started_at", None)
+        return _bridge_error("Profile setup expired. Start Google login again.", 400)
+
+    try:
+        user = User.objects.get(pk=user_id)
+    except User.DoesNotExist:
+        return _bridge_error("The verified NVGS account no longer exists.", 400)
+    if not user.is_active:
+        return _bridge_error("This NVGS account is disabled.", 403)
+    if not _needs_onboarding(user):
+        request.session.pop("appscript_onboarding_user_id", None)
+        request.session.pop("appscript_onboarding_started_at", None)
+        login(
+            request,
+            user,
+            backend="django.contrib.auth.backends.ModelBackend",
+        )
+        return _private_response(
+            HttpResponseRedirect(settings.APPSCRIPT_SSO_SUCCESS_REDIRECT)
+        )
+
+    if request.method == "POST":
+        form = SsoOnboardingForm(request.POST, user=user)
+        if form.is_valid():
+            user = form.save()
+            request.session.pop("appscript_onboarding_user_id", None)
+            request.session.pop("appscript_onboarding_started_at", None)
+            login(
+                request,
+                user,
+                backend="django.contrib.auth.backends.ModelBackend",
+            )
+            logger.info("NVGS onboarding completed for %s.", user.email)
+            return _private_response(
+                HttpResponseRedirect(settings.APPSCRIPT_SSO_SUCCESS_REDIRECT)
+            )
+    else:
+        form = SsoOnboardingForm(
+            user=user,
+            initial={
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+            },
+        )
+
+    content_nonce = secrets.token_urlsafe(24)
+    response = render(
+        request,
+        "accounts/appscript_onboarding.html",
+        {
+            "content_nonce": content_nonce,
+            "form": form,
+            "verified_email": user.email,
+        },
+    )
+    response["Content-Security-Policy"] = (
+        "default-src 'none'; "
+        f"style-src 'nonce-{content_nonce}'; "
+        "form-action 'self'; "
+        "base-uri 'none'; "
+        "frame-ancestors 'none'"
+    )
+    return _private_response(response)
 
 
 class LoginRateThrottle(AnonRateThrottle):

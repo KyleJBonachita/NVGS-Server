@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="referrer" content="no-referrer">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Complete your NVGS account</title>
+    <style nonce="{{ content_nonce }}">
+      * { box-sizing: border-box; }
+      body {
+        background: #111827;
+        color: #f9fafb;
+        font-family: system-ui, sans-serif;
+        margin: 0;
+        min-height: 100vh;
+        padding: 2rem 1rem;
+      }
+      main {
+        background: #1f2937;
+        border-radius: .75rem;
+        margin: 0 auto;
+        max-width: 36rem;
+        padding: 2rem;
+      }
+      h1 { margin-top: 0; }
+      .verified {
+        background: #0f3d26;
+        border-left: .3rem solid #76b900;
+        padding: 1rem;
+      }
+      .warning {
+        background: #422006;
+        border-left: .3rem solid #f59e0b;
+        padding: 1rem;
+      }
+      label {
+        display: block;
+        font-weight: 700;
+        margin-top: 1rem;
+      }
+      input {
+        border: 1px solid #6b7280;
+        border-radius: .35rem;
+        font: inherit;
+        margin-top: .35rem;
+        padding: .75rem;
+        width: 100%;
+      }
+      button {
+        background: #76b900;
+        border: 0;
+        border-radius: .35rem;
+        color: #071000;
+        cursor: pointer;
+        font: inherit;
+        font-weight: 800;
+        margin-top: 1.5rem;
+        padding: .85rem 1.25rem;
+        width: 100%;
+      }
+      .errorlist {
+        color: #fca5a5;
+        margin: .35rem 0 0;
+      }
+      .helptext {
+        color: #d1d5db;
+        display: block;
+        font-size: .9rem;
+        margin-top: .35rem;
+      }
+      .helptext ul { padding-left: 1.25rem; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Complete your NVGS account</h1>
+      <p class="verified">
+        Google verified your email:
+        <strong>{{ verified_email }}</strong>
+      </p>
+      <p>
+        Enter your name and create a password used only by this local NVGS
+        ticketing system.
+      </p>
+      <p class="warning">
+        Never enter your NVIDIA or Google password here.
+      </p>
+      <form method="post">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+
+        <label for="{{ form.first_name.id_for_label }}">First name</label>
+        {{ form.first_name }}
+        {{ form.first_name.errors }}
+
+        <label for="{{ form.last_name.id_for_label }}">Last name</label>
+        {{ form.last_name }}
+        {{ form.last_name.errors }}
+
+        <label for="{{ form.password1.id_for_label }}">
+          Create an NVGS password
+        </label>
+        {{ form.password1 }}
+        {{ form.password1.errors }}
+        <div class="helptext">{{ form.password1.help_text }}</div>
+
+        <label for="{{ form.password2.id_for_label }}">
+          Confirm NVGS password
+        </label>
+        {{ form.password2 }}
+        {{ form.password2.errors }}
+
+        <button type="submit">Save and continue</button>
+      </form>
+    </main>
+  </body>
+</html>

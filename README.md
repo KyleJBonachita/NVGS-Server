@@ -186,6 +186,7 @@ network. A DNS hostname can be used instead of the IP when one is available.
 | `GET` | `/api/auth/csrf/` | Obtain browser CSRF token |
 | `POST` | `/api/auth/login/` | Local account login |
 | `GET` | `/api/auth/appscript/start/` | Start optional Apps Script login |
+| `GET, POST` | `/api/auth/appscript/onboarding/` | First-login profile setup |
 | `POST` | `/api/auth/logout/` | Authenticated user |
 | `GET` | `/api/auth/me/` | Current user |
 | `GET, POST` | `/api/tickets/` | Role-filtered ticket queue/create |

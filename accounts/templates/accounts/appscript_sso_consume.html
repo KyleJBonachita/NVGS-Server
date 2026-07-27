@@ -29,7 +29,6 @@
       <h1>Signing in to NVGS...</h1>
       <p id="status">Verifying your NVIDIA Google account.</p>
       <form id="bridge-form" method="post" action="{% url 'appscript-sso-callback' %}">
-        {% csrf_token %}
         <input id="bridge-token" name="token" type="hidden">
       </form>
     </main>

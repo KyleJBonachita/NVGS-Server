@@ -16,6 +16,8 @@ the design.
 - The handoff is signed with HMAC-SHA256 and expires after 60 seconds.
 - The login attempt is bound to the browser session that started it.
 - New verified users are created only as `agent`.
+- First-time users must enter their name and create a separate local NVGS
+  password before the authenticated session is activated.
 - Existing roles are preserved; disabled accounts remain blocked.
 - The bridge never grants `team` or `system_admin` authority.
 - The shared signing secret stays out of GitHub and application URLs.
@@ -154,7 +156,15 @@ Expected flow:
 2. Google may ask the user to authorize access to their email identity.
 3. The bridge displays the verified NVIDIA email.
 4. Select **Continue to NVGS** within 60 seconds.
-5. NVGS displays the authenticated account information from `/api/auth/me/`.
+5. On the first login, NVGS asks for first name, last name, and a separate
+   local NVGS password.
+6. After the profile is saved, NVGS displays the authenticated account
+   information from `/api/auth/me/`.
+
+Never enter an NVIDIA or Google password into the NVGS profile form. The local
+password is an independent fallback credential stored only by the local Django
+server. On later Google logins, users with completed profiles go directly into
+NVGS without repeating the profile form.
 
 Test with an approved pilot agent first. In Django administration, confirm the
 new account:
@@ -215,6 +225,13 @@ Run:
 ```
 
 If disabled, repeat the `enable` command with the deployed `/exec` URL.
+
+### `403 CSRF verification failed` after Continue to NVGS
+
+Update the Ubuntu repository and restart **NVGS Server Control**. Current
+versions use the signed 60-second assertion and the one-time browser-session
+state to protect only the bridge callback. The normal profile form keeps
+Django's standard CSRF protection.
 
 ### Signed response is invalid
 

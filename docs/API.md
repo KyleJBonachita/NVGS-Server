@@ -41,6 +41,13 @@ preserved, and disabled accounts remain blocked. Team and administrator access
 must still be assigned by a system administrator. See
 [`../appscript-bridge/README.md`](../appscript-bridge/README.md).
 
+First-time verified users are redirected to
+`/api/auth/appscript/onboarding/`. They must enter their name and create a
+separate local NVGS password before Django activates the authenticated session.
+The signed callback uses its HMAC signature and one-time browser state as its
+login-CSRF protection; the onboarding form retains normal Django CSRF
+protection.
+
 ## Ticket visibility
 
 - Agents receive only tickets where they are the requester or creator.

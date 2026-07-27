@@ -5,6 +5,7 @@ import json
 import time
 from urllib.parse import parse_qs, urlsplit
 
+from django.contrib.auth import authenticate
 from django.core.exceptions import ValidationError
 from django.test import Client, TestCase, override_settings
 from rest_framework.test import APIClient
@@ -114,6 +115,7 @@ class AuthenticationApiTests(TestCase):
     APPSCRIPT_SSO_SUCCESS_REDIRECT="/api/auth/me/",
     APPSCRIPT_SSO_TOKEN_TTL_SECONDS=60,
     APPSCRIPT_SSO_STATE_TTL_SECONDS=300,
+    APPSCRIPT_SSO_ONBOARDING_TTL_SECONDS=900,
     APPSCRIPT_SSO_CLOCK_SKEW_SECONDS=15,
     ALLOWED_EMAIL_DOMAINS=["nvidia.com"],
 )
@@ -158,21 +160,163 @@ class AppsScriptSsoTests(TestCase):
         self.assertEqual(query["state"], [state])
         return state
 
-    def _csrf_token(self, client):
+    def _consume(self, client):
         response = client.get("/api/auth/appscript/consume/")
         self.assertEqual(response.status_code, 200)
         self.assertIn("default-src 'none'", response["Content-Security-Policy"])
         self.assertNotIn("'unsafe-inline'", response["Content-Security-Policy"])
-        return client.cookies["csrftoken"].value
+        return response
 
-    def test_verified_user_is_auto_created_as_agent(self):
+    def _post_callback(self, client, token):
+        self._consume(client)
+        return client.post(
+            "/api/auth/appscript/callback/",
+            {"token": token},
+        )
+
+    def _complete_onboarding(
+        self,
+        client,
+        *,
+        first_name="New",
+        last_name="Agent",
+        password="a-new-local-password-123",
+    ):
+        response = client.get("/api/auth/appscript/onboarding/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Never enter your NVIDIA or Google password")
+        csrf_token = client.cookies["csrftoken"].value
+        return client.post(
+            "/api/auth/appscript/onboarding/",
+            {
+                "first_name": first_name,
+                "last_name": last_name,
+                "password1": password,
+                "password2": password,
+                "csrfmiddlewaretoken": csrf_token,
+            },
+        )
+
+    def test_verified_user_completes_name_and_local_password_onboarding(self):
         client = Client(enforce_csrf_checks=True)
         state = self._start(client)
-        csrf_token = self._csrf_token(client)
+        response = self._post_callback(
+            client,
+            self._token("new.agent@nvidia.com", state),
+        )
+
+        self.assertRedirects(
+            response,
+            "/api/auth/appscript/onboarding/",
+            fetch_redirect_response=False,
+        )
+        user = User.objects.get(email="new.agent@nvidia.com")
+        self.assertEqual(user.role, UserRole.AGENT)
+        self.assertFalse(user.has_usable_password())
+        self.assertNotIn("_auth_user_id", client.session)
+
+        tickets_response = client.get("/api/tickets/")
+        self.assertEqual(tickets_response.status_code, 403)
+
+        response = self._complete_onboarding(client)
+        self.assertRedirects(
+            response,
+            "/api/auth/me/",
+            fetch_redirect_response=False,
+        )
+        user.refresh_from_db()
+        self.assertEqual(user.first_name, "New")
+        self.assertEqual(user.last_name, "Agent")
+        self.assertTrue(user.check_password("a-new-local-password-123"))
+        self.assertIsNotNone(
+            authenticate(
+                email=user.email,
+                password="a-new-local-password-123",
+            )
+        )
+
+        me_response = client.get("/api/auth/me/")
+        self.assertEqual(me_response.status_code, 200)
+        self.assertEqual(me_response.json()["email"], user.email)
+
+    def test_bridge_callback_uses_signed_state_instead_of_generic_csrf_cookie(self):
+        client = Client(enforce_csrf_checks=True)
+        state = self._start(client)
+        self._consume(client)
+        self.assertNotIn("csrftoken", client.cookies)
+
         response = client.post(
             "/api/auth/appscript/callback/",
-            {"token": self._token("new.agent@nvidia.com", state)},
-            HTTP_X_CSRFTOKEN=csrf_token,
+            {"token": self._token("agent@nvidia.com", state)},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(User.objects.filter(email="agent@nvidia.com").exists())
+        self.assertNotIn("_auth_user_id", client.session)
+
+    def test_onboarding_form_keeps_normal_csrf_protection(self):
+        client = Client(enforce_csrf_checks=True)
+        state = self._start(client)
+        self._post_callback(
+            client,
+            self._token("agent@nvidia.com", state),
+        )
+
+        response = client.post(
+            "/api/auth/appscript/onboarding/",
+            {
+                "first_name": "Test",
+                "last_name": "Agent",
+                "password1": "a-new-local-password-123",
+                "password2": "a-new-local-password-123",
+            },
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_invalid_onboarding_password_is_not_saved(self):
+        client = Client(enforce_csrf_checks=True)
+        state = self._start(client)
+        self._post_callback(
+            client,
+            self._token("agent@nvidia.com", state),
+        )
+        response = self._complete_onboarding(client, password="short")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "password is too short")
+        user = User.objects.get(email="agent@nvidia.com")
+        self.assertFalse(user.has_usable_password())
+
+    def test_expired_onboarding_session_does_not_authenticate_user(self):
+        client = Client(enforce_csrf_checks=True)
+        state = self._start(client)
+        self._post_callback(
+            client,
+            self._token("agent@nvidia.com", state),
+        )
+        session = client.session
+        session["appscript_onboarding_started_at"] = int(time.time()) - 901
+        session.save()
+
+        response = client.get("/api/auth/appscript/onboarding/")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertNotIn("_auth_user_id", client.session)
+
+    def test_existing_team_role_is_preserved(self):
+        user = User.objects.create_user(
+            email="team@nvidia.com",
+            password="a-long-test-password",
+            role=UserRole.TEAM,
+            first_name="Team",
+            last_name="Member",
+        )
+        client = Client(enforce_csrf_checks=True)
+        state = self._start(client)
+        response = self._post_callback(
+            client,
+            self._token(user.email, state),
         )
 
         self.assertRedirects(
@@ -180,65 +324,33 @@ class AppsScriptSsoTests(TestCase):
             "/api/auth/me/",
             fetch_redirect_response=False,
         )
-        user = User.objects.get(email="new.agent@nvidia.com")
-        self.assertEqual(user.role, UserRole.AGENT)
-        self.assertFalse(user.has_usable_password())
-
-        me_response = client.get("/api/auth/me/")
-        self.assertEqual(me_response.status_code, 200)
-        self.assertEqual(me_response.json()["email"], user.email)
-
-    def test_existing_team_role_is_preserved(self):
-        user = User.objects.create_user(
-            email="team@nvidia.com",
-            password="a-long-test-password",
-            role=UserRole.TEAM,
-        )
-        client = Client(enforce_csrf_checks=True)
-        state = self._start(client)
-        csrf_token = self._csrf_token(client)
-        response = client.post(
-            "/api/auth/appscript/callback/",
-            {"token": self._token(user.email, state)},
-            HTTP_X_CSRFTOKEN=csrf_token,
-        )
-
-        self.assertEqual(response.status_code, 302)
         user.refresh_from_db()
         self.assertEqual(user.role, UserRole.TEAM)
 
     def test_bad_signature_is_rejected_and_state_is_consumed(self):
         client = Client(enforce_csrf_checks=True)
         state = self._start(client)
-        csrf_token = self._csrf_token(client)
         token = self._token(
             "agent@nvidia.com",
             state,
             secret="incorrect-secret-that-is-still-long-enough",
         )
-        response = client.post(
-            "/api/auth/appscript/callback/",
-            {"token": token},
-            HTTP_X_CSRFTOKEN=csrf_token,
-        )
+        response = self._post_callback(client, token)
         self.assertEqual(response.status_code, 400)
         self.assertFalse(User.objects.filter(email="agent@nvidia.com").exists())
 
         response = client.post(
             "/api/auth/appscript/callback/",
             {"token": self._token("agent@nvidia.com", state)},
-            HTTP_X_CSRFTOKEN=csrf_token,
         )
         self.assertEqual(response.status_code, 400)
 
     def test_outside_domain_is_rejected(self):
         client = Client(enforce_csrf_checks=True)
         state = self._start(client)
-        csrf_token = self._csrf_token(client)
-        response = client.post(
-            "/api/auth/appscript/callback/",
-            {"token": self._token("outsider@example.com", state)},
-            HTTP_X_CSRFTOKEN=csrf_token,
+        response = self._post_callback(
+            client,
+            self._token("outsider@example.com", state),
         )
 
         self.assertEqual(response.status_code, 400)
@@ -250,11 +362,9 @@ class AppsScriptSsoTests(TestCase):
 
         second_client = Client(enforce_csrf_checks=True)
         self._start(second_client)
-        csrf_token = self._csrf_token(second_client)
-        response = second_client.post(
-            "/api/auth/appscript/callback/",
-            {"token": self._token("agent@nvidia.com", first_state)},
-            HTTP_X_CSRFTOKEN=csrf_token,
+        response = self._post_callback(
+            second_client,
+            self._token("agent@nvidia.com", first_state),
         )
 
         self.assertEqual(response.status_code, 400)
@@ -269,11 +379,9 @@ class AppsScriptSsoTests(TestCase):
         user.save(update_fields=["is_active"])
         client = Client(enforce_csrf_checks=True)
         state = self._start(client)
-        csrf_token = self._csrf_token(client)
-        response = client.post(
-            "/api/auth/appscript/callback/",
-            {"token": self._token(user.email, state)},
-            HTTP_X_CSRFTOKEN=csrf_token,
+        response = self._post_callback(
+            client,
+            self._token(user.email, state),
         )
 
         self.assertEqual(response.status_code, 403)
@@ -282,17 +390,13 @@ class AppsScriptSsoTests(TestCase):
     def test_expired_token_is_rejected(self):
         client = Client(enforce_csrf_checks=True)
         state = self._start(client)
-        csrf_token = self._csrf_token(client)
-        response = client.post(
-            "/api/auth/appscript/callback/",
-            {
-                "token": self._token(
-                    "agent@nvidia.com",
-                    state,
-                    issued_at=int(time.time()) - 120,
-                )
-            },
-            HTTP_X_CSRFTOKEN=csrf_token,
+        response = self._post_callback(
+            client,
+            self._token(
+                "agent@nvidia.com",
+                state,
+                issued_at=int(time.time()) - 120,
+            ),
         )
 
         self.assertEqual(response.status_code, 400)
@@ -301,11 +405,9 @@ class AppsScriptSsoTests(TestCase):
     def test_auto_creation_can_be_disabled(self):
         client = Client(enforce_csrf_checks=True)
         state = self._start(client)
-        csrf_token = self._csrf_token(client)
-        response = client.post(
-            "/api/auth/appscript/callback/",
-            {"token": self._token("unprovisioned@nvidia.com", state)},
-            HTTP_X_CSRFTOKEN=csrf_token,
+        response = self._post_callback(
+            client,
+            self._token("unprovisioned@nvidia.com", state),
         )
 
         self.assertEqual(response.status_code, 403)
