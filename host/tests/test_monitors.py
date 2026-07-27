@@ -9,7 +9,7 @@ sys.path.insert(0, str(HOST_DIR))
 
 import nvgs_auth_monitor  # noqa: E402
 import nvgs_monitor  # noqa: E402
-from nvgs_alerts import send_alert  # noqa: E402
+from nvgs_alerts import send_alert, send_desktop_notification  # noqa: E402
 
 
 class ConditionMonitorTests(unittest.TestCase):
@@ -75,9 +75,70 @@ class AuthenticationMonitorTests(unittest.TestCase):
 
 class AlertHelperTests(unittest.TestCase):
     def test_alert_without_webhook_is_logged_only(self):
-        with patch.dict(os.environ, {"NVGS_ALERT_WEBHOOK_URL": ""}, clear=False):
+        with patch.dict(
+            os.environ,
+            {
+                "NVGS_ALERT_WEBHOOK_URL": "",
+                "NVGS_DESKTOP_NOTIFICATIONS": "false",
+            },
+            clear=False,
+        ):
             delivered = send_alert("Test", "Local journal only")
         self.assertFalse(delivered)
+
+    @patch("nvgs_alerts.subprocess.run")
+    @patch("nvgs_alerts.Path.exists", return_value=True)
+    @patch("nvgs_alerts.subprocess.check_output", return_value="1000\n")
+    @patch("nvgs_alerts.shutil.which")
+    def test_desktop_alert_uses_logged_in_users_session(
+        self,
+        which,
+        check_output,
+        path_exists,
+        run,
+    ):
+        del check_output, path_exists
+        which.side_effect = lambda command: {
+            "runuser": "/usr/sbin/runuser",
+            "notify-send": "/usr/bin/notify-send",
+        }.get(command)
+        run.return_value.returncode = 0
+
+        with patch.dict(
+            os.environ,
+            {
+                "NVGS_DESKTOP_NOTIFICATIONS": "true",
+                "NVGS_DESKTOP_USER": "robotics",
+            },
+            clear=False,
+        ):
+            delivered = send_desktop_notification(
+                "AC power",
+                "charger unplugged",
+            )
+
+        self.assertTrue(delivered)
+        command = run.call_args.args[0]
+        self.assertIn("robotics", command)
+        session_bus = Path("/run/user") / "1000" / "bus"
+        self.assertIn(
+            f"DBUS_SESSION_BUS_ADDRESS=unix:path={session_bus}",
+            command,
+        )
+        self.assertIn("--urgency=critical", command)
+        self.assertIn("charger unplugged", command)
+
+    @patch("nvgs_alerts.shutil.which")
+    def test_desktop_alert_is_disabled_without_configuration(self, which):
+        with patch.dict(
+            os.environ,
+            {"NVGS_DESKTOP_NOTIFICATIONS": "false"},
+            clear=False,
+        ):
+            delivered = send_desktop_notification("Test", "Disabled")
+
+        self.assertFalse(delivered)
+        which.assert_not_called()
 
 
 if __name__ == "__main__":

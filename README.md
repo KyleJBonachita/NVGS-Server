@@ -42,6 +42,7 @@ This repository currently provides the backend/server foundation:
 - Backup tooling
 - Ubuntu charger, battery, network, Internet, application, lid, and rejected
   login monitoring
+- Ubuntu desktop warning/recovery notifications with optional remote webhook
 - A desktop launcher that starts the server, alerts, and temporary anti-sleep
   only while its terminal window is open
 - An optional permanent always-on Ubuntu mode
@@ -123,9 +124,9 @@ sudo ./scripts/install-app-controlled-mode.sh
 sudo reboot
 ```
 
-Double-click **NVGS Server Control** after reboot. Press Enter or close its
-terminal window when the server is no longer needed. The database is stopped
-cleanly and its ticket data remains stored.
+Open **NVGS Server Control** from Ubuntu Applications after reboot. Press Enter
+or close its terminal window when the server is no longer needed. The database
+is stopped cleanly and its ticket data remains stored.
 
 Remote notification setup is explained in
 [`docs/ALERTS.md`](docs/ALERTS.md). Without a webhook, alerts are still saved in

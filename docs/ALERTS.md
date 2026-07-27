@@ -12,6 +12,19 @@ sudo ./scripts/install-app-controlled-mode.sh
 For a permanent server, `sudo ./scripts/install-ubuntu-host.sh
 --force-always-on` starts the alerts at boot.
 
+Warnings and recoveries appear as Ubuntu desktop notifications. Warning
+notifications request critical urgency and a warning sound. Ubuntu's
+notification settings may mute the sound or hide details while the screen is
+locked.
+
+Send one harmless local test while the controller is open:
+
+```bash
+sudo ./scripts/test-alert.sh
+```
+
+Every alert is also recorded in the local journal:
+
 Watch the laptop/application checks:
 
 ```bash
@@ -48,12 +61,6 @@ If the desktop controller is open, restart the monitors:
 sudo systemctl restart nvgs-monitor.service nvgs-auth-monitor.service
 ```
 
-Send one harmless test:
-
-```bash
-sudo ./scripts/test-alert.sh
-```
-
 The current JSON message uses a `text` field, which is accepted by many webhook
 systems. If the selected system expects a different format, adapt
 `host/nvgs_alerts.py` after we know that system's documented format.
@@ -66,7 +73,8 @@ HTTPS address, or leave it blank to disable only the Internet test.
 
 If Ethernet is unplugged and the laptop has no second connection, it cannot
 send a remote message through Ethernet. The monitor still records the event
-locally. When connectivity returns it sends a recovery message.
+locally and can show it on the Ubuntu desktop. When connectivity returns it
+sends a recovery message.
 
 Reliable immediate "server is completely offline" alerts require either:
 

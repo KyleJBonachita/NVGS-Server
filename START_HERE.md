@@ -141,13 +141,26 @@ sudo ./scripts/install-app-controlled-mode.sh
 sudo reboot
 ```
 
-After logging in again, double-click **NVGS Server Control** on the Ubuntu
-desktop and enter your Ubuntu password.
+After logging in again, open Ubuntu Applications, search for **NVGS Server
+Control**, and enter your Ubuntu password.
 
 - Keep its terminal window open while people need the server.
-- Alerts and anti-sleep are active while that window is open.
+- Visible alerts and anti-sleep are active while that window is open.
 - Press Enter or close the window to stop the website, database, and alerts.
 - Closing it restores normal sleep behavior. Ticket data is not deleted.
+
+Test the popup:
+
+```bash
+cd ~/NVGS-Server
+sudo ./scripts/test-alert.sh
+```
+
+Using **Lock** or pressing `Super+L` does not stop NVGS and does not let the
+laptop sleep. Do not choose **Log Out** or **Sign Out** while NVGS is running,
+because that closes the graphical session containing the controller. Ubuntu
+may hide popup details on the lock screen, but journal and webhook alerts
+continue.
 
 The reboot is needed only the first time you switch away from the old
 always-on installation.
@@ -183,20 +196,28 @@ cd ~/NVGS-Server
 The command prints the new backup filename under `backups/`. A real deployment
 also needs a copy on a second approved encrypted device.
 
-## 12. Stop before LAN deployment
+## 12. Remaining work before team use
 
 At this point the database, administration, HTTPS, optional monitoring and
 anti-sleep, accounts, and backups are ready.
 
-These items are still development/deployment work:
+Complete these in order:
 
-- Copy and connect the normal ticketing interface
-- Test with fake tickets
-- Obtain an approved DHCP reservation, static address, or internal DNS name
-- Install `nvgs-local-ca.crt` on every approved client
-- Enable LAN binding in `.env`
-- Import real ticket data
-- Configure NVIDIA SSO after identity-administrator approval
+1. Copy and connect the normal ticketing interface.
+2. Test ticket creation, assignment, comments, status changes, and permissions
+   with fake users and fake tickets.
+3. Obtain an approved DHCP reservation/static address and, preferably, an
+   internal DNS name. Do not select an unassigned address yourself.
+4. Enable the approved LAN address in `.env`, limit network access, and test
+   from one approved client.
+5. Install `nvgs-local-ca.crt` on each approved client so HTTPS has no warning.
+6. Create local `agent` and `team` accounts, or obtain identity-administrator
+   approval and registration details for NVIDIA SSO.
+7. Test a database restore and keep a second backup on an approved encrypted
+   device.
+8. Configure an approved remote webhook or another approved device to detect
+   a fully offline server.
+9. Import real ticket data only after the pilot succeeds.
 
 Do not configure a random static IP or expose the server to the LAN yet.
 

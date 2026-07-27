@@ -125,6 +125,32 @@ else
     echo "Kept existing alert choices and refreshed the application address."
 fi
 
+set_monitor_env_value() {
+    local key="$1"
+    local value="$2"
+
+    if grep -q "^[[:space:]]*${key}[[:space:]]*=" /etc/nvgs-monitor.env; then
+        sed -i \
+            "s|^[[:space:]]*${key}[[:space:]]*=.*|${key}=${value}|" \
+            /etc/nvgs-monitor.env
+    else
+        printf '%s=%s\n' "$key" "$value" >> /etc/nvgs-monitor.env
+    fi
+}
+
+set_monitor_env_value "NVGS_DESKTOP_NOTIFICATIONS" "true"
+desktop_user="${SUDO_USER:-}"
+if [[ -n "$desktop_user" && "$desktop_user" != "root" ]] \
+    && id "$desktop_user" >/dev/null 2>&1; then
+    set_monitor_env_value "NVGS_DESKTOP_USER" "$desktop_user"
+fi
+chmod 0600 /etc/nvgs-monitor.env
+
+if ! command -v notify-send >/dev/null 2>&1; then
+    echo "WARNING: notify-send is missing, so desktop popups cannot appear." >&2
+    echo "Install it with: sudo apt install libnotify-bin" >&2
+fi
+
 # This prevents desktop settings or accidental lid closure from suspending the
 # server. It is reversible with the unmask command printed below.
 systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
@@ -144,6 +170,9 @@ echo "  journalctl -u nvgs-monitor.service -f"
 echo
 echo "View rejected-login alerts:"
 echo "  journalctl -u nvgs-auth-monitor.service -f"
+echo
+echo "Test the local desktop alert:"
+echo "  sudo ./scripts/test-alert.sh"
 echo
 echo "Configure an approved remote webhook:"
 echo "  sudo nano /etc/nvgs-monitor.env"

@@ -20,10 +20,12 @@ set -a
 source /etc/nvgs-monitor.env
 set +a
 
-if [[ -z "${NVGS_ALERT_WEBHOOK_URL:-}" ]]; then
-    echo "NVGS_ALERT_WEBHOOK_URL is blank in /etc/nvgs-monitor.env." >&2
+if ! python3 host/send_test_alert.py; then
+    echo "The alert test failed. Review the messages above." >&2
+    echo "Also check: journalctl -u nvgs-monitor.service -n 50 --no-pager" >&2
     exit 1
 fi
-
-python3 host/send_test_alert.py
-echo "The webhook accepted the test alert."
+echo "The local test alert was sent."
+if [[ -n "${NVGS_ALERT_WEBHOOK_URL:-}" ]]; then
+    echo "The configured webhook also accepted it."
+fi

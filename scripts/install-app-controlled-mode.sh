@@ -91,7 +91,28 @@ else
         "s|^NVGS_CA_FILE=.*|NVGS_CA_FILE=${escaped_project_dir}/nvgs-local-ca.crt|" \
         /etc/nvgs-monitor.env
 fi
+
+set_monitor_env_value() {
+    local key="$1"
+    local value="$2"
+
+    if grep -q "^[[:space:]]*${key}[[:space:]]*=" /etc/nvgs-monitor.env; then
+        sed -i \
+            "s|^[[:space:]]*${key}[[:space:]]*=.*|${key}=${value}|" \
+            /etc/nvgs-monitor.env
+    else
+        printf '%s=%s\n' "$key" "$value" >> /etc/nvgs-monitor.env
+    fi
+}
+
+set_monitor_env_value "NVGS_DESKTOP_NOTIFICATIONS" "true"
+set_monitor_env_value "NVGS_DESKTOP_USER" "$desktop_user"
 chmod 0600 /etc/nvgs-monitor.env
+
+if ! command -v notify-send >/dev/null 2>&1; then
+    echo "WARNING: notify-send is missing, so desktop popups cannot appear." >&2
+    echo "Install it with: sudo apt install libnotify-bin" >&2
+fi
 
 set_env_value() {
     local key="$1"
@@ -142,7 +163,6 @@ if command -v runuser >/dev/null 2>&1 \
         desktop_dir="$detected_desktop"
     fi
 fi
-install -d -o "$desktop_user" -g "$desktop_group" -m 0755 "$desktop_dir"
 
 if [[ "$project_dir" == *$'\n'* || "$project_dir" == *'"'* ]]; then
     echo "The project path contains unsupported characters: $project_dir" >&2
@@ -166,11 +186,10 @@ EOF
 chmod 0755 "$launcher_file"
 chown "$desktop_user:$desktop_group" "$launcher_file"
 
-desktop_launcher="$desktop_dir/NVGS Server Control.desktop"
-install -o "$desktop_user" -g "$desktop_group" -m 0755 \
-    "$launcher_file" "$desktop_launcher"
-runuser -u "$desktop_user" -- \
-    gio set "$desktop_launcher" metadata::trusted true >/dev/null 2>&1 || true
+# Older versions copied a shortcut to the desktop. Ubuntu 22.04 may open that
+# copy as text, while the Applications entry works correctly.
+legacy_desktop_launcher="$desktop_dir/NVGS Server Control.desktop"
+rm -f -- "$legacy_desktop_launcher"
 
 if [[ "$refresh_only" == "true" ]]; then
     mapfile -t container_ids < <(docker compose ps -aq)
@@ -200,9 +219,10 @@ echo "NVGS Server Control is installed."
 echo "Reboot once so Ubuntu returns to its normal lid and sleep behavior."
 echo
 echo "After reboot:"
-echo "  1. Double-click 'NVGS Server Control' on the desktop."
+echo "  1. Open 'NVGS Server Control' from Ubuntu Applications."
 echo "  2. Enter your Ubuntu password when asked."
 echo "  3. Keep its terminal window open while NVGS is needed."
 echo "  4. Press Enter or close the window to stop NVGS."
 echo
-echo "If Ubuntu asks whether to trust the launcher, choose 'Allow Launching'."
+echo "Test the visible alert while NVGS is open:"
+echo "  sudo ./scripts/test-alert.sh"

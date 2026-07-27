@@ -143,15 +143,22 @@ sudo ./scripts/install-app-controlled-mode.sh
 sudo reboot
 ```
 
-After reboot, double-click **NVGS Server Control** on the desktop. The launcher:
+After reboot, open **NVGS Server Control** from Ubuntu Applications. The
+launcher:
 
 - Starts PostgreSQL, Django, Caddy, and both alert monitors
+- Shows desktop notifications for warnings and recoveries
 - Temporarily blocks sleep and lid-close suspension
 - Keeps a terminal window open to show that NVGS is running
 - Stops the containers and monitors when you press Enter or close the window
 
 The one-time reboot removes the old permanent lid override safely. Normal
 Ubuntu sleep behavior returns whenever the controller is closed.
+
+Locking the screen does not close the controller or release its sleep
+inhibitor. Logging out closes the graphical session and is not supported while
+NVGS is running. Notification details can be hidden by Ubuntu while locked;
+the journal and configured webhook still receive the event.
 
 For a permanent approved deployment that must start at boot instead, use:
 

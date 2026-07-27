@@ -105,9 +105,9 @@ journalctl -u nvgs-monitor.service -f
 journalctl -u nvgs-auth-monitor.service -f
 ```
 
-Without a webhook, alerts are recorded only on the Ubuntu laptop. With an
-approved webhook in `/etc/nvgs-monitor.env`, the monitor also attempts to send
-them remotely.
+Alerts appear as Ubuntu desktop notifications and are recorded in the local
+journal. With an approved webhook in `/etc/nvgs-monitor.env`, the monitor also
+attempts to send them remotely.
 
 See [`ALERTS.md`](ALERTS.md) for the short webhook setup and test commands.
 
@@ -118,7 +118,7 @@ or another device monitoring this server.
 
 ## Starting and stopping NVGS
 
-Double-click **NVGS Server Control** on the Ubuntu desktop. While its terminal
+Open Ubuntu Applications and select **NVGS Server Control**. While its terminal
 window remains open:
 
 - The ticket website and database are running.
@@ -127,6 +127,10 @@ window remains open:
 
 Press Enter or close that window to stop NVGS. The database closes cleanly,
 ticket data remains stored, and Ubuntu returns to its normal sleep behavior.
+
+Locking the screen with `Super+L` leaves the controller, server, alerts, and
+anti-sleep running. Do not log out while NVGS is running. Ubuntu may hide
+notification details while locked, but the journal and webhook continue.
 
 ## Things GitHub must never contain
 
