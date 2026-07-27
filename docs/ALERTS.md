@@ -2,11 +2,15 @@
 
 ## Local alerts
 
-Local logging works immediately after:
+In desktop-controlled mode, local alerts start when you open **NVGS Server
+Control** and stop when you close it. Install that mode with:
 
 ```bash
-sudo ./scripts/install-ubuntu-host.sh
+sudo ./scripts/install-app-controlled-mode.sh
 ```
+
+For a permanent server, `sudo ./scripts/install-ubuntu-host.sh
+--force-always-on` starts the alerts at boot.
 
 Watch the laptop/application checks:
 
@@ -38,7 +42,7 @@ Set the value in quotes:
 NVGS_ALERT_WEBHOOK_URL='https://approved-webhook-address'
 ```
 
-Restart the monitors:
+If the desktop controller is open, restart the monitors:
 
 ```bash
 sudo systemctl restart nvgs-monitor.service nvgs-auth-monitor.service

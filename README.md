@@ -42,7 +42,9 @@ This repository currently provides the backend/server foundation:
 - Backup tooling
 - Ubuntu charger, battery, network, Internet, application, lid, and rejected
   login monitoring
-- Ubuntu anti-sleep configuration
+- A desktop launcher that starts the server, alerts, and temporary anti-sleep
+  only while its terminal window is open
+- An optional permanent always-on Ubuntu mode
 - A safe Ubuntu update command that backs up before pulling
 
 It does not yet contain the end-user browser interface or NVIDIA SSO. Local
@@ -114,12 +116,16 @@ Open `https://localhost/admin/` on the server. Export and trust the local
 certificate authority as described in
 [`docs/UBUNTU_DEPLOYMENT.md`](docs/UBUNTU_DEPLOYMENT.md).
 
-After exporting `nvgs-local-ca.crt`, install the Ubuntu alerts and anti-sleep
-settings:
+After exporting `nvgs-local-ca.crt`, install the app-controlled Ubuntu mode:
 
 ```bash
-sudo ./scripts/install-ubuntu-host.sh
+sudo ./scripts/install-app-controlled-mode.sh
+sudo reboot
 ```
+
+Double-click **NVGS Server Control** after reboot. Press Enter or close its
+terminal window when the server is no longer needed. The database is stopped
+cleanly and its ticket data remains stored.
 
 Remote notification setup is explained in
 [`docs/ALERTS.md`](docs/ALERTS.md). Without a webhook, alerts are still saved in
@@ -186,7 +192,8 @@ cd NVGS-Server
 ```
 
 This backs up PostgreSQL before pulling, rebuilds the application, and refreshes
-the Ubuntu alert and anti-sleep services.
+the selected Ubuntu run mode. In desktop-controller mode, open **NVGS Server
+Control** before updating so the database is available for the backup.
 
 ## Development and tests
 

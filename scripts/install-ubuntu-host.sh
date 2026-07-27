@@ -15,6 +15,52 @@ if [[ ! -d /etc/systemd/system ]]; then
     exit 1
 fi
 
+force_always_on=false
+if [[ "${1:-}" == "--force-always-on" ]]; then
+    force_always_on=true
+elif [[ -n "${1:-}" ]]; then
+    echo "Unknown option: $1" >&2
+    exit 1
+fi
+
+host_mode="always_on"
+if [[ -f .env ]]; then
+    configured_mode="$(
+        sed -n 's/^[[:space:]]*NVGS_HOST_MODE[[:space:]]*=[[:space:]]*//p' .env \
+            | tail -n 1 \
+            | tr -d '\r'
+    )"
+    if [[ -n "$configured_mode" ]]; then
+        host_mode="$configured_mode"
+    fi
+fi
+
+if [[ "$host_mode" == "on_demand" && "$force_always_on" == "false" ]]; then
+    echo "NVGS uses app-controlled mode; refreshing its launcher instead."
+    exec "$project_dir/scripts/install-app-controlled-mode.sh" --refresh
+fi
+
+set_env_value() {
+    local key="$1"
+    local value="$2"
+
+    if grep -q "^[[:space:]]*${key}[[:space:]]*=" .env; then
+        sed -i "s|^[[:space:]]*${key}[[:space:]]*=.*|${key}=${value}|" .env
+    else
+        printf '\n%s=%s\n' "$key" "$value" >> .env
+    fi
+}
+
+if [[ ! -f .env ]]; then
+    echo "Missing .env. Run ./scripts/bootstrap-secrets.sh first." >&2
+    exit 1
+fi
+
+env_owner="$(stat -c '%u:%g' .env)"
+set_env_value "NVGS_HOST_MODE" "always_on"
+set_env_value "NVGS_RESTART_POLICY" "unless-stopped"
+chown "$env_owner" .env
+
 server_address="localhost"
 if [[ -f .env ]]; then
     configured_address="$(
@@ -84,6 +130,9 @@ fi
 systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
 systemctl daemon-reload
 systemctl enable nvgs-monitor.service nvgs-auth-monitor.service
+if [[ "$force_always_on" == "true" ]]; then
+    docker compose up -d
+fi
 systemctl restart nvgs-monitor.service nvgs-auth-monitor.service
 
 echo
@@ -99,6 +148,9 @@ echo
 echo "Configure an approved remote webhook:"
 echo "  sudo nano /etc/nvgs-monitor.env"
 echo "  sudo systemctl restart nvgs-monitor.service nvgs-auth-monitor.service"
+echo
+echo "Switch to the open-to-run desktop controller:"
+echo "  sudo ./scripts/install-app-controlled-mode.sh"
 echo
 echo "Undo the sleep-target block if this laptop stops being a server:"
 echo "  sudo systemctl unmask sleep.target suspend.target hibernate.target hybrid-sleep.target"

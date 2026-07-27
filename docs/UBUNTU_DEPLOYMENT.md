@@ -134,18 +134,31 @@ documents this behavior:
 UFW remains useful for host services such as SSH. Restrict SSH to the
 administrator network and use SSH keys.
 
-## 7. Lid behavior
+## 7. Desktop-controlled server mode
 
-The repository installs anti-sleep and monitoring for you:
+Use this mode when NVGS should run only when you deliberately open it:
 
 ```bash
-sudo ./scripts/install-ubuntu-host.sh
+sudo ./scripts/install-app-controlled-mode.sh
+sudo reboot
 ```
 
-It installs the lid configuration, blocks suspend/hibernate targets, and starts
-the condition and rejected-login monitors. Reboot once after the first
-installation instead of restarting `systemd-logind` during an active desktop
-session.
+After reboot, double-click **NVGS Server Control** on the desktop. The launcher:
+
+- Starts PostgreSQL, Django, Caddy, and both alert monitors
+- Temporarily blocks sleep and lid-close suspension
+- Keeps a terminal window open to show that NVGS is running
+- Stops the containers and monitors when you press Enter or close the window
+
+The one-time reboot removes the old permanent lid override safely. Normal
+Ubuntu sleep behavior returns whenever the controller is closed.
+
+For a permanent approved deployment that must start at boot instead, use:
+
+```bash
+sudo ./scripts/install-ubuntu-host.sh --force-always-on
+sudo reboot
+```
 
 Keeping the lid physically open with the display switched off is preferable if
 the laptop exhausts heat through the hinge or keyboard.
@@ -177,3 +190,6 @@ For the normal Windows-to-GitHub-to-Ubuntu workflow, use:
 ```
 
 It performs the backup, pull, rebuild, and monitor refresh in order.
+In desktop-controlled mode, run the update while **NVGS Server Control** is
+open, because the first update step backs up the running database. Keep the
+controller window open after the update.

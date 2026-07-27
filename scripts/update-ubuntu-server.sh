@@ -26,10 +26,13 @@ docker compose pull
 echo "5/6 Rebuilding and restarting the application..."
 docker compose up -d --build --remove-orphans
 
-echo "6/6 Refreshing Ubuntu monitoring and anti-sleep services..."
+echo "6/6 Refreshing the selected Ubuntu server mode..."
 sudo ./scripts/install-ubuntu-host.sh
 
 docker compose ps
 
 echo
 echo "Update complete. The pre-update database backup is under backups/."
+if grep -q '^[[:space:]]*NVGS_HOST_MODE[[:space:]]*=[[:space:]]*on_demand' .env; then
+    echo "NVGS remains controlled by the open 'NVGS Server Control' window."
+fi

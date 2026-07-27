@@ -131,25 +131,33 @@ sudo usermod -aG docker "$USER"
 
 The permission takes effect after signing out or rebooting.
 
-## 9. Install alerts and anti-sleep
+## 9. Choose how the server runs
+
+For this laptop, use the simple desktop-controller mode:
 
 ```bash
 cd ~/NVGS-Server
-sudo ./scripts/install-ubuntu-host.sh
+sudo ./scripts/install-app-controlled-mode.sh
 sudo reboot
 ```
 
-After logging in again, confirm that Docker works without `sudo`:
+After logging in again, double-click **NVGS Server Control** on the Ubuntu
+desktop and enter your Ubuntu password.
+
+- Keep its terminal window open while people need the server.
+- Alerts and anti-sleep are active while that window is open.
+- Press Enter or close the window to stop the website, database, and alerts.
+- Closing it restores normal sleep behavior. Ticket data is not deleted.
+
+The reboot is needed only the first time you switch away from the old
+always-on installation.
+
+If this laptop later becomes a permanent, approved server that must start at
+boot, switch back with:
 
 ```bash
-docker ps
-```
-
-Check the local alert services:
-
-```bash
-systemctl status nvgs-monitor.service --no-pager
-systemctl status nvgs-auth-monitor.service --no-pager
+sudo ./scripts/install-ubuntu-host.sh --force-always-on
+sudo reboot
 ```
 
 ## 10. Create application users
@@ -177,8 +185,8 @@ also needs a copy on a second approved encrypted device.
 
 ## 12. Stop before LAN deployment
 
-At this point the database, administration, HTTPS, monitoring, anti-sleep,
-accounts, and backups are ready.
+At this point the database, administration, HTTPS, optional monitoring and
+anti-sleep, accounts, and backups are ready.
 
 These items are still development/deployment work:
 
@@ -202,3 +210,5 @@ cd ~/NVGS-Server
 ```
 
 This update command creates a database backup before pulling new code.
+In desktop-controller mode, open **NVGS Server Control** before running the
+update so the database is available for that backup.

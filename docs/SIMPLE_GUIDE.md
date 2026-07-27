@@ -57,7 +57,8 @@ docker compose exec app python manage.py createsuperuser \
 docker compose cp \
   caddy:/data/caddy/pki/authorities/local/root.crt \
   ./nvgs-local-ca.crt
-sudo ./scripts/install-ubuntu-host.sh
+sudo ./scripts/install-app-controlled-mode.sh
+sudo reboot
 ```
 
 The first start should use `127.0.0.1`. Change to the assigned LAN address only
@@ -78,9 +79,11 @@ That one command:
 2. Pulls the new GitHub commit.
 3. Downloads updated server components.
 4. Rebuilds and restarts the application.
-5. Refreshes alerts and anti-sleep settings.
+5. Refreshes the selected server mode.
 
 It stops before pulling if somebody edited tracked source files on Ubuntu.
+When using the desktop controller, open it before running the update so the
+database is available for the backup.
 
 ## What the monitor checks
 
@@ -113,15 +116,17 @@ connection. It records the event locally and sends a recovery alert after the
 connection returns. Immediate outage notification requires a second connection
 or another device monitoring this server.
 
-## Anti-sleep
+## Starting and stopping NVGS
 
-The Ubuntu setup:
+Double-click **NVGS Server Control** on the Ubuntu desktop. While its terminal
+window remains open:
 
-- Ignores lid closure.
-- Ignores idle-sleep requests.
-- Blocks suspend, hibernate, and hybrid sleep targets.
+- The ticket website and database are running.
+- Charger, network, application, lid, and rejected-login alerts are running.
+- Sleep, hibernate, idle sleep, and lid-close suspension are blocked.
 
-It does not block a proper shutdown or reboot.
+Press Enter or close that window to stop NVGS. The database closes cleanly,
+ticket data remains stored, and Ubuntu returns to its normal sleep behavior.
 
 ## Things GitHub must never contain
 
