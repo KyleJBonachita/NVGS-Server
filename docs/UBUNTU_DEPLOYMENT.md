@@ -100,6 +100,15 @@ Expected result:
 
 ## 5. Enable LAN binding
 
+First collect a safe read-only report:
+
+```bash
+./scripts/lan-readiness.sh
+```
+
+The report shows Ubuntu's current interface/address and NVGS binding. It does
+not treat a temporary DHCP address as approved.
+
 Once the server address is confirmed and Ubuntu is already using it, run:
 
 ```bash

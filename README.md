@@ -34,10 +34,12 @@ This repository currently provides the backend/server foundation:
 - `agent`, `team`, and `system_admin` roles
 - End-user Django ticketing dashboard with local and Apps Script login entry
 - Ticket creation, assignment, status, priority, resolution, and comments
+- Profile editing, filtered CSV export, bulk Team actions, and analytics
 - Apps Script-compatible ticket fields, statuses, escalation, downtime, impact,
   root cause, and reopen tracking
 - Private internal notes for Tech Team/TL users
 - Per-ticket audit events
+- Optional queued ticket-activity webhook notifications
 - Repeatable CSV import for Users, Tickets, Comments, and StatusHistory exports
 - Caddy HTTPS with a local certificate authority
 - Database health checks and permission-restricted Docker secret files
@@ -163,6 +165,9 @@ Remote notification setup is explained in
 [`docs/ALERTS.md`](docs/ALERTS.md). Without a webhook, alerts are still saved in
 Ubuntu's local journal.
 
+Ticket-activity notification setup is separate and explained in
+[`docs/TICKET_NOTIFICATIONS.md`](docs/TICKET_NOTIFICATIONS.md).
+
 ## Activating LAN access
 
 After the Ethernet interface has an assigned static address or DHCP
@@ -192,17 +197,21 @@ network. A DNS hostname can be used instead of the IP when one is available.
 | `GET` | `/login/` | Apps Script and local login choices |
 | `GET` | `/tickets/` | End-user ticketing dashboard |
 | `GET` | `/api/health/` | Health check |
+| `GET` | `/api/system-status/` | Safe Team-visible deployment status |
 | `GET` | `/api/auth/csrf/` | Obtain browser CSRF token |
 | `POST` | `/api/auth/login/` | Local account login |
 | `GET` | `/api/auth/appscript/start/` | Start optional Apps Script login |
 | `GET, POST` | `/api/auth/appscript/onboarding/` | First-login profile setup |
 | `POST` | `/api/auth/logout/` | Authenticated user |
-| `GET` | `/api/auth/me/` | Current user |
+| `GET, PATCH` | `/api/auth/me/` | Current user/profile |
 | `GET, POST` | `/api/tickets/` | Role-filtered ticket queue/create |
 | `GET, PUT, PATCH` | `/api/tickets/{id}/` | Role-filtered ticket detail |
 | `GET, POST` | `/api/tickets/{id}/comments/` | Ticket comments |
 | `GET` | `/api/tickets/configuration/` | Existing workflow choices |
 | `GET` | `/api/tickets/summary/` | Role-filtered ticket counts |
+| `GET` | `/api/tickets/analytics/` | Team analytics |
+| `GET` | `/api/tickets/export/` | Team filtered CSV export |
+| `POST` | `/api/tickets/bulk-status/` | Team bulk status update |
 | `POST` | `/api/tickets/{id}/assign/` | Team assignment |
 | `POST` | `/api/tickets/{id}/transition/` | Validated status change |
 | `GET` | `/api/tickets/{id}/history/` | Audit/status history |

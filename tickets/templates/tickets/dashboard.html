@@ -43,10 +43,19 @@
           <span id="tickets-nav-label">My tickets</span>
           <span id="active-ticket-count" class="count-badge" hidden></span>
         </button>
+        <button class="nav-button" type="button" data-view="profile">
+          <span aria-hidden="true">P</span> My profile
+        </button>
         <div id="team-navigation" hidden>
           <p class="nav-label nav-label-spaced">Team</p>
           <button class="nav-button" type="button" data-view="tickets" data-team-queue="true">
             <span aria-hidden="true">◎</span> Complete queue
+          </button>
+          <button class="nav-button" type="button" data-view="analytics">
+            <span aria-hidden="true">A</span> Analytics
+          </button>
+          <button class="nav-button" type="button" data-view="settings">
+            <span aria-hidden="true">S</span> System status
           </button>
         </div>
       </nav>
@@ -187,15 +196,45 @@
             Type
             <select id="filter-category" name="category"></select>
           </label>
+          <label>
+            From
+            <input id="filter-created-after" name="created_after" type="date">
+          </label>
+          <label>
+            To
+            <input id="filter-created-before" name="created_before" type="date">
+          </label>
           <button class="button button-secondary" type="submit">Apply</button>
           <button id="clear-filters" class="button button-ghost" type="button">Clear</button>
         </form>
+        <div id="bulk-actions" class="bulk-actions panel" hidden>
+          <strong><span id="selected-ticket-count">0</span> selected</strong>
+          <label>
+            Change status
+            <select id="bulk-status"></select>
+          </label>
+          <label>
+            Resolution notes
+            <input id="bulk-resolution-notes"
+                   placeholder="Required if resolving">
+          </label>
+          <button id="apply-bulk-status" class="button button-secondary" type="button">
+            Apply to selected
+          </button>
+          <button id="export-tickets" class="button button-ghost" type="button">
+            Export filtered CSV
+          </button>
+        </div>
         <section class="panel table-panel">
           <div id="queue-status" class="queue-status" aria-live="polite"></div>
           <div class="table-scroll">
             <table>
               <thead>
                 <tr>
+                  <th id="selection-column" hidden>
+                    <input id="select-all-tickets" type="checkbox"
+                           aria-label="Select all tickets on this page">
+                  </th>
                   <th>Ticket</th>
                   <th>Priority</th>
                   <th>Status</th>
@@ -212,6 +251,123 @@
             <button id="previous-page" class="button button-ghost" type="button">Previous</button>
             <button id="next-page" class="button button-ghost" type="button">Next</button>
           </div>
+        </section>
+      </section>
+
+      <section id="view-profile" class="view" aria-labelledby="profile-heading">
+        <div class="page-heading">
+          <div>
+            <p class="eyebrow">Account</p>
+            <h1 id="profile-heading">My profile</h1>
+            <p class="muted">Update the name and department shown inside NVGS.</p>
+          </div>
+        </div>
+        <form id="profile-form" class="panel form-panel" novalidate>
+          <div class="field">
+            <label for="profile-first-name">First name</label>
+            <input id="profile-first-name" name="first_name" required>
+          </div>
+          <div class="field">
+            <label for="profile-last-name">Last name</label>
+            <input id="profile-last-name" name="last_name" required>
+          </div>
+          <div class="field">
+            <label for="profile-department">Department</label>
+            <input id="profile-department" name="department"
+                   placeholder="Robotics">
+          </div>
+          <div class="field">
+            <label for="profile-email">Verified email</label>
+            <input id="profile-email" disabled>
+          </div>
+          <div class="field">
+            <label for="profile-role">NVGS authority</label>
+            <input id="profile-role" disabled>
+          </div>
+          <div class="form-actions field-wide">
+            <p id="profile-error" class="form-error" role="alert" hidden></p>
+            <button id="save-profile" class="button button-primary" type="submit">
+              Save profile
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section id="view-analytics" class="view" aria-labelledby="analytics-heading">
+        <div class="page-heading">
+          <div>
+            <p class="eyebrow">Reports</p>
+            <h1 id="analytics-heading">Ticket analytics</h1>
+            <p class="muted">Operational totals and trends from the local database.</p>
+          </div>
+          <div class="period-buttons" role="group" aria-label="Analytics period">
+            <button class="button button-ghost analytics-period" type="button"
+                    data-period="7">7 days</button>
+            <button class="button button-secondary analytics-period" type="button"
+                    data-period="30">30 days</button>
+            <button class="button button-ghost analytics-period" type="button"
+                    data-period="90">90 days</button>
+          </div>
+        </div>
+        <div id="analytics-metrics" class="summary-grid"></div>
+        <div class="analytics-grid">
+          <section class="panel chart-panel">
+            <h2>Ticket volume</h2>
+            <div id="chart-trend" class="bar-chart"></div>
+          </section>
+          <section class="panel chart-panel">
+            <h2>By status</h2>
+            <div id="chart-status" class="bar-chart"></div>
+          </section>
+          <section class="panel chart-panel">
+            <h2>By priority</h2>
+            <div id="chart-priority" class="bar-chart"></div>
+          </section>
+          <section class="panel chart-panel">
+            <h2>By issue type</h2>
+            <div id="chart-category" class="bar-chart"></div>
+          </section>
+          <section class="panel chart-panel">
+            <h2>By workstation</h2>
+            <div id="chart-workstation" class="bar-chart"></div>
+          </section>
+          <section class="panel chart-panel">
+            <h2>Resolved by Team member</h2>
+            <div id="chart-resolved-by" class="bar-chart"></div>
+          </section>
+        </div>
+      </section>
+
+      <section id="view-settings" class="view" aria-labelledby="settings-heading">
+        <div class="page-heading">
+          <div>
+            <p class="eyebrow">Read-only configuration</p>
+            <h1 id="settings-heading">System status</h1>
+            <p class="muted">
+              Secrets and network addresses are changed on Ubuntu, never exposed
+              in this page.
+            </p>
+          </div>
+          <button id="refresh-system-status" class="button button-secondary"
+                  type="button">Refresh</button>
+        </div>
+        <div id="system-status-cards" class="summary-grid"></div>
+        <section class="panel settings-help">
+          <h2>Ticket notifications</h2>
+          <p class="muted">
+            When an approved HTTPS webhook is configured on Ubuntu, NVGS queues
+            new-ticket, assignment, status, escalation and public-comment
+            notifications. Internal notes are never sent to the webhook.
+          </p>
+          <pre>sudo nano secrets/ticket_notification_webhook
+docker compose up -d --build</pre>
+          <h2>LAN configuration</h2>
+          <p class="muted">
+            Run the LAN helper only after the assigned address is already active
+            on Ubuntu.
+          </p>
+          <pre>./scripts/lan-readiness.sh
+./scripts/configure-approved-lan.sh ASSIGNED_IPV4</pre>
         </section>
       </section>
 

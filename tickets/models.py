@@ -260,3 +260,28 @@ class TicketEvent(models.Model):
 
     def __str__(self):
         return f"{self.ticket.reference}: {self.action}"
+
+
+class TicketNotification(models.Model):
+    ticket = models.ForeignKey(
+        Ticket,
+        on_delete=models.CASCADE,
+        related_name="notifications",
+    )
+    event_type = models.CharField(max_length=64, db_index=True)
+    payload = models.JSONField(default=dict)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    next_attempt_at = models.DateTimeField(default=timezone.now, db_index=True)
+    last_error = models.CharField(max_length=240, blank=True)
+    sent_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
+        indexes = [
+            models.Index(fields=["sent_at", "next_attempt_at"]),
+        ]
+
+    def __str__(self):
+        state = "sent" if self.sent_at else "pending"
+        return f"{self.ticket.reference}: {self.event_type} ({state})"

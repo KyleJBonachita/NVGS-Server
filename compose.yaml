@@ -40,10 +40,12 @@ services:
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
       DJANGO_SECRET_KEY_FILE: /run/secrets/django_secret_key
       APPSCRIPT_SSO_SECRET_FILE: /run/secrets/appscript_bridge_secret
+      TICKET_NOTIFICATION_WEBHOOK_URL_FILE: /run/secrets/ticket_notification_webhook
     secrets:
       - postgres_password
       - django_secret_key
       - appscript_bridge_secret
+      - ticket_notification_webhook
     volumes:
       - ./imports:/imports:ro
     depends_on:
@@ -67,6 +69,40 @@ services:
     read_only: true
     tmpfs:
       - /tmp:size=64m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+
+  notifications:
+    build:
+      context: .
+    restart: "${NVGS_RESTART_POLICY:-unless-stopped}"
+    entrypoint: ["python", "manage.py", "process_ticket_notifications"]
+    env_file:
+      - .env
+    environment:
+      DATABASE_ENGINE: postgresql
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      DJANGO_SECRET_KEY_FILE: /run/secrets/django_secret_key
+      APPSCRIPT_SSO_SECRET_FILE: /run/secrets/appscript_bridge_secret
+      TICKET_NOTIFICATION_WEBHOOK_URL_FILE: /run/secrets/ticket_notification_webhook
+    secrets:
+      - postgres_password
+      - django_secret_key
+      - appscript_bridge_secret
+      - ticket_notification_webhook
+    depends_on:
+      db:
+        condition: service_healthy
+      app:
+        condition: service_healthy
+    networks:
+      - database
+      - web
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
     security_opt:
       - no-new-privileges:true
 
@@ -99,6 +135,8 @@ secrets:
     file: ./secrets/django_secret_key
   appscript_bridge_secret:
     file: ./secrets/appscript_bridge_secret
+  ticket_notification_webhook:
+    file: ./secrets/ticket_notification_webhook
 
 volumes:
   postgres_data:

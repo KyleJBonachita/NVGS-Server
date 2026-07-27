@@ -1,11 +1,12 @@
 import csv
+import io
 import os
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
 from django.core.management import CommandError, call_command
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from rest_framework.test import APITestCase
 
@@ -15,6 +16,7 @@ from .models import (
     Ticket,
     TicketComment,
     TicketEvent,
+    TicketNotification,
     TicketPriority,
     TicketStatus,
 )
@@ -269,6 +271,64 @@ class TicketAccessTests(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["total"], 2)
         self.assertEqual(response.data["unassigned"], 2)
+
+    def test_analytics_and_csv_export_are_team_only(self):
+        self.authenticate(self.agent_one)
+        response = self.client.get(reverse("ticket-analytics"))
+        self.assertEqual(response.status_code, 403)
+        response = self.client.get(reverse("ticket-export"))
+        self.assertEqual(response.status_code, 403)
+
+        self.agent_one_ticket.title = "=unsafe spreadsheet formula"
+        self.agent_one_ticket.save(update_fields=["title"])
+        self.authenticate(self.team_user)
+        response = self.client.get(reverse("ticket-analytics"), {"period": 30})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["metrics"]["total"], 2)
+        self.assertEqual(len(response.data["by_status"]), 1)
+
+        response = self.client.get(reverse("ticket-export"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "text/csv; charset=utf-8")
+        content = response.content.decode("utf-8-sig")
+        rows = list(csv.reader(io.StringIO(content)))
+        self.assertEqual(rows[0][0], "Ticket ID")
+        exported_title = next(row[3] for row in rows[1:] if "unsafe" in row[3])
+        self.assertTrue(exported_title.startswith("'="))
+
+    @override_settings(
+        TICKET_NOTIFICATION_WEBHOOK_URL="https://notifications.example.test/hook"
+    )
+    def test_public_ticket_events_queue_notifications_but_internal_notes_do_not(self):
+        self.authenticate(self.agent_one)
+        response = self.client.post(
+            reverse("ticket-list"),
+            {
+                "title": "Notification queue test",
+                "description": "Synthetic notification test.",
+                "category": "Others",
+                "priority": "Moderate",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        ticket = Ticket.objects.get(pk=response.data["id"])
+        self.assertTrue(
+            TicketNotification.objects.filter(
+                ticket=ticket,
+                event_type="created",
+            ).exists()
+        )
+
+        TicketNotification.objects.all().delete()
+        self.authenticate(self.team_user)
+        response = self.client.post(
+            reverse("ticket-comments", args=[ticket.id]),
+            {"body": "Private diagnostic detail.", "is_internal": True},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertFalse(TicketNotification.objects.exists())
 
     def test_imported_ticket_keeps_its_apps_script_id(self):
         self.agent_one_ticket.source_ticket_id = "GRTKT-00123"

@@ -69,6 +69,38 @@ class AuthenticationApiTests(TestCase):
         )
         self.assertEqual(response.status_code, 400)
 
+    def test_user_can_update_profile_but_not_email_or_role(self):
+        self.client.force_authenticate(user=self.user)
+        response = self.client.patch(
+            "/api/auth/me/",
+            {
+                "first_name": "Updated",
+                "last_name": "Agent",
+                "department": "Robotics",
+                "email": "changed@nvidia.com",
+                "role": UserRole.SYSTEM_ADMIN,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.first_name, "Updated")
+        self.assertEqual(self.user.last_name, "Agent")
+        self.assertEqual(self.user.department, "Robotics")
+        self.assertEqual(self.user.email, "agent@nvidia.com")
+        self.assertEqual(self.user.role, UserRole.AGENT)
+
+    def test_profile_requires_a_nonblank_name(self):
+        self.client.force_authenticate(user=self.user)
+        response = self.client.patch(
+            "/api/auth/me/",
+            {"first_name": ""},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+
     def test_login_requires_csrf_when_checks_are_enabled(self):
         csrf_client = APIClient(enforce_csrf_checks=True)
         response = csrf_client.post(

@@ -64,5 +64,19 @@ The helper uses GnuPG symmetric AES-256 encryption. Use a unique passphrase
 stored in the approved password manager. The helper refuses to call a folder
 inside this project a second backup.
 
+## Google Drive on Ubuntu
+
+Google does not provide Drive for desktop on Linux. Its official guidance is
+to use Drive in the browser:
+
+<https://support.google.com/drive/answer/2375082>
+
+Third-party tools can mount or copy to Drive, but a work account and production
+ticket data require approval before authorizing one. If an approved Drive
+upload is later added, upload only completed encrypted `.dump.gpg` backup
+files. Never sync PostgreSQL's live Docker volume or active database files.
+Deletion/conflict synchronization is not a replacement for tested backup
+retention.
+
 Production restoration should be performed during an announced maintenance
 window after taking one final backup of the current state.

@@ -97,7 +97,7 @@ docker compose up -d
 systemctl start nvgs-monitor.service nvgs-auth-monitor.service
 
 running_services="$(docker compose ps --status running --services)"
-for required_service in db app caddy; do
+for required_service in db app notifications caddy; do
     if ! grep -qx "$required_service" <<< "$running_services"; then
         echo "NVGS did not start correctly. Current container status:" >&2
         docker compose ps -a >&2 || true

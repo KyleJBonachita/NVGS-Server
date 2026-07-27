@@ -11,6 +11,8 @@
     page: 1,
     pageCount: 1,
     currentTicketId: null,
+    selectedTicketIds: new Set(),
+    analyticsPeriod: 30,
   };
 
   const byId = function (id) {
@@ -234,6 +236,7 @@
       state.config.ticket_types,
       "All issue types"
     );
+    selectOptions(byId("bulk-status"), state.config.statuses, "Select status");
   }
 
   function fillPeople() {
@@ -275,7 +278,8 @@
 
   function attachTicketOpeners(container) {
     container.querySelectorAll("[data-ticket-id]").forEach(function (element) {
-      element.addEventListener("click", function () {
+      element.addEventListener("click", function (event) {
+        if (event.target.closest("[data-select-ticket]")) return;
         openTicket(Number(element.dataset.ticketId));
       });
     });
@@ -326,7 +330,7 @@
     }
   }
 
-  function ticketQuery() {
+  function ticketQuery(includePage) {
     const params = new URLSearchParams();
     const form = new FormData(byId("ticket-filters"));
     form.forEach(function (value, key) {
@@ -335,8 +339,37 @@
     if (isManager() && state.queueMode === "mine") {
       params.set("reporter", String(state.user.id));
     }
-    params.set("page", String(state.page));
+    if (includePage !== false) params.set("page", String(state.page));
     return params;
+  }
+
+  function refreshBulkSelection() {
+    const selectedCount = state.selectedTicketIds.size;
+    byId("selected-ticket-count").textContent = selectedCount;
+    byId("apply-bulk-status").disabled = selectedCount === 0;
+    document.querySelectorAll("[data-ticket-id]").forEach(function (row) {
+      row.classList.toggle(
+        "selected",
+        state.selectedTicketIds.has(Number(row.dataset.ticketId))
+      );
+    });
+    const checkboxes = Array.from(
+      document.querySelectorAll("[data-select-ticket]")
+    );
+    byId("select-all-tickets").checked =
+      checkboxes.length > 0 && checkboxes.every(function (box) { return box.checked; });
+  }
+
+  function attachTicketSelectors() {
+    document.querySelectorAll("[data-select-ticket]").forEach(function (checkbox) {
+      checkbox.addEventListener("change", function () {
+        const ticketId = Number(checkbox.dataset.selectTicket);
+        if (checkbox.checked) state.selectedTicketIds.add(ticketId);
+        else state.selectedTicketIds.delete(ticketId);
+        refreshBulkSelection();
+      });
+    });
+    refreshBulkSelection();
   }
 
   async function loadTickets(resetPage) {
@@ -347,6 +380,8 @@
     try {
       const result = await api("/api/tickets/?" + ticketQuery().toString());
       const rows = result.results || [];
+      state.selectedTicketIds.clear();
+      byId("select-all-tickets").checked = false;
       const total = result.count || 0;
       state.pageCount = Math.max(1, Math.ceil(total / 25));
       byId("queue-status").textContent =
@@ -357,13 +392,19 @@
       byId("next-page").disabled = state.page >= state.pageCount;
       if (!rows.length) {
         byId("tickets-table-body").innerHTML =
-          '<tr><td colspan="6"><div class="empty-state compact">' +
+          '<tr><td colspan="' + (isManager() ? "7" : "6") +
+          '"><div class="empty-state compact">' +
           "<p>No tickets match these filters.</p></div></td></tr>";
+        refreshBulkSelection();
         return;
       }
       byId("tickets-table-body").innerHTML = rows.map(function (ticket) {
         return (
           '<tr data-ticket-id="' + ticket.id + '">' +
+          (isManager()
+            ? '<td><input type="checkbox" data-select-ticket="' + ticket.id +
+              '" aria-label="Select ' + escapeHtml(ticket.reference) + '"></td>'
+            : "") +
           '<td class="ticket-cell"><strong>' + escapeHtml(ticket.title) +
           "</strong><small>" + escapeHtml(ticket.reference) + "</small></td>" +
           "<td>" + priorityBadge(ticket.priority) + "</td>" +
@@ -376,6 +417,7 @@
         );
       }).join("");
       attachTicketOpeners(byId("tickets-table-body"));
+      attachTicketSelectors();
     } catch (error) {
       byId("queue-status").textContent = error.message;
       showToast(error.message, "error");
@@ -666,11 +708,231 @@
     }
   }
 
+  async function applyBulkStatus() {
+    const status = byId("bulk-status").value;
+    if (!status || state.selectedTicketIds.size === 0) {
+      showToast("Select tickets and a new status first.", "error");
+      return;
+    }
+    const button = byId("apply-bulk-status");
+    button.disabled = true;
+    button.textContent = "Updating…";
+    const resolutionNotes = byId("bulk-resolution-notes").value.trim();
+    const payload = {
+      ticket_ids: Array.from(state.selectedTicketIds),
+      status: status,
+      note: resolutionNotes,
+    };
+    if (resolutionNotes || status === "Resolved") {
+      payload.resolution_notes = resolutionNotes;
+    }
+    try {
+      const results = await api("/api/tickets/bulk-status/", {
+        method: "POST",
+        body: payload,
+      });
+      const succeeded = results.filter(function (result) { return result.ok; }).length;
+      const failed = results.length - succeeded;
+      showToast(
+        succeeded + " ticket(s) updated" +
+        (failed ? "; " + failed + " could not use that transition." : "."),
+        failed ? "error" : ""
+      );
+      byId("bulk-resolution-notes").value = "";
+      await loadTickets(false);
+    } catch (error) {
+      showToast(error.message, "error");
+    } finally {
+      button.disabled = false;
+      button.textContent = "Apply to selected";
+    }
+  }
+
+  async function exportTickets() {
+    const button = byId("export-tickets");
+    button.disabled = true;
+    button.textContent = "Preparing CSV…";
+    try {
+      const response = await fetch(
+        "/api/tickets/export/?" + ticketQuery(false).toString(),
+        {
+          method: "GET",
+          credentials: "same-origin",
+          headers: { Accept: "text/csv" },
+        }
+      );
+      if (!response.ok) {
+        const data = await response.json().catch(function () { return null; });
+        throw new Error(flattenError(data).join(" ") || "CSV export failed.");
+      }
+      const blob = await response.blob();
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "nvgs_tickets_" + new Date().toISOString().slice(0, 10) + ".csv";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(link.href);
+      showToast("CSV export downloaded.");
+    } catch (error) {
+      showToast(error.message, "error");
+    } finally {
+      button.disabled = false;
+      button.textContent = "Export filtered CSV";
+    }
+  }
+
+  function populateProfile() {
+    byId("profile-first-name").value = state.user.first_name || "";
+    byId("profile-last-name").value = state.user.last_name || "";
+    byId("profile-department").value = state.user.department || "";
+    byId("profile-email").value = state.user.email;
+    byId("profile-role").value = displayRole(state.user.role);
+  }
+
+  async function saveProfile(event) {
+    event.preventDefault();
+    const button = byId("save-profile");
+    const errorBox = byId("profile-error");
+    errorBox.hidden = true;
+    button.disabled = true;
+    button.textContent = "Saving…";
+    try {
+      state.user = await api("/api/auth/me/", {
+        method: "PATCH",
+        body: {
+          first_name: byId("profile-first-name").value.trim(),
+          last_name: byId("profile-last-name").value.trim(),
+          department: byId("profile-department").value.trim(),
+        },
+      });
+      configureUserInterface();
+      populateProfile();
+      showToast("Profile saved.");
+    } catch (error) {
+      errorBox.textContent = error.message;
+      errorBox.hidden = false;
+    } finally {
+      button.disabled = false;
+      button.textContent = "Save profile";
+    }
+  }
+
+  function renderBarChart(element, rows, labelForRow) {
+    if (!rows.length) {
+      element.innerHTML = '<p class="muted">No data in this period.</p>';
+      return;
+    }
+    const maximum = Math.max.apply(null, rows.map(function (row) {
+      return Number(row.count) || 0;
+    }));
+    element.innerHTML = rows.slice(0, 15).map(function (row) {
+      const count = Number(row.count) || 0;
+      return (
+        '<div class="bar-row"><span class="bar-label" title="' +
+        escapeHtml(labelForRow(row)) + '">' + escapeHtml(labelForRow(row)) +
+        '</span><progress class="bar-track" max="' + (maximum || 1) +
+        '" value="' + count + '"></progress><span class="bar-value">' +
+        count + "</span></div>"
+      );
+    }).join("");
+  }
+
+  async function loadAnalytics() {
+    if (!isManager()) return;
+    showView("analytics");
+    byId("analytics-metrics").innerHTML =
+      '<div class="loading-card"><span class="spinner"></span></div>';
+    try {
+      const data = await api(
+        "/api/tickets/analytics/?period=" + state.analyticsPeriod
+      );
+      const metrics = data.metrics;
+      const cards = [
+        ["Tickets", metrics.total || 0],
+        ["Active", metrics.active || 0],
+        ["Resolved", metrics.resolved || 0],
+        ["Avg downtime", (metrics.average_downtime || 0) + " min"],
+        ["Avg response", (metrics.average_response || 0) + " min"],
+        ["Avg resolution", (metrics.average_resolution || 0) + " min"],
+      ];
+      byId("analytics-metrics").innerHTML = cards.map(function (card) {
+        return (
+          '<article class="summary-card"><span>' + escapeHtml(card[0]) +
+          "</span><strong>" + escapeHtml(card[1]) + "</strong></article>"
+        );
+      }).join("");
+      renderBarChart(byId("chart-trend"), data.trend, function (row) {
+        return row.day;
+      });
+      renderBarChart(byId("chart-status"), data.by_status, function (row) {
+        return row.status || "Unknown";
+      });
+      renderBarChart(byId("chart-priority"), data.by_priority, function (row) {
+        return row.priority || "Unknown";
+      });
+      renderBarChart(byId("chart-category"), data.by_category, function (row) {
+        return row.category || "Unknown";
+      });
+      renderBarChart(
+        byId("chart-workstation"),
+        data.by_workstation,
+        function (row) { return row.workstation || "Not recorded"; }
+      );
+      renderBarChart(byId("chart-resolved-by"), data.resolved_by, function (row) {
+        const name = [
+          row.resolved_by__first_name,
+          row.resolved_by__last_name,
+        ].filter(Boolean).join(" ");
+        return name || row.resolved_by__email;
+      });
+    } catch (error) {
+      byId("analytics-metrics").innerHTML =
+        '<div class="empty-state compact"><p>' +
+        escapeHtml(error.message) + "</p></div>";
+    }
+  }
+
+  async function loadSystemStatus() {
+    if (!isManager()) return;
+    showView("settings");
+    byId("system-status-cards").innerHTML =
+      '<div class="loading-card"><span class="spinner"></span></div>';
+    try {
+      const status = await api("/api/system-status/");
+      const cards = [
+        ["Database", status.database],
+        [
+          "Google login",
+          status.appscript_login_enabled ? "Enabled" : "Disabled",
+        ],
+        [
+          "Ticket webhook",
+          status.ticket_webhook_configured ? "Configured" : "Disabled",
+        ],
+        ["Queued alerts", status.pending_notifications],
+        ["Failed attempts", status.failed_notifications],
+        ["Needs review", status.abandoned_notifications],
+      ];
+      byId("system-status-cards").innerHTML = cards.map(function (card) {
+        return (
+          '<article class="summary-card"><span>' + escapeHtml(card[0]) +
+          "</span><strong>" + escapeHtml(card[1]) + "</strong></article>"
+        );
+      }).join("");
+    } catch (error) {
+      byId("system-status-cards").innerHTML =
+        '<div class="empty-state compact"><p>' +
+        escapeHtml(error.message) + "</p></div>";
+    }
+  }
+
   function configureUserInterface() {
     byId("user-name").textContent = state.user.display_name;
     byId("user-email").textContent = state.user.email;
     byId("user-role").textContent = displayRole(state.user.role);
     byId("welcome-name").textContent = state.user.first_name || state.user.display_name;
+    populateProfile();
     if (isManager()) {
       byId("team-navigation").hidden = false;
       byId("reporter-field").hidden = false;
@@ -678,8 +940,12 @@
         "Monitor the queue and help the Robotics Team move quickly.";
       byId("recent-heading").textContent = "Recent queue activity";
       byId("requester-column").hidden = false;
+      byId("selection-column").hidden = false;
+      byId("bulk-actions").hidden = false;
     } else {
       byId("requester-column").hidden = true;
+      byId("selection-column").hidden = true;
+      byId("bulk-actions").hidden = true;
     }
     if (state.user.role === "system_admin") byId("admin-link").hidden = false;
   }
@@ -737,6 +1003,13 @@
         loadTickets(true);
       } else if (target === "overview") {
         loadOverview();
+      } else if (target === "analytics") {
+        loadAnalytics();
+      } else if (target === "settings") {
+        loadSystemStatus();
+      } else if (target === "profile") {
+        populateProfile();
+        showView("profile");
       } else {
         showView(target);
       }
@@ -744,6 +1017,7 @@
   });
 
   byId("create-ticket-form").addEventListener("submit", createTicket);
+  byId("profile-form").addEventListener("submit", saveProfile);
   byId("ticket-filters").addEventListener("submit", function (event) {
     event.preventDefault();
     loadTickets(true);
@@ -765,6 +1039,34 @@
       loadTickets(false);
     }
   });
+  byId("select-all-tickets").addEventListener("change", function () {
+    document.querySelectorAll("[data-select-ticket]").forEach(function (checkbox) {
+      checkbox.checked = byId("select-all-tickets").checked;
+      const ticketId = Number(checkbox.dataset.selectTicket);
+      if (checkbox.checked) state.selectedTicketIds.add(ticketId);
+      else state.selectedTicketIds.delete(ticketId);
+    });
+    refreshBulkSelection();
+  });
+  byId("apply-bulk-status").addEventListener("click", applyBulkStatus);
+  byId("export-tickets").addEventListener("click", exportTickets);
+  document.querySelectorAll(".analytics-period").forEach(function (button) {
+    button.addEventListener("click", function () {
+      state.analyticsPeriod = Number(button.dataset.period);
+      document.querySelectorAll(".analytics-period").forEach(function (periodButton) {
+        periodButton.classList.toggle(
+          "button-secondary",
+          periodButton === button
+        );
+        periodButton.classList.toggle(
+          "button-ghost",
+          periodButton !== button
+        );
+      });
+      loadAnalytics();
+    });
+  });
+  byId("refresh-system-status").addEventListener("click", loadSystemStatus);
   byId("close-dialog").addEventListener("click", function () {
     byId("ticket-dialog").close();
   });

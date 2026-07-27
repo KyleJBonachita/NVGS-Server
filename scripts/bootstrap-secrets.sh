@@ -27,11 +27,17 @@ if [[ ! -s secrets/appscript_bridge_secret ]]; then
     echo "Created secrets/appscript_bridge_secret."
 fi
 
+if [[ ! -e secrets/ticket_notification_webhook ]]; then
+    : > secrets/ticket_notification_webhook
+    echo "Created the disabled ticket-notification webhook file."
+fi
+
 chmod 600 \
     .env \
     secrets/postgres_password \
     secrets/django_secret_key \
-    secrets/appscript_bridge_secret
+    secrets/appscript_bridge_secret \
+    secrets/ticket_notification_webhook
 
 echo
 echo "Secrets are ready. Review .env before starting the server."

@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Ticket, TicketComment, TicketEvent
+from .models import Ticket, TicketComment, TicketEvent, TicketNotification
 
 
 class TicketCommentInline(admin.TabularInline):
@@ -67,5 +67,27 @@ class TicketEventAdmin(admin.ModelAdmin):
         "to_status",
         "note",
         "changes",
+        "created_at",
+    ]
+
+
+@admin.register(TicketNotification)
+class TicketNotificationAdmin(admin.ModelAdmin):
+    list_display = [
+        "ticket",
+        "event_type",
+        "attempts",
+        "sent_at",
+        "created_at",
+    ]
+    list_filter = ["event_type", "sent_at"]
+    readonly_fields = [
+        "ticket",
+        "event_type",
+        "payload",
+        "attempts",
+        "next_attempt_at",
+        "last_error",
+        "sent_at",
         "created_at",
     ]

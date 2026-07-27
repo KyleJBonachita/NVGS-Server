@@ -22,7 +22,7 @@ from rest_framework.views import APIView
 from .appscript_sso import BridgeTokenError, verify_bridge_token
 from .forms import SsoOnboardingForm
 from .models import User, UserRole
-from .serializers import LoginSerializer, UserSerializer
+from .serializers import LoginSerializer, ProfileSerializer, UserSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -297,6 +297,16 @@ class CurrentUserView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        return Response(UserSerializer(request.user).data)
+
+    def patch(self, request):
+        serializer = ProfileSerializer(
+            request.user,
+            data=request.data,
+            partial=True,
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
         return Response(UserSerializer(request.user).data)
 
 

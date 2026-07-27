@@ -186,6 +186,23 @@ APPSCRIPT_SSO_STATE_TTL_SECONDS = 300
 APPSCRIPT_SSO_ONBOARDING_TTL_SECONDS = 900
 APPSCRIPT_SSO_CLOCK_SKEW_SECONDS = 15
 
+TICKET_NOTIFICATION_WEBHOOK_URL = (
+    env_secret("TICKET_NOTIFICATION_WEBHOOK_URL", "") or ""
+).strip()
+if TICKET_NOTIFICATION_WEBHOOK_URL:
+    notification_url = urlsplit(TICKET_NOTIFICATION_WEBHOOK_URL)
+    if (
+        notification_url.scheme != "https"
+        or not notification_url.hostname
+        or notification_url.username
+        or notification_url.password
+    ):
+        raise ImproperlyConfigured(
+            "TICKET_NOTIFICATION_WEBHOOK_URL must be a complete HTTPS URL."
+        )
+TICKET_NOTIFICATION_TIMEOUT_SECONDS = 8
+TICKET_NOTIFICATION_MAX_ATTEMPTS = 8
+
 if APPSCRIPT_SSO_ENABLED:
     appscript_url = urlsplit(APPSCRIPT_SSO_URL)
     if (

@@ -1,4 +1,9 @@
-from django.db.models import Count, Q
+import csv
+from datetime import timedelta
+
+from django.db.models import Avg, Count, Q
+from django.db.models.functions import TruncDate
+from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import action
@@ -24,6 +29,7 @@ from .models import (
     TicketRootCause,
     TicketStatus,
 )
+from .notifications import queue_ticket_notification
 from .permissions import CanManageTickets
 from .serializers import (
     TicketCommentSerializer,
@@ -65,6 +71,8 @@ class TicketViewSet(ModelViewSet):
             "transition",
             "escalate",
             "bulk_status",
+            "analytics",
+            "export",
         }
         if self.action in manager_actions:
             return [CanManageTickets()]
@@ -90,6 +98,8 @@ class TicketViewSet(ModelViewSet):
         impact_level = self.request.query_params.get("impact_level")
         assignee = self.request.query_params.get("assignee")
         reporter = self.request.query_params.get("reporter")
+        created_after = self.request.query_params.get("created_after")
+        created_before = self.request.query_params.get("created_before")
         query = self.request.query_params.get("q")
 
         if status_value:
@@ -106,6 +116,10 @@ class TicketViewSet(ModelViewSet):
             queryset = queryset.filter(assignee_id=assignee)
         if reporter and user.can_manage_tickets:
             queryset = queryset.filter(reporter_id=reporter)
+        if created_after:
+            queryset = queryset.filter(created_at__date__gte=created_after)
+        if created_before:
+            queryset = queryset.filter(created_at__date__lte=created_before)
         if query:
             queryset = queryset.filter(
                 Q(title__icontains=query)
@@ -187,7 +201,7 @@ class TicketViewSet(ModelViewSet):
         note="",
         changes=None,
     ):
-        return TicketEvent.objects.create(
+        event = TicketEvent.objects.create(
             ticket=ticket,
             actor=self.request.user,
             action=action,
@@ -196,6 +210,13 @@ class TicketViewSet(ModelViewSet):
             note=note,
             changes=changes or {},
         )
+        queue_ticket_notification(
+            ticket=ticket,
+            event_type=action,
+            actor_name=self.request.user.display_name,
+            note=note,
+        )
+        return event
 
     def _apply_derived_fields(self, ticket, old_status):
         now = timezone.now()
@@ -310,6 +331,143 @@ class TicketViewSet(ModelViewSet):
             )
         )
 
+    @action(detail=False, methods=["get"])
+    def analytics(self, request):
+        try:
+            period_days = int(request.query_params.get("period", "30"))
+        except ValueError:
+            raise ValidationError({"period": "Period must be 7, 30, or 90 days."})
+        if period_days not in {7, 30, 90}:
+            raise ValidationError({"period": "Period must be 7, 30, or 90 days."})
+
+        start = timezone.now() - timedelta(days=period_days)
+        queryset = self.get_queryset().filter(created_at__gte=start)
+        active_statuses = [
+            TicketStatus.OPEN,
+            TicketStatus.ASSIGNED,
+            TicketStatus.IN_PROGRESS,
+            TicketStatus.ON_HOLD,
+            TicketStatus.REOPENED,
+        ]
+
+        def grouped(field_name):
+            return list(
+                queryset.values(field_name)
+                .annotate(count=Count("id"))
+                .order_by("-count", field_name)
+            )
+
+        metrics = queryset.aggregate(
+            total=Count("id"),
+            active=Count("id", filter=Q(status__in=active_statuses)),
+            resolved=Count(
+                "id",
+                filter=Q(status__in=[TicketStatus.RESOLVED, TicketStatus.CLOSED]),
+            ),
+            average_downtime=Avg("downtime_minutes"),
+            average_response=Avg("response_minutes"),
+            average_resolution=Avg("resolution_minutes"),
+        )
+        trend = list(
+            queryset.annotate(day=TruncDate("created_at"))
+            .values("day")
+            .annotate(count=Count("id"))
+            .order_by("day")
+        )
+        resolved_by = list(
+            queryset.filter(resolved_by__isnull=False)
+            .values(
+                "resolved_by__email",
+                "resolved_by__first_name",
+                "resolved_by__last_name",
+            )
+            .annotate(count=Count("id"))
+            .order_by("-count", "resolved_by__email")
+        )
+
+        return Response(
+            {
+                "period_days": period_days,
+                "metrics": {
+                    key: (
+                        round(float(value), 1)
+                        if value is not None and key.startswith("average_")
+                        else value
+                    )
+                    for key, value in metrics.items()
+                },
+                "by_status": grouped("status"),
+                "by_priority": grouped("priority"),
+                "by_category": grouped("category"),
+                "by_workstation": grouped("workstation"),
+                "trend": trend,
+                "resolved_by": resolved_by,
+            }
+        )
+
+    @staticmethod
+    def _csv_safe(value):
+        text = "" if value is None else str(value)
+        if text.startswith(("=", "+", "-", "@")):
+            return f"'{text}"
+        return text
+
+    @action(detail=False, methods=["get"])
+    def export(self, request):
+        queryset = self.get_queryset()[:10000]
+        response = HttpResponse(content_type="text/csv; charset=utf-8")
+        response["Content-Disposition"] = (
+            'attachment; filename="nvgs_tickets_export.csv"'
+        )
+        response.write("\ufeff")
+        writer = csv.writer(response)
+        writer.writerow(
+            [
+                "Ticket ID",
+                "Created",
+                "Updated",
+                "Title",
+                "Description",
+                "Category",
+                "Priority",
+                "Status",
+                "Workstation",
+                "Location",
+                "Reporter",
+                "Reporter Email",
+                "Assignee",
+                "Resolution Notes",
+                "Root Cause",
+                "Downtime Minutes",
+                "Tags",
+            ]
+        )
+        for ticket in queryset:
+            writer.writerow(
+                [
+                    self._csv_safe(ticket.reference),
+                    ticket.created_at.isoformat(),
+                    ticket.updated_at.isoformat(),
+                    self._csv_safe(ticket.title),
+                    self._csv_safe(ticket.description),
+                    ticket.category,
+                    ticket.priority,
+                    ticket.status,
+                    self._csv_safe(ticket.workstation),
+                    self._csv_safe(ticket.location),
+                    self._csv_safe(ticket.reporter.display_name),
+                    self._csv_safe(ticket.reporter.email),
+                    self._csv_safe(
+                        ticket.assignee.display_name if ticket.assignee else ""
+                    ),
+                    self._csv_safe(ticket.resolution_notes),
+                    ticket.root_cause,
+                    ticket.downtime_minutes,
+                    self._csv_safe(ticket.tags),
+                ]
+            )
+        return response
+
     @action(detail=True, methods=["post"])
     def assign(self, request, pk=None):
         ticket = self.get_object()
@@ -420,6 +578,7 @@ class TicketViewSet(ModelViewSet):
 
         results = []
         for ticket in self.get_queryset().filter(pk__in=ticket_ids):
+            old_status = ticket.status
             data = {"status": new_status}
             if "resolution_notes" in request.data:
                 data["resolution_notes"] = request.data["resolution_notes"]
@@ -430,6 +589,14 @@ class TicketViewSet(ModelViewSet):
             )
             if serializer.is_valid():
                 self.perform_update(serializer)
+                ticket.refresh_from_db()
+                self._record_event(
+                    ticket=ticket,
+                    action="status_changed",
+                    from_status=old_status,
+                    to_status=ticket.status,
+                    note=str(request.data.get("note", ""))[:2000],
+                )
                 results.append({"id": ticket.pk, "ok": True})
             else:
                 results.append(
@@ -462,7 +629,11 @@ class TicketViewSet(ModelViewSet):
         comment = serializer.save(ticket=ticket, author=request.user)
         self._record_event(
             ticket=ticket,
-            action="comment_added",
+            action=(
+                "internal_comment_added"
+                if comment.is_internal
+                else "comment_added"
+            ),
             from_status=ticket.status,
             to_status=ticket.status,
             note=comment.body[:80],

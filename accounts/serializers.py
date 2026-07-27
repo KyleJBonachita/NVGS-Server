@@ -37,3 +37,30 @@ class LoginSerializer(serializers.Serializer):
             raise serializers.ValidationError("Invalid email or password.")
         attrs["user"] = user
         return attrs
+
+
+class ProfileSerializer(serializers.ModelSerializer):
+    first_name = serializers.CharField(max_length=150, allow_blank=False)
+    last_name = serializers.CharField(max_length=150, allow_blank=False)
+    department = serializers.CharField(
+        max_length=120,
+        allow_blank=True,
+        required=False,
+    )
+
+    class Meta:
+        model = User
+        fields = ["first_name", "last_name", "department"]
+
+    def validate(self, attrs):
+        user = self.instance
+        for field_name, value in attrs.items():
+            setattr(user, field_name, value.strip())
+        user.full_clean()
+        return attrs
+
+    def update(self, instance, validated_data):
+        for field_name, value in validated_data.items():
+            setattr(instance, field_name, value.strip())
+        instance.save(update_fields=list(validated_data))
+        return instance
