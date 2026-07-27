@@ -30,7 +30,7 @@ This repository currently provides the backend/server foundation:
 - PostgreSQL 17 with a persistent Docker volume
 - Django 5.2 LTS API and administration
 - Email-based local accounts restricted to approved domains
-- Optional signed login bridge for the existing domain-restricted Apps Script
+- Optional signed standalone Apps Script login bridge
 - `agent`, `team`, and `system_admin` roles
 - Ticket creation, assignment, status, priority, resolution, and comments
 - Apps Script-compatible ticket fields, statuses, escalation, downtime, impact,
@@ -52,13 +52,14 @@ This repository currently provides the backend/server foundation:
 
 It does not yet contain the end-user browser interface or approved corporate
 NVIDIA SSO. Local accounts remain available. An optional Apps Script bridge can
-reuse the verified Google Workspace email from the existing domain-restricted
-ticketing app until approved corporate SSO is available.
+reuse the verified Google Workspace email through a separate domain-restricted
+login project until approved corporate SSO is available.
 
 The existing Apps Script login feels automatic because its manifest restricts
 access to the Google Workspace domain, runs as the accessing user, and
 `Auth.js` reads Google's verified active-user email. A local Django site does
-not receive that Google identity automatically.
+not receive that Google identity automatically. The standalone bridge applies
+the same identity mechanism without changing the original ticketing project.
 
 There are three authentication paths:
 
@@ -67,10 +68,10 @@ There are three authentication paths:
 2. **Approved corporate SSO:** register this Django application with the
    corporate Google/OIDC/SAML identity provider and receive a client ID,
    secret, issuer information, and approved callback address.
-3. **Apps Script bridge (implemented, disabled by default):** the existing
-   domain-restricted Apps Script issues a short-lived signed login token
-   containing its verified active email. This retains an Apps Script dependency
-   and should be reviewed before production use. See the
+3. **Apps Script bridge (implemented, disabled by default):** a small
+   domain-restricted standalone Apps Script issues a short-lived signed login
+   token containing its verified active email. This retains an Apps Script
+   dependency and should be reviewed before production use. See the
    **[bridge setup guide](appscript-bridge/README.md)**.
 
 Accepting a typed `@nvidia.com` address without a password or signed identity
@@ -221,6 +222,15 @@ This backs up PostgreSQL before pulling, rebuilds the application, and refreshes
 the selected Ubuntu run mode. In desktop-controller mode, open **NVGS Server
 Control** before updating so the database is available for the backup. Stop and
 reopen the controller after an update so launcher changes take effect.
+
+Prepare the optional standalone Apps Script login with:
+
+```bash
+./scripts/appscript-login-setup.sh prepare
+```
+
+Then follow the
+**[complete bridge setup guide](appscript-bridge/README.md)**.
 
 ## Development and tests
 

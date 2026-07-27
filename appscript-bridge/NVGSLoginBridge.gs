@@ -1,10 +1,44 @@
 /**
  * NVGS local-server login bridge.
  *
- * Add this file to the existing domain-restricted Apps Script project. It
- * issues a 60-second HMAC-signed assertion for Google's verified active user.
- * Never use Session.getEffectiveUser() as a fallback here.
+ * Add this file beside Code.gs in the standalone NVGS Login Bridge project.
+ * It issues a 60-second HMAC-signed assertion for Google's verified active
+ * user. Never use Session.getEffectiveUser() as a fallback here.
  */
+
+function checkNvgsBridgeConfiguration() {
+  var properties = PropertiesService.getScriptProperties();
+  var secret = String(properties.getProperty('NVGS_BRIDGE_SECRET') || '');
+  var callbackUrl = String(
+    properties.getProperty('NVGS_BRIDGE_CALLBACK_URL') || ''
+  );
+  var issuerProperty = String(
+    properties.getProperty('NVGS_BRIDGE_ISSUER') || ''
+  );
+  var audienceProperty = String(
+    properties.getProperty('NVGS_BRIDGE_AUDIENCE') || ''
+  );
+  var domainProperty = String(
+    properties.getProperty('NVGS_BRIDGE_ALLOWED_DOMAIN') || ''
+  ).toLowerCase();
+  var email = String(Session.getActiveUser().getEmail() || '')
+    .trim()
+    .toLowerCase();
+  var emailDomain = email.indexOf('@') === -1 ? '' : email.split('@').pop();
+
+  var result = {
+    secretConfigured: secret.length >= 32,
+    callbackConfigured:
+      /^https:\/\/[^?#]+\/api\/auth\/appscript\/consume\/$/.test(callbackUrl),
+    issuerConfigured: issuerProperty === 'nvgs-appscript',
+    audienceConfigured: audienceProperty === 'nvgs-server',
+    allowedDomainConfigured: domainProperty === 'nvidia.com',
+    activeUserEmailAvailable: Boolean(email),
+    activeUserDomainMatches: emailDomain === domainProperty,
+  };
+  console.log(JSON.stringify(result));
+  return result;
+}
 
 function maybeHandleNvgsLogin_(e) {
   var parameters = (e && e.parameter) || {};

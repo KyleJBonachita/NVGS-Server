@@ -72,7 +72,8 @@ eventually disagree about the correct ticket status.
 
 The server supports administrator-created local accounts. It also has an
 optional signed bridge that reuses the verified active-user email from the
-existing domain-restricted Apps Script. See
+standalone domain-restricted Apps Script project. It does not modify the
+original ticketing system. See
 [`../appscript-bridge/README.md`](../appscript-bridge/README.md).
 
 The bridge is not the same as a corporate NVIDIA SSO registration: it still

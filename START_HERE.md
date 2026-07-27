@@ -189,10 +189,17 @@ In `https://localhost/admin/`, open **Users**.
 - Use a separate local password. Never enter an NVIDIA corporate password into
   this local server.
 
-Local accounts can remain as a fallback. To reuse the existing Google
-Workspace login, follow
+Local accounts can remain as a fallback. To reuse the verified NVIDIA Google
+Workspace identity through the standalone login bridge, follow
 [`appscript-bridge/README.md`](appscript-bridge/README.md) after the server is
 reachable through its approved LAN HTTPS address.
+
+The bridge setup begins with:
+
+```bash
+cd ~/NVGS-Server
+./scripts/appscript-login-setup.sh prepare
+```
 
 ## 11. Create the first backup
 

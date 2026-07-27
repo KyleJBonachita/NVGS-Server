@@ -31,10 +31,10 @@ When the signed bridge is enabled, begin at:
 GET /api/auth/appscript/start/
 ```
 
-The browser visits the existing domain-restricted Apps Script, which reads
-Google's active-user email and returns a 60-second signed assertion. Django
-checks the signature, browser-bound state, expiry, issuer, audience, and email
-domain before creating a session.
+The browser visits the standalone domain-restricted Apps Script bridge, which
+reads Google's active-user email and returns a 60-second signed assertion.
+Django checks the signature, browser-bound state, expiry, issuer, audience, and
+email domain before creating a session.
 
 New verified accounts are created only as `agent`. Existing roles are
 preserved, and disabled accounts remain blocked. Team and administrator access
