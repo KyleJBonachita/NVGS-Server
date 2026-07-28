@@ -30,3 +30,5 @@ class HealthApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["database"], "available")
         self.assertNotIn("webhook_url", response.json())
+        self.assertIn("ticket_notification_mode", response.json())
+        self.assertIn("ticket_notifications_configured", response.json())

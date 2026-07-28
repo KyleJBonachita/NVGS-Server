@@ -39,7 +39,8 @@ This repository currently provides the backend/server foundation:
   root cause, and reopen tracking
 - Private internal notes for Tech Team/TL users
 - Per-ticket audit events
-- Optional queued ticket-activity webhook notifications
+- Queued ticket alerts through an approved HTTPS webhook or the existing
+  email -> Power Automate -> Teams flow
 - Repeatable CSV import for Users, Tickets, Comments, and StatusHistory exports
 - Caddy HTTPS with a local certificate authority
 - Database health checks and permission-restricted Docker secret files
@@ -196,8 +197,9 @@ automatic refresh once:
 ./scripts/refresh-dynamic-lan.sh enp109s0
 ```
 
-After that, opening **NVGS Server Control** detects the current IPv4 address on
-that Ethernet interface before starting Docker and the alert monitors. This
+After that, opening **NVGS Server Control** detects the current IPv4 address
+before starting Docker and the alert monitors. If the saved adapter is
+disconnected, it follows the active default-route adapter. This
 does not make the DHCP address permanent. Without a stable hostname, an address
 change also requires updating the Apps Script callback and client bookmark.
 
@@ -220,7 +222,9 @@ small client setup package while NVGS is running:
 ./scripts/build-client-setup.sh
 ```
 
-The resulting `client-setup-output/NVGS-Client-Setup.zip` contains separate
+The controller now rebuilds the package after the services start. You can also
+run the helper manually. The resulting
+`client-setup-output/NVGS-Client-Setup.zip` contains separate
 Windows and Ubuntu installers. Each verifies and installs the public NVGS CA,
 adds the current friendly-name mapping, and creates a ticketing shortcut. It
 contains no private key or application secret and is intentionally ignored by

@@ -41,11 +41,13 @@ services:
       DJANGO_SECRET_KEY_FILE: /run/secrets/django_secret_key
       APPSCRIPT_SSO_SECRET_FILE: /run/secrets/appscript_bridge_secret
       TICKET_NOTIFICATION_WEBHOOK_URL_FILE: /run/secrets/ticket_notification_webhook
+      EMAIL_HOST_PASSWORD_FILE: /run/secrets/smtp_password
     secrets:
       - postgres_password
       - django_secret_key
       - appscript_bridge_secret
       - ticket_notification_webhook
+      - smtp_password
     volumes:
       - ./imports:/imports:ro
     depends_on:
@@ -87,11 +89,13 @@ services:
       DJANGO_SECRET_KEY_FILE: /run/secrets/django_secret_key
       APPSCRIPT_SSO_SECRET_FILE: /run/secrets/appscript_bridge_secret
       TICKET_NOTIFICATION_WEBHOOK_URL_FILE: /run/secrets/ticket_notification_webhook
+      EMAIL_HOST_PASSWORD_FILE: /run/secrets/smtp_password
     secrets:
       - postgres_password
       - django_secret_key
       - appscript_bridge_secret
       - ticket_notification_webhook
+      - smtp_password
     depends_on:
       db:
         condition: service_healthy
@@ -139,6 +143,8 @@ secrets:
     file: ./secrets/appscript_bridge_secret
   ticket_notification_webhook:
     file: ./secrets/ticket_notification_webhook
+  smtp_password:
+    file: ./secrets/smtp_password
 
 volumes:
   postgres_data:

@@ -50,27 +50,61 @@ elif [[ "${lan_mode:-manual}" != "dynamic" ]]; then
     exit 0
 fi
 
-network_interface="${requested_interface:-$(read_env_value "NVGS_LAN_INTERFACE")}"
-if [[ -z "$network_interface" ]]; then
-    echo "Dynamic LAN mode needs NVGS_LAN_INTERFACE in .env." >&2
-    echo "Enable it once with:" >&2
-    echo "  ./scripts/refresh-dynamic-lan.sh enp109s0" >&2
-    exit 1
-fi
-if [[ ! "$network_interface" =~ ^[A-Za-z0-9_.:-]+$ ]] \
-    || [[ ! -d "/sys/class/net/$network_interface" ]]; then
-    echo "Unknown or unsupported network interface: $network_interface" >&2
+configured_interface="$(read_env_value "NVGS_LAN_INTERFACE")"
+network_interface="${requested_interface:-$configured_interface}"
+
+valid_interface() {
+    local candidate="$1"
+    [[ -n "$candidate" ]] \
+        && [[ "$candidate" =~ ^[A-Za-z0-9_.:-]+$ ]] \
+        && [[ -d "/sys/class/net/$candidate" ]]
+}
+
+interface_address() {
+    local candidate="$1"
+    ip -4 -o address show dev "$candidate" scope global 2>/dev/null \
+        | awk 'NR == 1 {print $4}'
+}
+
+if [[ -n "$requested_interface" ]] && ! valid_interface "$requested_interface"; then
+    echo "Unknown or unsupported network interface: $requested_interface" >&2
     exit 1
 fi
 
-address_cidr="$(
-    ip -4 -o address show dev "$network_interface" scope global 2>/dev/null \
-        | awk 'NR == 1 {print $4}'
-)"
+address_cidr=""
+if valid_interface "$network_interface"; then
+    address_cidr="$(interface_address "$network_interface")"
+fi
+
+# When the desktop controller opens, follow the active default route if the
+# previously saved adapter is disconnected or has no IPv4 address. An
+# explicitly supplied adapter remains strict so setup mistakes are visible.
+if [[ -z "$requested_interface" && -z "$address_cidr" ]]; then
+    detected_interface="$(
+        ip -4 route show default 2>/dev/null \
+            | awk '/default/ {for (i=1; i<=NF; i++) if ($i=="dev") {print $(i+1); exit}}'
+    )"
+    if valid_interface "$detected_interface"; then
+        network_interface="$detected_interface"
+        address_cidr="$(interface_address "$network_interface")"
+    fi
+fi
+
+if [[ -z "$requested_interface" && -z "$address_cidr" ]]; then
+    detected_interface="$(
+        ip -4 -o address show scope global 2>/dev/null \
+            | awk '$2 !~ /^(docker|br-|veth)/ {print $2; exit}'
+    )"
+    if valid_interface "$detected_interface"; then
+        network_interface="$detected_interface"
+        address_cidr="$(interface_address "$network_interface")"
+    fi
+fi
+
 current_ip="${address_cidr%%/*}"
 if [[ -z "$current_ip" ]]; then
-    echo "No IPv4 address is active on $network_interface." >&2
-    echo "Connect Ethernet and try opening NVGS Server Control again." >&2
+    echo "No usable IPv4 LAN address was detected." >&2
+    echo "Connect Ethernet or Wi-Fi and try opening NVGS Server Control again." >&2
     exit 1
 fi
 
@@ -135,12 +169,16 @@ set_env_value "CADDY_SITE_ADDRESSES" "\"$caddy_site_addresses\""
 set_env_value "DJANGO_ALLOWED_HOSTS" "$allowed_hosts"
 set_env_value "DJANGO_CSRF_TRUSTED_ORIGINS" "$trusted_origins"
 set_env_value "APPSCRIPT_SSO_SUCCESS_REDIRECT" "/tickets/"
+set_env_value "TICKET_NOTIFICATION_PUBLIC_BASE_URL" "https://$server_address"
 chmod 600 .env
 
 if [[ "$old_ip" == "$current_ip" ]]; then
     echo "Dynamic LAN address confirmed: $current_ip ($network_interface)"
 else
     echo "Dynamic LAN address refreshed: ${old_ip:-not set} -> $current_ip"
+fi
+if [[ -n "$configured_interface" && "$configured_interface" != "$network_interface" ]]; then
+    echo "Active LAN adapter changed: $configured_interface -> $network_interface"
 fi
 echo "NVGS link: https://$server_address/tickets/"
 

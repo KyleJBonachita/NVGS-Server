@@ -122,12 +122,28 @@ Set-Content `
     -Value $updatedLines `
     -Encoding Ascii
 ipconfig.exe /flushdns | Out-Null
+if (Get-Command Clear-DnsClientCache -ErrorAction SilentlyContinue) {
+    Clear-DnsClientCache
+}
+
+$writtenHosts = Get-Content -LiteralPath $hostsPath -Raw
+$escapedMapping = (
+    "(?m)^\s*" +
+    [Regex]::Escape($ServerIp) +
+    "\s+" +
+    [Regex]::Escape($ServerName) +
+    "(?:\s|$)"
+)
+if ($writtenHosts -notmatch $escapedMapping) {
+    throw "Windows did not save the NVGS hostname mapping in the hosts file."
+}
 
 $publicDesktop = [Environment]::GetFolderPath("CommonDesktopDirectory")
 if ([string]::IsNullOrWhiteSpace($publicDesktop)) {
     $publicDesktop = [Environment]::GetFolderPath("DesktopDirectory")
 }
 $shortcutPath = Join-Path $publicDesktop "NVGS Ticketing.url"
+$fallbackShortcutPath = Join-Path $publicDesktop "NVGS Ticketing - IP fallback.url"
 $shortcutContent = @"
 [InternetShortcut]
 URL=$TicketingUrl
@@ -140,22 +156,88 @@ IconIndex=220
     [Text.Encoding]::ASCII
 )
 
-$connectionMessage = (
-    "Installation completed. Close and reopen your browser, then use the " +
-    "NVGS Ticketing desktop shortcut."
-)
+$resolvedAddresses = @()
 try {
-    Invoke-WebRequest `
-        -Uri $TicketingUrl `
-        -UseBasicParsing `
-        -TimeoutSec 15 |
-        Out-Null
+    $resolvedAddresses = @(
+        [System.Net.Dns]::GetHostAddresses($ServerName) |
+            ForEach-Object { $_.IPAddressToString }
+    )
 }
 catch {
-    $connectionMessage += (
-        "`n`nThe server could not be tested right now. Make sure the NVGS " +
-        "server is running and that this laptop is on the same approved LAN."
+    $resolvedAddresses = @()
+}
+$nameResolved = $resolvedAddresses -contains $ServerIp
+
+$serverReachable = $false
+try {
+    $connection = Test-NetConnection `
+        -ComputerName $ServerIp `
+        -Port 443 `
+        -WarningAction SilentlyContinue
+    $serverReachable = [bool]$connection.TcpTestSucceeded
+}
+catch {
+    $serverReachable = $false
+}
+
+$websiteVerified = $false
+if ($nameResolved -and $serverReachable) {
+    try {
+        Invoke-WebRequest `
+            -Uri $TicketingUrl `
+            -UseBasicParsing `
+            -TimeoutSec 15 |
+            Out-Null
+        $websiteVerified = $true
+    }
+    catch {
+        $websiteVerified = $false
+    }
+}
+
+$connectionMessage = @"
+NVGS client setup completed.
+
+Certificate trusted: Yes
+Windows hostname mapping: $(if ($nameResolved) { "Working" } else { "Needs attention" })
+Server port 443: $(if ($serverReachable) { "Reachable" } else { "Not reachable right now" })
+Website test: $(if ($websiteVerified) { "Passed" } else { "Not completed" })
+
+Close every browser window, reopen the browser, then use the
+"NVGS Ticketing" desktop shortcut.
+"@
+
+if (-not $nameResolved) {
+    $fallbackContent = @"
+[InternetShortcut]
+URL=https://$ServerIp/tickets/
+IconFile=$env:SystemRoot\System32\SHELL32.dll
+IconIndex=220
+"@
+    [IO.File]::WriteAllText(
+        $fallbackShortcutPath,
+        $fallbackContent,
+        [Text.Encoding]::ASCII
     )
+    $connectionMessage += @"
+
+Windows did not resolve $ServerName even though its hosts entry was saved.
+An "NVGS Ticketing - IP fallback" shortcut was also created.
+This usually means a company name-resolution policy is overriding .local.
+"@
+}
+elseif (Test-Path -LiteralPath $fallbackShortcutPath) {
+    Remove-Item -LiteralPath $fallbackShortcutPath -Force
+}
+
+if (-not $serverReachable) {
+    $connectionMessage += @"
+
+The setup is installed, but this laptop cannot currently reach $ServerIp on
+port 443. Check that NVGS Server Control is open and that both laptops are on
+the same production LAN. A building-network firewall or Wi-Fi client isolation
+cannot be repaired by this installer.
+"@
 }
 
 [System.Windows.Forms.MessageBox]::Show(

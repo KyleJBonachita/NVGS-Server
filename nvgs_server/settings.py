@@ -200,6 +200,58 @@ if TICKET_NOTIFICATION_WEBHOOK_URL:
         raise ImproperlyConfigured(
             "TICKET_NOTIFICATION_WEBHOOK_URL must be a complete HTTPS URL."
         )
+TICKET_NOTIFICATION_DELIVERY_MODE = os.getenv(
+    "TICKET_NOTIFICATION_DELIVERY_MODE",
+    "webhook" if TICKET_NOTIFICATION_WEBHOOK_URL else "disabled",
+).strip().lower()
+if TICKET_NOTIFICATION_DELIVERY_MODE not in {"disabled", "webhook", "email"}:
+    raise ImproperlyConfigured(
+        "TICKET_NOTIFICATION_DELIVERY_MODE must be disabled, webhook, or email."
+    )
+TICKET_NOTIFICATION_PUBLIC_BASE_URL = os.getenv(
+    "TICKET_NOTIFICATION_PUBLIC_BASE_URL",
+    "",
+).strip().rstrip("/")
+if TICKET_NOTIFICATION_PUBLIC_BASE_URL:
+    ticket_public_url = urlsplit(TICKET_NOTIFICATION_PUBLIC_BASE_URL)
+    if (
+        ticket_public_url.scheme != "https"
+        or not ticket_public_url.hostname
+        or ticket_public_url.username
+        or ticket_public_url.password
+        or ticket_public_url.query
+        or ticket_public_url.fragment
+    ):
+        raise ImproperlyConfigured(
+            "TICKET_NOTIFICATION_PUBLIC_BASE_URL must be a complete HTTPS URL."
+        )
+TICKET_NOTIFICATION_EMAIL_TO = env_list("TICKET_NOTIFICATION_EMAIL_TO")
+TICKET_NOTIFICATION_EMAIL_TARGET_NAME = os.getenv(
+    "TICKET_NOTIFICATION_EMAIL_TARGET_NAME",
+    "NVGS Ticket Operations",
+).strip()
+TICKET_NOTIFICATION_TEAMS_CHAT_ID = os.getenv(
+    "TICKET_NOTIFICATION_TEAMS_CHAT_ID",
+    "",
+).strip()
+
+EMAIL_BACKEND = os.getenv(
+    "EMAIL_BACKEND",
+    "django.core.mail.backends.smtp.EmailBackend",
+).strip()
+EMAIL_HOST = os.getenv("EMAIL_HOST", "").strip()
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "").strip()
+EMAIL_HOST_PASSWORD = env_secret("EMAIL_HOST_PASSWORD", "") or ""
+EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", True)
+EMAIL_USE_SSL = env_bool("EMAIL_USE_SSL", False)
+EMAIL_TIMEOUT = 8
+DEFAULT_FROM_EMAIL = os.getenv(
+    "DEFAULT_FROM_EMAIL",
+    EMAIL_HOST_USER or "nvgs-ticketing@localhost",
+).strip()
+if EMAIL_USE_TLS and EMAIL_USE_SSL:
+    raise ImproperlyConfigured("EMAIL_USE_TLS and EMAIL_USE_SSL cannot both be true.")
 TICKET_NOTIFICATION_TIMEOUT_SECONDS = 8
 TICKET_NOTIFICATION_MAX_ATTEMPTS = 8
 

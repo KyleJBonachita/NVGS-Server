@@ -31,6 +31,10 @@ if [[ ! -e secrets/ticket_notification_webhook ]]; then
     : > secrets/ticket_notification_webhook
     echo "Created the disabled ticket-notification webhook file."
 fi
+if [[ ! -e secrets/smtp_password ]]; then
+    : > secrets/smtp_password
+    echo "Created the disabled SMTP-password file."
+fi
 
 chmod 600 .env
 chmod 700 secrets backups
@@ -43,7 +47,8 @@ chmod 644 \
     secrets/postgres_password \
     secrets/django_secret_key \
     secrets/appscript_bridge_secret \
-    secrets/ticket_notification_webhook
+    secrets/ticket_notification_webhook \
+    secrets/smtp_password
 
 echo
 echo "Secrets are ready. Review .env before starting the server."

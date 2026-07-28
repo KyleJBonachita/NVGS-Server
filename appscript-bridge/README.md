@@ -70,6 +70,31 @@ computer's `localhost`.
    `appscript-bridge/appsscript.json`.
 10. Save the project.
 
+### Optional later updates with clasp
+
+Manual copying is the simplest first setup. After the project works, `clasp`
+can update the same standalone bridge from Ubuntu:
+
+1. Enable the Apps Script API for the approved Google account.
+2. Create `appscript-bridge/.clasp.json` containing that bridge project's
+   `scriptId`. The file is ignored by Git.
+3. Sign in once:
+
+   ```bash
+   npx --yes @google/clasp login --no-localhost
+   ```
+
+4. Review and push:
+
+   ```bash
+   ./scripts/appscript-clasp-sync.sh
+   ```
+
+The helper shows the files first and asks before pushing. `clasp push` replaces
+the remote project's complete source, so it is intentionally not run whenever
+the local NVGS server starts. A changing server IP also does not require a push
+when the stable `ticketing-system.local` callback remains unchanged.
+
 There is no `Index.html` file. The standalone `Code.gs` deliberately does not
 reference one.
 

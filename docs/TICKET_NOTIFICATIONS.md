@@ -1,63 +1,99 @@
-# Ticket notifications
+# Ticket notifications and Power Automate
 
-Ticket notifications are disabled by default. Tickets always save to
-PostgreSQL first; a separate `notifications` container sends queued messages
-afterward. A webhook outage therefore does not block ticket creation.
+Ticket notifications are disabled by default. Tickets save to PostgreSQL
+first; the separate `notifications` container sends queued alerts afterward.
+An email, Power Automate, Teams, or internet outage never blocks ticket
+creation.
 
-Events queued when enabled:
+Queued events:
 
 - New ticket
 - Assignment
 - Status change
+- Resolution or reopen
 - Escalation
 - Public comment
 
-Internal notes are deliberately excluded.
+Internal notes are never sent.
 
-## Configure an approved HTTPS webhook
+## Recommended setup helper
 
-On Ubuntu:
+On Ubuntu, keep **NVGS Server Control** open and run:
 
 ```bash
 cd ~/NVGS-Server
-sudo nano secrets/ticket_notification_webhook
+./scripts/configure-ticket-notifications.sh
 ```
 
-Put the single approved HTTPS webhook URL on the first line. Do not add quotes
-or other text. Protect and apply it:
+Choose:
+
+1. Disabled
+2. Approved HTTPS webhook
+3. Email to the existing Power Automate-monitored inbox
+
+The email choice asks for an approved SMTP relay/service account. Never use a
+personal NVIDIA, Google, or Microsoft password. The password is entered hidden
+and stored only in the ignored `secrets/smtp_password` file.
+
+Apply the configuration:
 
 ```bash
-sudo chmod 600 secrets/ticket_notification_webhook
 docker compose up -d --build
-docker compose ps
+docker compose logs --tail=50 notifications
 ```
 
-The dashboard's **System status** page reports only whether a webhook is
-configured and how many messages are queued/failed. It never displays the URL.
+## Existing email -> Power Automate -> Teams flow
 
-Different Teams, Slack, and automation products can require different JSON
-formats. NVGS currently sends a plain `text` field plus structured ticket
-details. Confirm the selected approved endpoint accepts that payload during
-the fake-data pilot. Adapt `tickets/notifications.py` only after obtaining the
-endpoint's official format.
+Email mode preserves the original Apps Script convention:
 
-Email delivery is not enabled because no approved SMTP relay, sender address,
-or authentication details have been supplied. Do not put a personal mailbox
-password into NVGS.
+```text
+Subject: GRTKT_EVENT TICKET_CREATED NVGS-2026-000123
+Body: structured JSON
+```
 
-## Check the worker
+The JSON includes `app`, `eventType`, `ticket`, `actor`, `teams`,
+`idempotencyKey`, and `sentAt`. This means the existing Power Automate flow can
+continue filtering subjects beginning with `GRTKT_EVENT` and parsing the body.
+
+The original sender was Apps Script. Django still needs an approved way to send
+mail. Ask the project owner/security reviewer for one of:
+
+- A restricted internal SMTP relay
+- A dedicated SMTP service account
+- A Power Automate HTTPS trigger approved for this project
+
+Do not bypass MFA or corporate mail policy. If no approved sender is available,
+keep delivery disabled; queued ticket operations remain fully functional.
+
+In Power Automate, the existing flow should:
+
+1. Trigger when a new email reaches the monitored inbox.
+2. Filter subjects beginning with `GRTKT_EVENT`.
+3. Parse the JSON body.
+4. Use `eventType` for the notification case.
+5. Post the formatted message to the approved Teams chat or channel.
+6. Use `idempotencyKey` to avoid duplicate posts after retries.
+
+Microsoft's Teams action cannot mark an automated message as Urgent or
+Important, so represent urgency in the card/message text instead.
+
+## HTTPS webhook mode
+
+Run the setup helper and paste only the approved HTTPS URL. It is stored in
+`secrets/ticket_notification_webhook`, never displayed in the dashboard, and
+never committed to Git.
+
+NVGS sends a plain `text` field plus structured ticket details. Confirm the
+chosen flow accepts that payload during the fake-data pilot.
+
+## Check or retry the worker
 
 ```bash
 docker compose logs --tail=100 notifications
-```
-
-To process the current queue once for diagnostics:
-
-```bash
 docker compose exec notifications \
   python manage.py process_ticket_notifications --once
 ```
 
-Failed deliveries retry with increasing delays. Messages that reach the retry
-limit remain visible in Django administration and the System status page for
+Failed deliveries retry with increasing delays. Items that reach the retry
+limit remain visible in Django administration and on **System status** for
 review.

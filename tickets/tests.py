@@ -297,7 +297,8 @@ class TicketAccessTests(APITestCase):
         self.assertTrue(exported_title.startswith("'="))
 
     @override_settings(
-        TICKET_NOTIFICATION_WEBHOOK_URL="https://notifications.example.test/hook"
+        TICKET_NOTIFICATION_DELIVERY_MODE="webhook",
+        TICKET_NOTIFICATION_WEBHOOK_URL="https://notifications.example.test/hook",
     )
     def test_public_ticket_events_queue_notifications_but_internal_notes_do_not(self):
         self.authenticate(self.agent_one)

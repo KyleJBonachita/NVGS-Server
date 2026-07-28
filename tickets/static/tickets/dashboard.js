@@ -8,11 +8,12 @@
     assignableUsers: [],
     currentView: "overview",
     queueMode: "mine",
+    queueGroup: "active",
     page: 1,
     pageCount: 1,
     currentTicketId: null,
     selectedTicketIds: new Set(),
-    analyticsPeriod: 30,
+    analyticsPeriod: "30",
   };
 
   const byId = function (id) {
@@ -200,6 +201,24 @@
     now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
     byId("ticket-downtime").value = now.toISOString().slice(0, 16);
     byId("create-error").hidden = true;
+    updateCreateProgress();
+  }
+
+  function updateCreateProgress() {
+    const steps = Array.from(
+      document.querySelectorAll(".ticket-form-progress span")
+    );
+    if (!steps.length) return;
+    const issueReady = [
+      byId("ticket-title").value,
+      byId("ticket-category").value,
+      byId("ticket-workstation").value,
+    ].every(function (value) { return String(value || "").trim(); });
+    const detailsReady = issueReady && byId("ticket-description").value.trim();
+    steps[0].classList.toggle("complete", issueReady);
+    steps[1].classList.toggle("active", issueReady);
+    steps[1].classList.toggle("complete", detailsReady);
+    steps[2].classList.toggle("active", detailsReady);
   }
 
   function fillConfiguration() {
@@ -291,9 +310,6 @@
       '<div class="loading-card"><span class="spinner"></span><p>Loading tickets…</p></div>';
     try {
       const params = new URLSearchParams();
-      if (isManager() && state.queueMode === "mine") {
-        params.set("reporter", String(state.user.id));
-      }
       const suffix = params.toString() ? "?" + params.toString() : "";
       const results = await Promise.all([
         api("/api/tickets/summary/" + suffix),
@@ -338,6 +354,9 @@
     });
     if (isManager() && state.queueMode === "mine") {
       params.set("reporter", String(state.user.id));
+    }
+    if (!params.has("status") && state.queueGroup !== "all") {
+      params.set("status_group", state.queueGroup);
     }
     if (includePage !== false) params.set("page", String(state.page));
     return params;
@@ -451,11 +470,30 @@
         escapeHtml(user.display_name) + "</option>"
       );
     }).join("");
-    const transitions = (state.config.status_transitions[ticket.status] || [])
-      .map(function (status) {
+    const transitionValues = state.config.status_transitions[ticket.status] || [];
+    const transitions = transitionValues.map(function (status) {
         return '<option value="' + escapeHtml(status) + '">' +
           escapeHtml(status) + "</option>";
       }).join("");
+    const quickLabels = {
+      "Assigned": "Mark assigned",
+      "In Progress": "Start work",
+      "On Hold": "Put on hold",
+      "Resolved": "Resolve",
+      "Closed": "Close",
+      "Reopened": "Reopen",
+      "Open": "Return to open",
+    };
+    const quickActions = transitionValues.map(function (status) {
+      const primary = status === "In Progress" || status === "Resolved";
+      return (
+        '<button class="button ' +
+        (primary ? "button-primary" : "button-secondary") +
+        '" type="button" data-quick-status="' + escapeHtml(status) + '">' +
+        escapeHtml(quickLabels[status] || status) +
+        "</button>"
+      );
+    }).join("");
     const rootCauses = state.config.root_causes.map(function (cause) {
       return '<option value="' + escapeHtml(cause) + '">' +
         escapeHtml(cause) + "</option>";
@@ -463,6 +501,10 @@
     return (
       '<section class="detail-section" id="management-actions">' +
       "<h3>Team actions</h3>" +
+      (quickActions
+        ? '<div class="quick-actions" aria-label="Quick ticket actions">' +
+          quickActions + "</div>"
+        : "") +
       '<div class="action-bar">' +
       '<label>Assign to<select id="detail-assignee"><option value="">Select team member</option>' +
       assigneeOptions + "</select></label>" +
@@ -548,6 +590,23 @@
     });
 
     if (!isManager()) return;
+    document.querySelectorAll("[data-quick-status]").forEach(function (button) {
+      button.addEventListener("click", async function () {
+        const nextStatus = button.dataset.quickStatus;
+        if (nextStatus === "Resolved") {
+          byId("detail-status").value = nextStatus;
+          byId("detail-resolution").focus();
+          showToast("Add resolution notes, then select Update status.");
+          return;
+        }
+        await runTicketAction(
+          ticket,
+          "/transition/",
+          { status: nextStatus, note: "Quick action: " + nextStatus },
+          "Status changed to " + nextStatus + "."
+        );
+      });
+    });
     byId("assign-ticket").addEventListener("click", async function () {
       const assignee = byId("detail-assignee").value;
       if (!assignee) {
@@ -818,16 +877,17 @@
     }
   }
 
-  function renderBarChart(element, rows, labelForRow) {
+  function renderBarChart(element, rows, labelForRow, valueForRow) {
     if (!rows.length) {
       element.innerHTML = '<p class="muted">No data in this period.</p>';
       return;
     }
+    const getValue = valueForRow || function (row) { return row.count; };
     const maximum = Math.max.apply(null, rows.map(function (row) {
-      return Number(row.count) || 0;
+      return Number(getValue(row)) || 0;
     }));
     element.innerHTML = rows.slice(0, 15).map(function (row) {
-      const count = Number(row.count) || 0;
+      const count = Number(getValue(row)) || 0;
       return (
         '<div class="bar-row"><span class="bar-label" title="' +
         escapeHtml(labelForRow(row)) + '">' + escapeHtml(labelForRow(row)) +
@@ -852,6 +912,9 @@
         ["Tickets", metrics.total || 0],
         ["Active", metrics.active || 0],
         ["Resolved", metrics.resolved || 0],
+        ["Urgent", metrics.urgent || 0],
+        ["Unassigned", metrics.unassigned || 0],
+        ["Total downtime", (metrics.total_downtime || 0) + " min"],
         ["Avg downtime", (metrics.average_downtime || 0) + " min"],
         ["Avg response", (metrics.average_response || 0) + " min"],
         ["Avg resolution", (metrics.average_resolution || 0) + " min"],
@@ -864,6 +927,13 @@
       }).join("");
       renderBarChart(byId("chart-trend"), data.trend, function (row) {
         return row.day;
+      }, function (row) {
+        return row.created;
+      });
+      renderBarChart(byId("chart-resolved-trend"), data.trend, function (row) {
+        return row.day;
+      }, function (row) {
+        return row.resolved;
       });
       renderBarChart(byId("chart-status"), data.by_status, function (row) {
         return row.status || "Unknown";
@@ -886,6 +956,27 @@
         ].filter(Boolean).join(" ");
         return name || row.resolved_by__email;
       });
+      renderBarChart(
+        byId("chart-downtime-workstation"),
+        data.downtime_by_workstation,
+        function (row) { return row.workstation || "Not recorded"; },
+        function (row) { return row.downtime; }
+      );
+      const healthRows = data.workstation_health || [];
+      byId("workstation-health-body").innerHTML = healthRows.length
+        ? healthRows.map(function (row) {
+          return (
+            "<tr><td><strong>" + escapeHtml(row.workstation) + "</strong></td>" +
+            '<td><span class="health-chip health-' + slug(row.health) + '">' +
+            escapeHtml(row.health) + "</span></td>" +
+            "<td>" + Number(row.count || 0) + "</td>" +
+            "<td>" + Number(row.active || 0) + "</td>" +
+            "<td>" + Number(row.urgent || 0) + "</td>" +
+            "<td>" + Number(row.downtime || 0) + " min</td></tr>"
+          );
+        }).join("")
+        : '<tr><td colspan="6"><div class="empty-state compact">' +
+          "<p>No workstation data in this period.</p></div></td></tr>";
     } catch (error) {
       byId("analytics-metrics").innerHTML =
         '<div class="empty-state compact"><p>' +
@@ -907,9 +998,10 @@
           status.appscript_login_enabled ? "Enabled" : "Disabled",
         ],
         [
-          "Ticket webhook",
-          status.ticket_webhook_configured ? "Configured" : "Disabled",
+          "Ticket alerts",
+          status.ticket_notifications_configured ? "Configured" : "Disabled",
         ],
+        ["Alert delivery", status.ticket_notification_mode],
         ["Queued alerts", status.pending_notifications],
         ["Failed attempts", status.failed_notifications],
         ["Needs review", status.abandoned_notifications],
@@ -1017,6 +1109,8 @@
   });
 
   byId("create-ticket-form").addEventListener("submit", createTicket);
+  byId("create-ticket-form").addEventListener("input", updateCreateProgress);
+  byId("create-ticket-form").addEventListener("change", updateCreateProgress);
   byId("profile-form").addEventListener("submit", saveProfile);
   byId("ticket-filters").addEventListener("submit", function (event) {
     event.preventDefault();
@@ -1025,6 +1119,29 @@
   byId("clear-filters").addEventListener("click", function () {
     byId("ticket-filters").reset();
     fillConfiguration();
+    loadTickets(true);
+  });
+  document.querySelectorAll("[data-status-group]").forEach(function (button) {
+    button.addEventListener("click", function () {
+      state.queueGroup = button.dataset.statusGroup;
+      byId("filter-status").value = "";
+      document.querySelectorAll("[data-status-group]").forEach(function (tab) {
+        tab.classList.toggle("active", tab === button);
+      });
+      loadTickets(true);
+    });
+  });
+  byId("sidebar-search-form").addEventListener("submit", function (event) {
+    event.preventDefault();
+    const query = byId("sidebar-search").value.trim();
+    state.queueMode = isManager() ? "all" : "mine";
+    state.queueGroup = "all";
+    byId("filter-search").value = query;
+    document.querySelectorAll("[data-status-group]").forEach(function (tab) {
+      tab.classList.toggle("active", tab.dataset.statusGroup === "all");
+    });
+    byId("tickets-heading").textContent =
+      state.queueMode === "all" ? "Complete queue" : "My tickets";
     loadTickets(true);
   });
   byId("previous-page").addEventListener("click", function () {
@@ -1052,7 +1169,7 @@
   byId("export-tickets").addEventListener("click", exportTickets);
   document.querySelectorAll(".analytics-period").forEach(function (button) {
     button.addEventListener("click", function () {
-      state.analyticsPeriod = Number(button.dataset.period);
+      state.analyticsPeriod = button.dataset.period;
       document.querySelectorAll(".analytics-period").forEach(function (periodButton) {
         periodButton.classList.toggle(
           "button-secondary",

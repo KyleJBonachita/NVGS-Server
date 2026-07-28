@@ -31,6 +31,12 @@
   <div class="app-shell">
     <aside id="sidebar" class="sidebar">
       <nav aria-label="Ticketing">
+        <form id="sidebar-search-form" class="sidebar-search" role="search">
+          <label class="sr-only" for="sidebar-search">Search tickets</label>
+          <span aria-hidden="true">⌕</span>
+          <input id="sidebar-search" type="search"
+                 placeholder="Search ticket ID or issue">
+        </form>
         <p class="nav-label">Workspace</p>
         <button class="nav-button active" type="button" data-view="overview">
           <span aria-hidden="true">⌂</span> Overview
@@ -52,7 +58,7 @@
             <span aria-hidden="true">◎</span> Complete queue
           </button>
           <button class="nav-button" type="button" data-view="analytics">
-            <span aria-hidden="true">A</span> Analytics
+            <span aria-hidden="true">↗</span> Operations
           </button>
           <button class="nav-button" type="button" data-view="settings">
             <span aria-hidden="true">S</span> System status
@@ -108,6 +114,13 @@
           </div>
         </div>
         <form id="create-ticket-form" class="panel form-panel" novalidate>
+          <div class="ticket-form-progress field-wide" aria-label="Ticket form steps">
+            <span class="active"><b>1</b> Issue</span>
+            <i></i>
+            <span><b>2</b> Details</span>
+            <i></i>
+            <span><b>3</b> Submit</span>
+          </div>
           <div id="reporter-field" class="field field-wide" hidden>
             <label for="ticket-reporter">File for an agent</label>
             <select id="ticket-reporter" name="reporter_id">
@@ -132,32 +145,40 @@
             <label for="ticket-workstation">Workstation <span aria-hidden="true">*</span></label>
             <select id="ticket-workstation" name="workstation" required></select>
           </div>
-          <div class="field">
-            <label for="ticket-location">Location</label>
-            <select id="ticket-location" name="location"></select>
-          </div>
-          <div class="field">
-            <label for="ticket-downtime">Downtime started</label>
-            <input id="ticket-downtime" name="downtime_start" type="datetime-local">
-          </div>
-          <div class="field">
-            <label for="ticket-impact">Business impact</label>
-            <select id="ticket-impact" name="impact_level"></select>
-          </div>
           <div class="field field-wide">
             <label for="ticket-description">Description <span aria-hidden="true">*</span></label>
             <textarea id="ticket-description" name="description" required rows="5"
                       placeholder="What happened? Include error messages, symptoms, and troubleshooting already tried."></textarea>
           </div>
-          <div class="field">
-            <label for="ticket-tags">Tags</label>
-            <input id="ticket-tags" name="tags" placeholder="camera, glove, usb">
-          </div>
-          <div class="field">
-            <label for="ticket-affected">Affected stations</label>
-            <input id="ticket-affected" name="affected_stations"
-                   placeholder="Gear01, Gear03">
-          </div>
+          <details class="optional-details field-wide">
+            <summary>Add optional production details</summary>
+            <p class="muted">
+              These help with impact tracking, but they do not block submission.
+            </p>
+            <div class="optional-grid">
+              <div class="field">
+                <label for="ticket-location">Location</label>
+                <select id="ticket-location" name="location"></select>
+              </div>
+              <div class="field">
+                <label for="ticket-downtime">Downtime started</label>
+                <input id="ticket-downtime" name="downtime_start" type="datetime-local">
+              </div>
+              <div class="field">
+                <label for="ticket-impact">Business impact</label>
+                <select id="ticket-impact" name="impact_level"></select>
+              </div>
+              <div class="field">
+                <label for="ticket-tags">Tags</label>
+                <input id="ticket-tags" name="tags" placeholder="camera, glove, usb">
+              </div>
+              <div class="field field-wide">
+                <label for="ticket-affected">Affected stations</label>
+                <input id="ticket-affected" name="affected_stations"
+                       placeholder="Gear01, Gear03">
+              </div>
+            </div>
+          </details>
           <div class="form-actions field-wide">
             <p id="create-error" class="form-error" role="alert" hidden></p>
             <button id="create-ticket-button" class="button button-primary" type="submit">
@@ -176,6 +197,17 @@
           </div>
           <button class="button button-primary" type="button" data-view-target="create">
             Raise a ticket
+          </button>
+        </div>
+        <div class="queue-tabs" role="group" aria-label="Ticket queue view">
+          <button class="queue-tab active" type="button" data-status-group="active">
+            Open &amp; active
+          </button>
+          <button class="queue-tab" type="button" data-status-group="resolved">
+            Resolved &amp; closed
+          </button>
+          <button class="queue-tab" type="button" data-status-group="all">
+            All tickets
           </button>
         </div>
         <form id="ticket-filters" class="filter-bar">
@@ -296,24 +328,34 @@
       <section id="view-analytics" class="view" aria-labelledby="analytics-heading">
         <div class="page-heading">
           <div>
-            <p class="eyebrow">Reports</p>
-            <h1 id="analytics-heading">Ticket analytics</h1>
-            <p class="muted">Operational totals and trends from the local database.</p>
+            <p class="eyebrow">Team control room</p>
+            <h1 id="analytics-heading">Operations dashboard</h1>
+            <p class="muted">
+              Queue health, response performance, downtime, and workstation risk.
+            </p>
           </div>
           <div class="period-buttons" role="group" aria-label="Analytics period">
+            <button class="button button-ghost analytics-period" type="button"
+                    data-period="today">Today</button>
             <button class="button button-ghost analytics-period" type="button"
                     data-period="7">7 days</button>
             <button class="button button-secondary analytics-period" type="button"
                     data-period="30">30 days</button>
             <button class="button button-ghost analytics-period" type="button"
                     data-period="90">90 days</button>
+            <button class="button button-ghost analytics-period" type="button"
+                    data-period="all">All</button>
           </div>
         </div>
         <div id="analytics-metrics" class="summary-grid"></div>
         <div class="analytics-grid">
           <section class="panel chart-panel">
-            <h2>Ticket volume</h2>
+            <h2>Tickets created</h2>
             <div id="chart-trend" class="bar-chart"></div>
+          </section>
+          <section class="panel chart-panel">
+            <h2>Tickets resolved</h2>
+            <div id="chart-resolved-trend" class="bar-chart"></div>
           </section>
           <section class="panel chart-panel">
             <h2>By status</h2>
@@ -335,7 +377,34 @@
             <h2>Resolved by Team member</h2>
             <div id="chart-resolved-by" class="bar-chart"></div>
           </section>
+          <section class="panel chart-panel">
+            <h2>Downtime by workstation</h2>
+            <div id="chart-downtime-workstation" class="bar-chart"></div>
+          </section>
         </div>
+        <section class="panel workstation-panel">
+          <div class="panel-heading">
+            <div>
+              <h2>Workstation health</h2>
+              <p class="muted">Prioritized using active, urgent, and downtime records.</p>
+            </div>
+          </div>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Workstation</th>
+                  <th>Health</th>
+                  <th>Tickets</th>
+                  <th>Active</th>
+                  <th>Urgent</th>
+                  <th>Downtime</th>
+                </tr>
+              </thead>
+              <tbody id="workstation-health-body"></tbody>
+            </table>
+          </div>
+        </section>
       </section>
 
       <section id="view-settings" class="view" aria-labelledby="settings-heading">
@@ -355,19 +424,22 @@
         <section class="panel settings-help">
           <h2>Ticket notifications</h2>
           <p class="muted">
-            When an approved HTTPS webhook is configured on Ubuntu, NVGS queues
-            new-ticket, assignment, status, escalation and public-comment
-            notifications. Internal notes are never sent to the webhook.
+            NVGS can use an approved HTTPS webhook or send the same structured
+            email consumed by the existing Power Automate flow. New-ticket,
+            assignment, status, resolution, escalation, and public-comment events
+            are queued. Internal notes are never sent.
           </p>
-          <pre>sudo nano secrets/ticket_notification_webhook
+          <pre>nano .env
+sudo nano secrets/smtp_password
 docker compose up -d --build</pre>
           <h2>LAN configuration</h2>
           <p class="muted">
-            Run the LAN helper only after the assigned address is already active
-            on Ubuntu.
+            Dynamic mode detects the active Ubuntu IPv4 address whenever NVGS
+            Server Control opens. Client laptops still need a hostname mapping,
+            approved DNS, or a DHCP reservation.
           </p>
           <pre>./scripts/lan-readiness.sh
-./scripts/configure-approved-lan.sh ASSIGNED_IPV4</pre>
+./scripts/refresh-dynamic-lan.sh</pre>
         </section>
       </section>
 

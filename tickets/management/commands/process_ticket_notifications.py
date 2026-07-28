@@ -7,6 +7,7 @@ from django.utils import timezone
 from tickets.models import TicketNotification
 from tickets.notifications import (
     deliver_notification,
+    notification_configuration,
     record_delivery_failure,
 )
 
@@ -23,12 +24,16 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         once = options["once"]
-        if not settings.TICKET_NOTIFICATION_WEBHOOK_URL:
+        mode, configured = notification_configuration()
+        if not configured:
             if once:
-                self.stdout.write("Ticket notification webhook is disabled.")
+                self.stdout.write(
+                    f"Ticket notification delivery is not configured (mode: {mode})."
+                )
                 return
             self.stdout.write(
-                "Ticket notification webhook is disabled; waiting for configuration."
+                f"Ticket notification delivery is not configured (mode: {mode}); "
+                "waiting for configuration."
             )
 
         while True:
@@ -38,7 +43,8 @@ class Command(BaseCommand):
             time.sleep(2 if processed else 10)
 
     def process_batch(self) -> int:
-        if not settings.TICKET_NOTIFICATION_WEBHOOK_URL:
+        _mode, configured = notification_configuration()
+        if not configured:
             return 0
 
         notifications = list(

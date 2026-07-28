@@ -159,12 +159,28 @@ for required_service in db app notifications caddy; do
     fi
 done
 
+client_setup_ready=false
+stable_server_name="$(read_env_value "NVGS_LAN_SERVER_NAME")"
+controller_user="${SUDO_USER:-}"
+if [[ -n "$stable_server_name" && -n "$controller_user" ]]; then
+    if sudo -u "$controller_user" -- \
+        "$project_dir/scripts/build-client-setup.sh" >/dev/null; then
+        client_setup_ready=true
+    else
+        echo "WARNING: The client setup ZIP could not be refreshed." >&2
+        echo "The website remains available; rebuild the ZIP from Ubuntu later." >&2
+    fi
+fi
+
 echo
 docker compose ps
 echo
 echo "NVGS IS RUNNING"
 echo "- Ticketing: https://${server_address:-localhost}/tickets/"
 echo "- Health: https://${server_address:-localhost}/api/health/"
+if [[ "$client_setup_ready" == "true" ]]; then
+    echo "- Current Windows/Ubuntu setup ZIP: client-setup-output/NVGS-Client-Setup.zip"
+fi
 echo "- Full-screen warnings and alert monitoring are active."
 echo "- Sleep and lid-close suspension are blocked while this window is open."
 echo "- Keep the charger and Ethernet cable connected."

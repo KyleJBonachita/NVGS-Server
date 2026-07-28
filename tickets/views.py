@@ -1,7 +1,7 @@
 import csv
 from datetime import timedelta
 
-from django.db.models import Avg, Count, Q
+from django.db.models import Avg, Count, Q, Sum
 from django.db.models.functions import TruncDate
 from django.http import HttpResponse
 from django.utils import timezone
@@ -92,6 +92,7 @@ class TicketViewSet(ModelViewSet):
             queryset = queryset.filter(Q(reporter=user) | Q(created_by=user))
 
         status_value = self.request.query_params.get("status")
+        status_group = self.request.query_params.get("status_group")
         priority = self.request.query_params.get("priority")
         category = self.request.query_params.get("category")
         workstation = self.request.query_params.get("workstation")
@@ -104,6 +105,20 @@ class TicketViewSet(ModelViewSet):
 
         if status_value:
             queryset = queryset.filter(status=status_value)
+        elif status_group == "active":
+            queryset = queryset.filter(
+                status__in=[
+                    TicketStatus.OPEN,
+                    TicketStatus.ASSIGNED,
+                    TicketStatus.IN_PROGRESS,
+                    TicketStatus.ON_HOLD,
+                    TicketStatus.REOPENED,
+                ]
+            )
+        elif status_group == "resolved":
+            queryset = queryset.filter(
+                status__in=[TicketStatus.RESOLVED, TicketStatus.CLOSED]
+            )
         if priority:
             queryset = queryset.filter(priority=priority)
         if category:
@@ -214,6 +229,8 @@ class TicketViewSet(ModelViewSet):
             ticket=ticket,
             event_type=action,
             actor_name=self.request.user.display_name,
+            actor_email=self.request.user.email,
+            actor_role=self.request.user.role,
             note=note,
         )
         return event
@@ -333,15 +350,20 @@ class TicketViewSet(ModelViewSet):
 
     @action(detail=False, methods=["get"])
     def analytics(self, request):
-        try:
-            period_days = int(request.query_params.get("period", "30"))
-        except ValueError:
-            raise ValidationError({"period": "Period must be 7, 30, or 90 days."})
-        if period_days not in {7, 30, 90}:
-            raise ValidationError({"period": "Period must be 7, 30, or 90 days."})
+        period = request.query_params.get("period", "30").lower()
+        period_days = {"today": 1, "7": 7, "30": 30, "90": 90}.get(period)
+        if period != "all" and period_days is None:
+            raise ValidationError(
+                {"period": "Period must be today, 7, 30, 90, or all."}
+            )
 
-        start = timezone.now() - timedelta(days=period_days)
-        queryset = self.get_queryset().filter(created_at__gte=start)
+        queryset = self.get_queryset()
+        if period == "today":
+            queryset = queryset.filter(created_at__date=timezone.localdate())
+        elif period_days is not None:
+            queryset = queryset.filter(
+                created_at__gte=timezone.now() - timedelta(days=period_days)
+            )
         active_statuses = [
             TicketStatus.OPEN,
             TicketStatus.ASSIGNED,
@@ -367,13 +389,41 @@ class TicketViewSet(ModelViewSet):
             average_downtime=Avg("downtime_minutes"),
             average_response=Avg("response_minutes"),
             average_resolution=Avg("resolution_minutes"),
+            total_downtime=Sum("downtime_minutes"),
+            urgent=Count("id", filter=Q(priority=TicketPriority.URGENT)),
+            unassigned=Count(
+                "id",
+                filter=Q(assignee__isnull=True, status__in=active_statuses),
+            ),
         )
-        trend = list(
+        created_trend = list(
             queryset.annotate(day=TruncDate("created_at"))
             .values("day")
-            .annotate(count=Count("id"))
+            .annotate(created=Count("id"))
             .order_by("day")
         )
+        resolved_trend = list(
+            queryset.filter(resolved_at__isnull=False)
+            .annotate(day=TruncDate("resolved_at"))
+            .values("day")
+            .annotate(resolved=Count("id"))
+            .order_by("day")
+        )
+        trend_by_day = {
+            str(row["day"]): {
+                "day": row["day"],
+                "created": row["created"],
+                "resolved": 0,
+            }
+            for row in created_trend
+        }
+        for row in resolved_trend:
+            key = str(row["day"])
+            trend_by_day.setdefault(
+                key,
+                {"day": row["day"], "created": 0, "resolved": 0},
+            )["resolved"] = row["resolved"]
+        trend = [trend_by_day[key] for key in sorted(trend_by_day)]
         resolved_by = list(
             queryset.filter(resolved_by__isnull=False)
             .values(
@@ -384,9 +434,33 @@ class TicketViewSet(ModelViewSet):
             .annotate(count=Count("id"))
             .order_by("-count", "resolved_by__email")
         )
+        downtime_by_workstation = list(
+            queryset.exclude(workstation="")
+            .values("workstation")
+            .annotate(
+                count=Count("id"),
+                downtime=Sum("downtime_minutes"),
+                active=Count("id", filter=Q(status__in=active_statuses)),
+                urgent=Count("id", filter=Q(priority=TicketPriority.URGENT)),
+            )
+            .order_by("-downtime", "-active", "workstation")
+        )
+        workstation_health = []
+        for row in downtime_by_workstation:
+            active = row["active"] or 0
+            urgent = row["urgent"] or 0
+            downtime = row["downtime"] or 0
+            if urgent or active >= 3 or downtime >= 240:
+                health = "Needs attention"
+            elif active or downtime >= 60:
+                health = "Watch"
+            else:
+                health = "Healthy"
+            workstation_health.append({**row, "health": health})
 
         return Response(
             {
+                "period": period,
                 "period_days": period_days,
                 "metrics": {
                     key: (
@@ -402,6 +476,8 @@ class TicketViewSet(ModelViewSet):
                 "by_workstation": grouped("workstation"),
                 "trend": trend,
                 "resolved_by": resolved_by,
+                "downtime_by_workstation": downtime_by_workstation,
+                "workstation_health": workstation_health,
             }
         )
 
@@ -533,12 +609,20 @@ class TicketViewSet(ModelViewSet):
         ticket.refresh_from_db()
         self._record_event(
             ticket=ticket,
-            action="status_changed",
+            action=self._notification_action_for_status(ticket.status),
             from_status=old_status,
             to_status=ticket.status,
             note=str(request.data.get("note", ""))[:2000],
         )
         return Response(self.get_serializer(ticket).data)
+
+    @staticmethod
+    def _notification_action_for_status(status_value):
+        if status_value == TicketStatus.RESOLVED:
+            return "resolved"
+        if status_value == TicketStatus.REOPENED:
+            return "reopened"
+        return "status_changed"
 
     @action(detail=True, methods=["post"])
     def escalate(self, request, pk=None):
@@ -592,7 +676,7 @@ class TicketViewSet(ModelViewSet):
                 ticket.refresh_from_db()
                 self._record_event(
                     ticket=ticket,
-                    action="status_changed",
+                    action=self._notification_action_for_status(ticket.status),
                     from_status=old_status,
                     to_status=ticket.status,
                     note=str(request.data.get("note", ""))[:2000],

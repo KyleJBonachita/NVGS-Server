@@ -6,6 +6,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from tickets.models import TicketNotification
+from tickets.notifications import notification_configuration
 
 
 class HealthView(APIView):
@@ -34,15 +35,15 @@ class SystemStatusView(APIView):
                 "Only the Tech Team, TLs, and Managers can view system status."
             )
         pending = TicketNotification.objects.filter(sent_at__isnull=True)
+        notification_mode, notification_configured = notification_configuration()
         return Response(
             {
                 "environment": settings.ENVIRONMENT,
                 "server_address": request.get_host(),
                 "database": "available",
                 "appscript_login_enabled": settings.APPSCRIPT_SSO_ENABLED,
-                "ticket_webhook_configured": bool(
-                    settings.TICKET_NOTIFICATION_WEBHOOK_URL
-                ),
+                "ticket_notification_mode": notification_mode,
+                "ticket_notifications_configured": notification_configured,
                 "pending_notifications": pending.filter(
                     attempts__lt=settings.TICKET_NOTIFICATION_MAX_ATTEMPTS
                 ).count(),

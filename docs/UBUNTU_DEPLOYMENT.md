@@ -162,8 +162,9 @@ address every time it opens. Enable this once with the actual interface name:
 
 Close and reopen **NVGS Server Control**. Before Docker starts, the controller
 updates Caddy's bind address, Django's allowed host and CSRF origin, and the
-local monitor target. It never changes Ubuntu's DHCP or NetworkManager
-configuration. If Ethernet has no usable IPv4 address, startup stops safely.
+local monitor target. If the saved adapter has no address, it follows the
+active default-route adapter. It never changes Ubuntu's DHCP or NetworkManager
+configuration. If no usable IPv4 address exists, startup stops safely.
 
 To keep the visible link stable, provide a custom `.local` mDNS name:
 
@@ -178,8 +179,9 @@ Ubuntu laptop. If Avahi is not installed, startup stops with the exact approved
 package command. Test the same name from every approved client because mDNS can
 be blocked by network policy.
 
-For approved clients where mDNS name resolution is unavailable, build the
-standalone client setup package while Caddy is running:
+For approved clients where mDNS name resolution is unavailable, use the
+standalone client setup package. The controller rebuilds it after Caddy starts;
+it can also be built manually:
 
 ```bash
 ./scripts/build-client-setup.sh
@@ -189,7 +191,10 @@ Distribute `client-setup-output/NVGS-Client-Setup.zip` through an approved
 method. Its Windows and Ubuntu installers verify the public certificate, add
 the friendly-name mapping, install the CA, and create a ticketing shortcut.
 The package contains no private key or server secret and must not be committed.
-Rebuild and reinstall it whenever an unreserved DHCP address changes.
+The Windows installer verifies both its hosts-file mapping and port 443, and
+creates an IP fallback shortcut when company name-resolution policy still
+overrides `.local`. Reinstall the newly rebuilt package whenever an unreserved
+DHCP address changes.
 
 Without a stable name, a DHCP change also changes client bookmarks. Whenever
 the visible server link changes, the Apps Script bridge callback is
