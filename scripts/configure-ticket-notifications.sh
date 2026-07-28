@@ -8,10 +8,12 @@ if [[ "${EUID}" -eq 0 ]]; then
     echo "Run this from your normal Ubuntu account, without sudo." >&2
     exit 1
 fi
-if [[ ! -f .env ]]; then
-    echo "Missing .env. Run ./scripts/bootstrap-secrets.sh first." >&2
-    exit 1
-fi
+
+# Compose declares every supported notification secret up front. Ensure that
+# newly added optional secret files exist before asking Docker to mount them,
+# even when the selected delivery mode does not use those files.
+echo "Checking required local secret files..."
+./scripts/bootstrap-secrets.sh
 
 set_env_value() {
     local key="$1"
