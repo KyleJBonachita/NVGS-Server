@@ -17,6 +17,12 @@ if [[ "${EUID}" -ne 0 ]]; then
         exit 1
     fi
 
+    if ! "$project_dir/scripts/refresh-dynamic-lan.sh"; then
+        echo "NVGS stopped before startup because its LAN address could not refresh." >&2
+        read -r -p "Press Enter to close..." _
+        exit 1
+    fi
+
     overlay_pid=""
     stop_overlay() {
         trap - EXIT HUP INT TERM
@@ -75,6 +81,52 @@ if [[ "${host_mode:-always_on}" != "on_demand" ]]; then
     exit 1
 fi
 
+read_env_value() {
+    local key="$1"
+    sed -n "s/^[[:space:]]*${key}[[:space:]]*=[[:space:]]*//p" .env \
+        | tail -n 1 \
+        | tr -d '\r'
+}
+
+server_address="$(read_env_value "SERVER_ADDRESS")"
+network_interface="$(read_env_value "NVGS_LAN_INTERFACE")"
+if [[ -z "$network_interface" ]]; then
+    network_interface="$(
+        ip route show default 2>/dev/null \
+            | awk '/default/ {for (i=1; i<=NF; i++) if ($i=="dev") {print $(i+1); exit}}'
+    )"
+fi
+if [[ ! "${server_address:-localhost}" =~ ^[A-Za-z0-9._:-]+$ ]]; then
+    echo "SERVER_ADDRESS contains unsupported characters: $server_address" >&2
+    exit 1
+fi
+if [[ ! "${network_interface:-auto}" =~ ^[A-Za-z0-9_.:-]+$ ]]; then
+    echo "NVGS_LAN_INTERFACE contains unsupported characters: $network_interface" >&2
+    exit 1
+fi
+
+set_monitor_env_value() {
+    local key="$1"
+    local value="$2"
+    if grep -q "^[[:space:]]*${key}[[:space:]]*=" /etc/nvgs-monitor.env; then
+        sed -i \
+            "s|^[[:space:]]*${key}[[:space:]]*=.*|${key}=${value}|" \
+            /etc/nvgs-monitor.env
+    else
+        printf '%s=%s\n' "$key" "$value" >> /etc/nvgs-monitor.env
+    fi
+}
+
+if [[ -f /etc/nvgs-monitor.env ]]; then
+    set_monitor_env_value \
+        "NVGS_APP_HEALTH_URL" \
+        "https://${server_address:-localhost}/api/health/"
+    set_monitor_env_value \
+        "NVGS_NETWORK_INTERFACE" \
+        "${network_interface:-auto}"
+    chmod 0600 /etc/nvgs-monitor.env
+fi
+
 session_started=false
 
 stop_session() {
@@ -109,6 +161,8 @@ echo
 docker compose ps
 echo
 echo "NVGS IS RUNNING"
+echo "- Ticketing: https://${server_address:-localhost}/tickets/"
+echo "- Health: https://${server_address:-localhost}/api/health/"
 echo "- Full-screen warnings and alert monitoring are active."
 echo "- Sleep and lid-close suspension are blocked while this window is open."
 echo "- Keep the charger and Ethernet cable connected."

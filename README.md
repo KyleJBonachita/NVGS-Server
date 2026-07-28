@@ -189,6 +189,18 @@ docker compose up -d
 Do not copy the example address. Use the address assigned for the actual
 network. A DNS hostname can be used instead of the IP when one is available.
 
+For an authorized temporary DHCP pilot using the desktop controller, enable
+automatic refresh once:
+
+```bash
+./scripts/refresh-dynamic-lan.sh enp109s0
+```
+
+After that, opening **NVGS Server Control** detects the current IPv4 address on
+that Ethernet interface before starting Docker and the alert monitors. This
+does not make the DHCP address permanent. If it changes, update the Apps Script
+callback and client bookmark; a reservation remains the production setup.
+
 ## Important endpoints
 
 | Method | Endpoint | Access |

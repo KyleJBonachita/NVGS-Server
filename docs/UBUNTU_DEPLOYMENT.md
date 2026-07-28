@@ -147,6 +147,26 @@ docker compose ps
 Changing `SERVER_BIND_IP` from `127.0.0.1` is the action that makes the service
 reachable from the LAN.
 
+### Temporary dynamic-DHCP pilot
+
+When the network owner permits a temporary pilot but has not provided a DHCP
+reservation, the desktop controller can refresh the current Ethernet IPv4
+address every time it opens. Enable this once with the actual interface name:
+
+```bash
+./scripts/refresh-dynamic-lan.sh enp109s0
+```
+
+Close and reopen **NVGS Server Control**. Before Docker starts, the controller
+updates Caddy's bind address, Django's allowed host and CSRF origin, and the
+local monitor target. It never changes Ubuntu's DHCP or NetworkManager
+configuration. If Ethernet has no usable IPv4 address, startup stops safely.
+
+If the DHCP address changes, client bookmarks change too. The Apps Script
+bridge callback is intentionally not modified remotely; run
+`./scripts/appscript-login-setup.sh prepare` and update its Script Property.
+A reservation or approved stable DNS name remains the production solution.
+
 ## 5a. Install the public CA on approved clients
 
 Export and print the fingerprint:
