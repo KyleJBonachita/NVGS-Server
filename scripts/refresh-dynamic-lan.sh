@@ -92,6 +92,7 @@ PY
 old_ip="$(read_env_value "SERVER_BIND_IP")"
 old_server_address="$(read_env_value "SERVER_ADDRESS")"
 server_name="${requested_server_name:-$(read_env_value "NVGS_LAN_SERVER_NAME")}"
+server_name="${server_name,,}"
 server_address="$current_ip"
 allowed_hosts="$current_ip,localhost,127.0.0.1"
 trusted_origins="https://$current_ip"
@@ -104,16 +105,18 @@ if [[ -n "$server_name" ]]; then
         exit 1
     fi
 
-    resolved_addresses="$(
-        getent ahostsv4 "$server_name" 2>/dev/null \
-            | awk '{print $1}' \
-            | sort -u \
-            || true
-    )"
-    if ! grep -Fxq "$current_ip" <<< "$resolved_addresses"; then
-        echo "$server_name does not resolve to $current_ip on Ubuntu." >&2
-        echo "Check Avahi/internal DNS before enabling this stable name." >&2
-        exit 1
+    if [[ "$server_name" != *.local ]]; then
+        resolved_addresses="$(
+            getent ahostsv4 "$server_name" 2>/dev/null \
+                | awk '{print $1}' \
+                | sort -u \
+                || true
+        )"
+        if ! grep -Fxq "$current_ip" <<< "$resolved_addresses"; then
+            echo "$server_name does not resolve to $current_ip on Ubuntu." >&2
+            echo "Check internal DNS before enabling this stable name." >&2
+            exit 1
+        fi
     fi
 
     server_address="$server_name"

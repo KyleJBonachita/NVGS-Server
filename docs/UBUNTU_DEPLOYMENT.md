@@ -165,15 +165,17 @@ updates Caddy's bind address, Django's allowed host and CSRF origin, and the
 local monitor target. It never changes Ubuntu's DHCP or NetworkManager
 configuration. If Ethernet has no usable IPv4 address, startup stops safely.
 
-To keep the visible link stable, provide an existing resolvable mDNS or
-internal-DNS hostname:
+To keep the visible link stable, provide a custom `.local` mDNS name:
 
 ```bash
-./scripts/refresh-dynamic-lan.sh enp109s0 gear-ph-02.local
+./scripts/refresh-dynamic-lan.sh enp109s0 ticketing-system.local
 ```
 
-The helper verifies that Ubuntu resolves the name to its current Ethernet
-address before saving it. Test the same name from every approved client.
+The controller publishes that alias through Avahi with the current Ethernet
+address before Docker starts. It does not rename the Ubuntu laptop. If Avahi is
+not installed, startup stops with the exact approved package command. Test the
+same name from every approved client because mDNS can be blocked by network
+policy.
 
 Without a stable name, a DHCP change also changes client bookmarks. Whenever
 the visible server link changes, the Apps Script bridge callback is

@@ -81,6 +81,8 @@ if [[ "${host_mode:-always_on}" != "on_demand" ]]; then
     exit 1
 fi
 
+"$project_dir/scripts/refresh-mdns-alias.sh"
+
 read_env_value() {
     local key="$1"
     sed -n "s/^[[:space:]]*${key}[[:space:]]*=[[:space:]]*//p" .env \
