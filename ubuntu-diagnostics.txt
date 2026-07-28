@@ -1,0 +1,15 @@
+(base) gear-ph-02@gear-ph-02:~/Documents/Codes/NVGS-Server$ curl -vk "https://192.168.10.102/api/health"
+*   Trying 192.168.10.102:443...
+* Connected to 192.168.10.102 (192.168.10.102) port 443 (#0)
+* ALPN, offering h2
+* ALPN, offering http/1.1
+* TLSv1.0 (OUT), TLS header, Certificate Status (22):
+* TLSv1.3 (OUT), TLS handshake, Client hello (1):
+* TLSv1.2 (IN), TLS header, Unknown (21):
+* TLSv1.3 (IN), TLS alert, internal error (592):
+* error:0A000438:SSL routines::tlsv1 alert internal error
+* Closing connection 0
+curl: (35) error:0A000438:SSL routines::tlsv1 alert internal error
+(base) gear-ph-02@gear-ph-02:~/Documents/Codes/NVGS-Server$ docker compose logs --since=2m caddy
+(base) gear-ph-02@gear-ph-02:~/Documents/Codes/NVGS-Server$ 
+
