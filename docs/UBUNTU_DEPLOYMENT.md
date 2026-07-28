@@ -68,6 +68,9 @@ is intentionally unavailable.
 Caddy creates an internal certificate authority because a private IP normally
 cannot receive a public web certificate.
 
+The Caddy configuration uses `SERVER_ADDRESS` as its default TLS server name.
+This is required for IP-address clients that omit SNI during the TLS handshake.
+
 Export its public root certificate:
 
 ```bash

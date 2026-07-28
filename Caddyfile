@@ -1,5 +1,7 @@
 {
 	admin off
+	default_sni {$SERVER_ADDRESS:localhost}
+	skip_install_trust
 }
 
 {$SERVER_ADDRESS:localhost} {
@@ -21,4 +23,3 @@
 		format json
 	}
 }
-
