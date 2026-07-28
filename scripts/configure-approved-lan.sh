@@ -81,12 +81,15 @@ set_env_value() {
 
 allowed_hosts="${server_address},${assigned_ip},localhost,127.0.0.1"
 trusted_origins="https://${server_address}"
+caddy_site_addresses="$server_address"
 if [[ "$server_address" != "$assigned_ip" ]]; then
     trusted_origins="${trusted_origins},https://${assigned_ip}"
+    caddy_site_addresses="${server_address} https://${assigned_ip}"
 fi
 
 set_env_value "SERVER_BIND_IP" "$assigned_ip"
 set_env_value "SERVER_ADDRESS" "$server_address"
+set_env_value "CADDY_SITE_ADDRESSES" "\"$caddy_site_addresses\""
 set_env_value "DJANGO_ALLOWED_HOSTS" "$allowed_hosts"
 set_env_value "DJANGO_CSRF_TRUSTED_ORIGINS" "$trusted_origins"
 set_env_value "APPSCRIPT_SSO_SUCCESS_REDIRECT" "/tickets/"

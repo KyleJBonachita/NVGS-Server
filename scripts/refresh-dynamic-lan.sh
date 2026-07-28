@@ -94,6 +94,7 @@ old_server_address="$(read_env_value "SERVER_ADDRESS")"
 server_name="${requested_server_name:-$(read_env_value "NVGS_LAN_SERVER_NAME")}"
 server_name="${server_name,,}"
 server_address="$current_ip"
+caddy_site_addresses="$current_ip"
 allowed_hosts="$current_ip,localhost,127.0.0.1"
 trusted_origins="https://$current_ip"
 
@@ -120,6 +121,7 @@ if [[ -n "$server_name" ]]; then
     fi
 
     server_address="$server_name"
+    caddy_site_addresses="$server_name https://$current_ip"
     allowed_hosts="$server_name,$current_ip,localhost,127.0.0.1"
     trusted_origins="https://$server_name,https://$current_ip"
 fi
@@ -129,6 +131,7 @@ set_env_value "NVGS_LAN_INTERFACE" "$network_interface"
 set_env_value "NVGS_LAN_SERVER_NAME" "$server_name"
 set_env_value "SERVER_BIND_IP" "$current_ip"
 set_env_value "SERVER_ADDRESS" "$server_address"
+set_env_value "CADDY_SITE_ADDRESSES" "\"$caddy_site_addresses\""
 set_env_value "DJANGO_ALLOWED_HOSTS" "$allowed_hosts"
 set_env_value "DJANGO_CSRF_TRUSTED_ORIGINS" "$trusted_origins"
 set_env_value "APPSCRIPT_SSO_SUCCESS_REDIRECT" "/tickets/"

@@ -171,11 +171,12 @@ To keep the visible link stable, provide a custom `.local` mDNS name:
 ./scripts/refresh-dynamic-lan.sh enp109s0 ticketing-system.local
 ```
 
-The controller publishes that alias through Avahi with the current Ethernet
-address before Docker starts. It does not rename the Ubuntu laptop. If Avahi is
-not installed, startup stops with the exact approved package command. Test the
-same name from every approved client because mDNS can be blocked by network
-policy.
+The controller resolves the alias locally through `/etc/hosts`, publishes it
+through Avahi with the current Ethernet address, and configures Caddy to accept
+both the alias and current IP before Docker starts. It does not rename the
+Ubuntu laptop. If Avahi is not installed, startup stops with the exact approved
+package command. Test the same name from every approved client because mDNS can
+be blocked by network policy.
 
 Without a stable name, a DHCP change also changes client bookmarks. Whenever
 the visible server link changes, the Apps Script bridge callback is

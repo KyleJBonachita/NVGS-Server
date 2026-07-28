@@ -207,9 +207,11 @@ To publish a custom mDNS alias without renaming the Ubuntu laptop:
 ./scripts/refresh-dynamic-lan.sh enp109s0 ticketing-system.local
 ```
 
-The controller updates Avahi's managed alias to the current Ethernet address
-before Docker starts. Approved client laptops must support and be allowed to
-use mDNS. A hostname does not bypass VLAN, firewall, or client-isolation rules.
+The controller adds the alias to Ubuntu's local hosts file, publishes it
+through Avahi, and configures Caddy to accept both the friendly name and the
+current Ethernet IP before Docker starts. Approved client laptops must support
+and be allowed to use mDNS. A hostname does not bypass VLAN, firewall, or
+client-isolation rules.
 
 ## Important endpoints
 

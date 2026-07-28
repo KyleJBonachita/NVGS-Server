@@ -111,6 +111,8 @@ services:
     restart: "${NVGS_RESTART_POLICY:-unless-stopped}"
     environment:
       SERVER_ADDRESS: ${SERVER_ADDRESS:-localhost}
+      SERVER_BIND_IP: ${SERVER_BIND_IP:-127.0.0.1}
+      CADDY_SITE_ADDRESSES: ${CADDY_SITE_ADDRESSES:-localhost}
     ports:
       - "${SERVER_BIND_IP:-127.0.0.1}:443:443"
     volumes:

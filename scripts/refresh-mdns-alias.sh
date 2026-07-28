@@ -26,6 +26,9 @@ server_name="$(read_env_value "NVGS_LAN_SERVER_NAME")"
 server_ip="$(read_env_value "SERVER_BIND_IP")"
 state_file="/etc/nvgs-mdns-alias"
 avahi_hosts="/etc/avahi/hosts"
+system_hosts="/etc/hosts"
+hosts_begin_marker="# BEGIN NVGS LOCAL HOSTNAME"
+hosts_end_marker="# END NVGS LOCAL HOSTNAME"
 previous_name=""
 if [[ -f "$state_file" ]]; then
     previous_name="$(tr -d '\r\n' < "$state_file")"
@@ -59,8 +62,10 @@ fi
 
 install -d -m 0755 /etc/avahi
 temporary_file="$(mktemp)"
+hosts_temporary_file="$(mktemp)"
 cleanup() {
     rm -f -- "$temporary_file"
+    rm -f -- "$hosts_temporary_file"
 }
 trap cleanup EXIT
 
@@ -76,6 +81,32 @@ if [[ -n "$current_name" ]]; then
 fi
 
 install -m 0644 "$temporary_file" "$avahi_hosts"
+
+# Avahi publishes the alias to other machines. A matching /etc/hosts entry
+# also guarantees that the Ubuntu server can resolve its own friendly name.
+if [[ -f "$system_hosts" ]]; then
+    awk \
+        -v begin_marker="$hosts_begin_marker" \
+        -v end_marker="$hosts_end_marker" \
+        '$0 == begin_marker {managed=1; next}
+         $0 == end_marker {managed=0; next}
+         !managed {print}' \
+        "$system_hosts" > "$hosts_temporary_file"
+fi
+if [[ -n "$current_name" ]]; then
+    if [[ -s "$hosts_temporary_file" ]] \
+        && [[ -n "$(tail -c 1 "$hosts_temporary_file")" ]]; then
+        printf '\n' >> "$hosts_temporary_file"
+    fi
+    printf '%s\n%s %s\n%s\n' \
+        "$hosts_begin_marker" \
+        "$server_ip" \
+        "$current_name" \
+        "$hosts_end_marker" \
+        >> "$hosts_temporary_file"
+fi
+install -m 0644 "$hosts_temporary_file" "$system_hosts"
+
 if [[ -n "$current_name" ]]; then
     printf '%s\n' "$current_name" > "$state_file"
     chmod 0644 "$state_file"
@@ -90,4 +121,4 @@ else
 fi
 
 trap - EXIT
-rm -f -- "$temporary_file"
+rm -f -- "$temporary_file" "$hosts_temporary_file"

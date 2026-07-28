@@ -1,10 +1,10 @@
 {
 	admin off
-	default_sni {$SERVER_ADDRESS:localhost}
+	default_sni {$SERVER_BIND_IP:127.0.0.1}
 	skip_install_trust
 }
 
-{$SERVER_ADDRESS:localhost} {
+{$CADDY_SITE_ADDRESSES:localhost} {
 	tls internal
 	encode zstd gzip
 
