@@ -1,5 +1,8 @@
 from unittest.mock import MagicMock, patch
 
+import base64
+import hashlib
+import hmac
 import json
 
 from django.core import mail
@@ -140,3 +143,86 @@ class PowerAutomateEmailTests(TestCase):
             f"https://ticketing-system.local/tickets/?ticket={ticket.id}",
         )
         self.assertEqual(body["teams"]["targetName"], "Robotics Ticket Chat")
+
+
+@override_settings(
+    TICKET_NOTIFICATION_DELIVERY_MODE="appscript",
+    TICKET_NOTIFICATION_APPSCRIPT_URL=(
+        "https://script.google.com/macros/s/test-deployment/exec"
+    ),
+    TICKET_NOTIFICATION_APPSCRIPT_SECRET="test-secret-" + ("x" * 40),
+    TICKET_NOTIFICATION_PUBLIC_BASE_URL="https://ticketing-system.local",
+)
+class AppsScriptNotificationBridgeTests(TestCase):
+    @patch("tickets.notifications.urllib.request.urlopen")
+    def test_worker_sends_hmac_signed_power_automate_payload(self, urlopen):
+        response = MagicMock()
+        response.status = 200
+        response.read.return_value = b'{"ok":true}'
+        urlopen.return_value.__enter__.return_value = response
+        user = User.objects.create_user(
+            email="bridge.agent@nvidia.com",
+            password="a-long-test-password",
+            first_name="Bridge",
+            last_name="Agent",
+        )
+        ticket = Ticket.objects.create(
+            reporter=user,
+            created_by=user,
+            title="Apps Script bridge test",
+            description="Synthetic.",
+            workstation="Gear10",
+        )
+        notification = TicketNotification.objects.create(
+            ticket=ticket,
+            event_type="created",
+            payload={
+                "ticket_id": ticket.id,
+                "reference": ticket.reference,
+                "title": ticket.title,
+                "description": ticket.description,
+                "status": ticket.status,
+                "priority": ticket.priority,
+                "category": ticket.category,
+                "workstation": ticket.workstation,
+                "location": "",
+                "reporter": user.display_name,
+                "reporter_email": user.email,
+                "assignee": "Unassigned",
+                "assignee_email": "",
+                "actor": user.display_name,
+                "actor_email": user.email,
+                "actor_role": user.role,
+                "impact_level": "",
+                "updated_at": ticket.updated_at.isoformat(),
+                "downtime_start": ticket.downtime_start.isoformat(),
+                "downtime_end": "",
+                "downtime_minutes": None,
+                "note": "",
+                "ticket_path": f"/tickets/?ticket={ticket.id}",
+            },
+        )
+
+        call_command("process_ticket_notifications", once=True)
+
+        notification.refresh_from_db()
+        self.assertIsNotNone(notification.sent_at)
+        request = urlopen.call_args.args[0]
+        envelope = json.loads(request.data)
+        self.assertEqual(envelope["version"], 1)
+        signing_input = (
+            f"{envelope['timestamp']}.{envelope['nonce']}."
+            f"{envelope['payload']}"
+        )
+        expected_signature = hmac.new(
+            ("test-secret-" + ("x" * 40)).encode(),
+            signing_input.encode(),
+            hashlib.sha256,
+        ).hexdigest()
+        self.assertEqual(envelope["signature"], expected_signature)
+        payload = json.loads(
+            base64.urlsafe_b64decode(envelope["payload"]).decode("utf-8")
+        )
+        self.assertEqual(payload["eventType"], "TICKET_CREATED")
+        self.assertEqual(payload["ticket"]["ticketId"], ticket.reference)
+        self.assertNotIn("NVGS_NOTIFICATION_INBOX_EMAIL", payload)

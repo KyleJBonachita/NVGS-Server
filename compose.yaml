@@ -41,12 +41,14 @@ services:
       DJANGO_SECRET_KEY_FILE: /run/secrets/django_secret_key
       APPSCRIPT_SSO_SECRET_FILE: /run/secrets/appscript_bridge_secret
       TICKET_NOTIFICATION_WEBHOOK_URL_FILE: /run/secrets/ticket_notification_webhook
+      TICKET_NOTIFICATION_APPSCRIPT_SECRET_FILE: /run/secrets/appscript_notification_secret
       EMAIL_HOST_PASSWORD_FILE: /run/secrets/smtp_password
     secrets:
       - postgres_password
       - django_secret_key
       - appscript_bridge_secret
       - ticket_notification_webhook
+      - appscript_notification_secret
       - smtp_password
     volumes:
       - ./imports:/imports:ro
@@ -89,12 +91,14 @@ services:
       DJANGO_SECRET_KEY_FILE: /run/secrets/django_secret_key
       APPSCRIPT_SSO_SECRET_FILE: /run/secrets/appscript_bridge_secret
       TICKET_NOTIFICATION_WEBHOOK_URL_FILE: /run/secrets/ticket_notification_webhook
+      TICKET_NOTIFICATION_APPSCRIPT_SECRET_FILE: /run/secrets/appscript_notification_secret
       EMAIL_HOST_PASSWORD_FILE: /run/secrets/smtp_password
     secrets:
       - postgres_password
       - django_secret_key
       - appscript_bridge_secret
       - ticket_notification_webhook
+      - appscript_notification_secret
       - smtp_password
     depends_on:
       db:
@@ -143,6 +147,8 @@ secrets:
     file: ./secrets/appscript_bridge_secret
   ticket_notification_webhook:
     file: ./secrets/ticket_notification_webhook
+  appscript_notification_secret:
+    file: ./secrets/appscript_notification_secret
   smtp_password:
     file: ./secrets/smtp_password
 

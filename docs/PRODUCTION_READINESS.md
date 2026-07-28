@@ -15,7 +15,7 @@ to a device that has not been supplied.
 | Backup restore | Tooling ready | Run `verify-backup-restore.sh` against a real backup and review the saved PASS report. |
 | Encrypted second backup | Tooling ready | Attach an approved second encrypted device and run `copy-backup-encrypted.sh`. |
 | Completely-offline alert | External watcher implemented | Install it on a second approved Ubuntu device and add an approved webhook. |
-| Power Automate/Teams ticket alerts | Compatible delivery implemented; sender configuration remains | Configure an approved webhook or SMTP relay/service account. The email subject and JSON body match the existing `GRTKT_EVENT` flow. |
+| Power Automate/Teams ticket alerts | Apps Script, webhook, and SMTP-compatible delivery implemented; deployment remains | Deploy the signed Apps Script notification bridge or configure an approved webhook/SMTP account. All modes preserve the existing `GRTKT_EVENT` flow. |
 | Real ticket import | Intentionally waiting | Import only after the pilot is accepted and a pre-import backup is verified. |
 
 No script invents a network address or bypasses a corporate trust/identity

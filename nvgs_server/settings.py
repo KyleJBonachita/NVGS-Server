@@ -204,9 +204,15 @@ TICKET_NOTIFICATION_DELIVERY_MODE = os.getenv(
     "TICKET_NOTIFICATION_DELIVERY_MODE",
     "webhook" if TICKET_NOTIFICATION_WEBHOOK_URL else "disabled",
 ).strip().lower()
-if TICKET_NOTIFICATION_DELIVERY_MODE not in {"disabled", "webhook", "email"}:
+if TICKET_NOTIFICATION_DELIVERY_MODE not in {
+    "disabled",
+    "webhook",
+    "email",
+    "appscript",
+}:
     raise ImproperlyConfigured(
-        "TICKET_NOTIFICATION_DELIVERY_MODE must be disabled, webhook, or email."
+        "TICKET_NOTIFICATION_DELIVERY_MODE must be disabled, webhook, "
+        "email, or appscript."
     )
 TICKET_NOTIFICATION_PUBLIC_BASE_URL = os.getenv(
     "TICKET_NOTIFICATION_PUBLIC_BASE_URL",
@@ -228,12 +234,34 @@ if TICKET_NOTIFICATION_PUBLIC_BASE_URL:
 TICKET_NOTIFICATION_EMAIL_TO = env_list("TICKET_NOTIFICATION_EMAIL_TO")
 TICKET_NOTIFICATION_EMAIL_TARGET_NAME = os.getenv(
     "TICKET_NOTIFICATION_EMAIL_TARGET_NAME",
-    "NVGS Ticket Operations",
+    "OpsGroupChat",
 ).strip()
 TICKET_NOTIFICATION_TEAMS_CHAT_ID = os.getenv(
     "TICKET_NOTIFICATION_TEAMS_CHAT_ID",
     "",
 ).strip()
+TICKET_NOTIFICATION_APPSCRIPT_URL = os.getenv(
+    "TICKET_NOTIFICATION_APPSCRIPT_URL",
+    "",
+).strip()
+TICKET_NOTIFICATION_APPSCRIPT_SECRET = (
+    env_secret("TICKET_NOTIFICATION_APPSCRIPT_SECRET", "") or ""
+).strip()
+if TICKET_NOTIFICATION_APPSCRIPT_URL:
+    notification_appscript_url = urlsplit(TICKET_NOTIFICATION_APPSCRIPT_URL)
+    if (
+        notification_appscript_url.scheme != "https"
+        or notification_appscript_url.hostname != "script.google.com"
+        or not notification_appscript_url.path.endswith("/exec")
+        or notification_appscript_url.username
+        or notification_appscript_url.password
+        or notification_appscript_url.query
+        or notification_appscript_url.fragment
+    ):
+        raise ImproperlyConfigured(
+            "TICKET_NOTIFICATION_APPSCRIPT_URL must be a deployed "
+            "https://script.google.com/.../exec URL."
+        )
 
 EMAIL_BACKEND = os.getenv(
     "EMAIL_BACKEND",

@@ -34,7 +34,8 @@ echo
 echo "1) Disabled"
 echo "2) HTTPS webhook"
 echo "3) Email -> existing Power Automate -> Teams"
-read -r -p "Choose 1, 2, or 3: " mode
+echo "4) Apps Script Gmail -> existing Power Automate -> Teams"
+read -r -p "Choose 1, 2, 3, or 4: " mode
 
 case "$mode" in
     1)
@@ -71,8 +72,8 @@ PY
         read -r -p "SMTP service-account username: " email_user
         read -r -p "Approved From address [$email_user]: " from_email
         from_email="${from_email:-$email_user}"
-        read -r -p "Power Automate/Teams target label [NVGS Ticket Operations]: " target
-        target="${target:-NVGS Ticket Operations}"
+        read -r -p "Power Automate/Teams target label [OpsGroupChat]: " target
+        target="${target:-OpsGroupChat}"
         read -r -s -p "SMTP service-account password (hidden): " smtp_password
         echo
 
@@ -110,8 +111,15 @@ PY
         echo "Email delivery is configured."
         echo "Power Automate should filter subjects beginning with GRTKT_EVENT."
         ;;
+    4)
+        echo
+        echo "Use the dedicated signed Apps Script setup:"
+        echo "  ./scripts/appscript-notification-setup.sh prepare"
+        echo "  See docs/APPSCRIPT_NOTIFICATION_BRIDGE.md"
+        exit 0
+        ;;
     *)
-        echo "No changes made. Choose 1, 2, or 3." >&2
+        echo "No changes made. Choose 1, 2, 3, or 4." >&2
         exit 2
         ;;
 esac

@@ -19,4 +19,5 @@ nvgs-local-ca.crt
 /imports/
 /client-setup-output/
 /appscript-bridge/.clasp.json
+/appscript-notification-bridge/.clasp.json
 /.playwright-cli/

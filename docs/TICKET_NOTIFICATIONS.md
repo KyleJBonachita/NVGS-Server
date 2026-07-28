@@ -30,8 +30,12 @@ Choose:
 1. Disabled
 2. Approved HTTPS webhook
 3. Email to the existing Power Automate-monitored inbox
+4. Signed Apps Script Gmail bridge to that existing inbox
 
-The email choice asks for an approved SMTP relay/service account. Never use a
+Option 4 is the closest match to the old ticketing application and needs no
+SMTP password. Follow `docs/APPSCRIPT_NOTIFICATION_BRIDGE.md`.
+
+The direct email choice asks for an approved SMTP relay/service account. Never use a
 personal NVIDIA, Google, or Microsoft password. The password is entered hidden
 and stored only in the ignored `secrets/smtp_password` file.
 
@@ -61,6 +65,7 @@ mail. Ask the project owner/security reviewer for one of:
 - A restricted internal SMTP relay
 - A dedicated SMTP service account
 - A Power Automate HTTPS trigger approved for this project
+- The signed Apps Script notification bridge described above
 
 Do not bypass MFA or corporate mail policy. If no approved sender is available,
 keep delivery disabled; queued ticket operations remain fully functional.

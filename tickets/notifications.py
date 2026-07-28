@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+import base64
+import hashlib
+import hmac
 import json
+import secrets
+import time
 import urllib.request
 from datetime import timedelta
 
@@ -45,6 +50,11 @@ def notification_configuration() -> tuple[str, bool]:
             smtp_ready
             and settings.TICKET_NOTIFICATION_EMAIL_TO
             and settings.DEFAULT_FROM_EMAIL
+        )
+    if mode == "appscript":
+        return mode, bool(
+            settings.TICKET_NOTIFICATION_APPSCRIPT_URL
+            and len(settings.TICKET_NOTIFICATION_APPSCRIPT_SECRET) >= 32
         )
     return "disabled", False
 
@@ -210,6 +220,58 @@ def _deliver_email(notification: TicketNotification) -> None:
         raise RuntimeError("Email backend did not confirm delivery.")
 
 
+def _deliver_appscript(notification: TicketNotification) -> None:
+    payload_json = json.dumps(
+        _power_automate_payload(notification),
+        ensure_ascii=False,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    encoded_payload = base64.urlsafe_b64encode(payload_json).decode("ascii")
+    timestamp = int(time.time() * 1000)
+    nonce = secrets.token_hex(16)
+    signing_input = f"{timestamp}.{nonce}.{encoded_payload}"
+    signature = hmac.new(
+        settings.TICKET_NOTIFICATION_APPSCRIPT_SECRET.encode("utf-8"),
+        signing_input.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+    body = json.dumps(
+        {
+            "version": 1,
+            "timestamp": timestamp,
+            "nonce": nonce,
+            "payload": encoded_payload,
+            "signature": signature,
+        },
+        separators=(",", ":"),
+    ).encode("utf-8")
+    request = urllib.request.Request(
+        settings.TICKET_NOTIFICATION_APPSCRIPT_URL,
+        data=body,
+        headers={
+            "Content-Type": "application/json",
+            "User-Agent": "NVGS-Ticketing/1.0",
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(
+        request,
+        timeout=settings.TICKET_NOTIFICATION_TIMEOUT_SECONDS,
+    ) as response:
+        if not 200 <= response.status < 300:
+            raise RuntimeError(
+                f"Apps Script bridge returned HTTP {response.status}."
+            )
+        result = json.loads(response.read(32769).decode("utf-8"))
+    if not isinstance(result, dict) or result.get("ok") is not True:
+        error_message = (
+            result.get("error", "Notification bridge rejected the request.")
+            if isinstance(result, dict)
+            else "Notification bridge returned an invalid response."
+        )
+        raise RuntimeError(str(error_message)[:180])
+
+
 def deliver_notification(notification: TicketNotification) -> None:
     mode, configured = notification_configuration()
     if not configured:
@@ -219,6 +281,9 @@ def deliver_notification(notification: TicketNotification) -> None:
         return
     if mode == "email":
         _deliver_email(notification)
+        return
+    if mode == "appscript":
+        _deliver_appscript(notification)
         return
     raise RuntimeError("Ticket notifications are disabled.")
 

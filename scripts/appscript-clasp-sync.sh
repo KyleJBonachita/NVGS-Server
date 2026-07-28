@@ -2,7 +2,16 @@
 set -euo pipefail
 
 project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-bridge_dir="$project_dir/appscript-bridge"
+bridge_name="${1:-appscript-bridge}"
+case "$bridge_name" in
+    appscript-bridge|appscript-notification-bridge)
+        ;;
+    *)
+        echo "Choose appscript-bridge or appscript-notification-bridge." >&2
+        exit 1
+        ;;
+esac
+bridge_dir="$project_dir/$bridge_name"
 
 if [[ "${EUID}" -eq 0 ]]; then
     echo "Run this from your normal Ubuntu account, without sudo." >&2
@@ -10,7 +19,7 @@ if [[ "${EUID}" -eq 0 ]]; then
 fi
 if [[ ! -f "$bridge_dir/.clasp.json" ]]; then
     echo "Apps Script is not linked to clasp yet." >&2
-    echo "Create appscript-bridge/.clasp.json with the approved scriptId," >&2
+    echo "Create $bridge_name/.clasp.json with the approved scriptId," >&2
     echo "then run: npx --yes @google/clasp login --no-localhost" >&2
     exit 1
 fi

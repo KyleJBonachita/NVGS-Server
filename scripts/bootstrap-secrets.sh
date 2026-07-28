@@ -26,6 +26,10 @@ if [[ ! -s secrets/appscript_bridge_secret ]]; then
     openssl rand -base64 48 > secrets/appscript_bridge_secret
     echo "Created secrets/appscript_bridge_secret."
 fi
+if [[ ! -s secrets/appscript_notification_secret ]]; then
+    openssl rand -base64 48 > secrets/appscript_notification_secret
+    echo "Created secrets/appscript_notification_secret."
+fi
 
 if [[ ! -e secrets/ticket_notification_webhook ]]; then
     : > secrets/ticket_notification_webhook
@@ -47,6 +51,7 @@ chmod 644 \
     secrets/postgres_password \
     secrets/django_secret_key \
     secrets/appscript_bridge_secret \
+    secrets/appscript_notification_secret \
     secrets/ticket_notification_webhook \
     secrets/smtp_password
 

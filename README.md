@@ -40,7 +40,7 @@ This repository currently provides the backend/server foundation:
 - Private internal notes for Tech Team/TL users
 - Per-ticket audit events
 - Queued ticket alerts through an approved HTTPS webhook or the existing
-  email -> Power Automate -> Teams flow
+  Apps Script/email -> Power Automate -> Teams flow
 - Repeatable CSV import for Users, Tickets, Comments, and StatusHistory exports
 - Caddy HTTPS with a local certificate authority
 - Database health checks and permission-restricted Docker secret files
