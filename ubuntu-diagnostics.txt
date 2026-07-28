@@ -1,0 +1,30 @@
+(base) gear-ph-02@gear-ph-02:~/Documents/Codes/NVGS-Server$ grep '^hosts:' /etc/nsswitch.conf 
+hosts:          files mdns4_minimal [NOTFOUND=return] dns
+(base) gear-ph-02@gear-ph-02:~/Documents/Codes/NVGS-Server$ sudo grep 'ticketing-system.local' /etc/avahi/hosts 
+192.168.10.102 ticketing-system.local
+(base) gear-ph-02@gear-ph-02:~/Documents/Codes/NVGS-Server$ systemctl status avahi-daemon --no-pager
+● avahi-daemon.service - Avahi mDNS/DNS-SD Stack
+     Loaded: loaded (/lib/systemd/system/avahi-daemon.service; enabled; vendor preset: enabled)
+     Active: active (running) since Mon 2026-07-27 09:47:36 PST; 1 day 1h ago
+TriggeredBy: ● avahi-daemon.socket
+    Process: 367963 ExecReload=/usr/sbin/avahi-daemon -r (code=exited, status=0/SUCCESS)
+   Main PID: 864 (avahi-daemon)
+     Status: "avahi-daemon 0.8 starting up."
+      Tasks: 2 (limit: 18727)
+     Memory: 1.4M
+        CPU: 2.335s
+     CGroup: /system.slice/avahi-daemon.service
+             ├─864 "avahi-daemon: running [gear-ph-02.local]"
+             └─919 "avahi-daemon: chroot helper"
+
+Jul 28 11:24:23 gear-ph-02 avahi-daemon[864]: Registering new address record for fe80::80cf:d6ff:febb:1ae8 on veth92757c0.*.
+Jul 28 11:24:28 gear-ph-02 avahi-daemon[864]: Joining mDNS multicast group on interface veth2f18c4e.IPv6 with address fe80::420:61ff:fe07:72c.
+Jul 28 11:24:28 gear-ph-02 avahi-daemon[864]: New relevant interface veth2f18c4e.IPv6 for mDNS.
+Jul 28 11:24:28 gear-ph-02 avahi-daemon[864]: Registering new address record for fe80::420:61ff:fe07:72c on veth2f18c4e.*.
+Jul 28 11:24:29 gear-ph-02 avahi-daemon[864]: Joining mDNS multicast group on interface vethcfd0941.IPv6 with address fe80::e821:fcff:feee:dbdb.
+Jul 28 11:24:29 gear-ph-02 avahi-daemon[864]: New relevant interface vethcfd0941.IPv6 for mDNS.
+Jul 28 11:24:29 gear-ph-02 avahi-daemon[864]: Registering new address record for fe80::e821:fcff:feee:dbdb on vethcfd0941.*.
+Jul 28 11:24:29 gear-ph-02 avahi-daemon[864]: Joining mDNS multicast group on interface veth310055c.IPv6 with address fe80::8c76:daff:fe2e:95e.
+Jul 28 11:24:29 gear-ph-02 avahi-daemon[864]: New relevant interface veth310055c.IPv6 for mDNS.
+Jul 28 11:24:29 gear-ph-02 avahi-daemon[864]: Registering new address record for fe80::8c76:daff:fe2e:95e on veth310055c.*.
+
