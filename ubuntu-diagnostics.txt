@@ -1,0 +1,77 @@
+(base) gear-ph-02@gear-ph-02:~/Documents/Codes/NVGS-Server$ git log -1 --oneline
+242e62f (HEAD -> main, origin/main, origin/HEAD) Complete ticketing operations dashboard and LAN readiness
+(base) gear-ph-02@gear-ph-02:~/Documents/Codes/NVGS-Server$ ip route get 1.1.1.1
+1.1.1.1 via 192.168.10.1 dev enp109s0 src 192.168.10.102 uid 1000 
+    cache 
+(base) gear-ph-02@gear-ph-02:~/Documents/Codes/NVGS-Server$ nmcli device status
+DEVICE              TYPE      STATE                   CONNECTION         
+enp109s0            ethernet  connected               Wired connection 1 
+br-001c812964da     bridge    connected (externally)  br-001c812964da    
+br-84ae191758d6     bridge    connected (externally)  br-84ae191758d6    
+docker0             bridge    connected (externally)  docker0            
+88:2F:92:D9:72:47   bt        disconnected            --                 
+wlp110s0f0          wifi      unavailable             --                 
+p2p-dev-wlp110s0f0  wifi-p2p  unavailable             --                 
+veth2421e84         ethernet  unmanaged               --                 
+veth4f8f16c         ethernet  unmanaged               --                 
+veth7374074         ethernet  unmanaged               --                 
+veth7d3fd2e         ethernet  unmanaged               --                 
+lo                  loopback  unmanaged               --                 
+gpd0                tun       unmanaged               --                 
+(base) gear-ph-02@gear-ph-02:~/Documents/Codes/NVGS-Server$ ip -4 addr show enp109s0
+2: enp109s0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP group default qlen 1000
+    inet 192.168.10.102/24 brd 192.168.10.255 scope global dynamic noprefixroute enp109s0
+       valid_lft 172497sec preferred_lft 172497sec
+(base) gear-ph-02@gear-ph-02:~/Documents/Codes/NVGS-Server$ docker compose ps -a
+NAME                          IMAGE                       COMMAND                  SERVICE         CREATED          STATUS                      PORTS
+nvgs-server-app-1             nvgs-server-app             "/app/docker/entrypo…"   app             24 minutes ago   Up 24 minutes (healthy)     8000/tcp
+nvgs-server-caddy-1           caddy:2.10-alpine           "caddy run --config …"   caddy           22 hours ago     Up 18 hours                 80/tcp, 2019/tcp, 127.0.0.1:443->443/tcp, 443/udp
+nvgs-server-db-1              postgres:17.10-bookworm     "docker-entrypoint.s…"   db              22 hours ago     Up 18 hours (healthy)       5432/tcp
+nvgs-server-notifications-1   nvgs-server-notifications   "python manage.py pr…"   notifications   24 minutes ago   Exited (1) 24 minutes ago   
+(base) gear-ph-02@gear-ph-02:~/Documents/Codes/NVGS-Server$ docker compose logs --tail=50 notifications
+notifications-1  | Traceback (most recent call last):
+notifications-1  |   File "/app/manage.py", line 18, in <module>
+notifications-1  |     main()
+notifications-1  |     ~~~~^^
+notifications-1  |   File "/app/manage.py", line 14, in main
+notifications-1  |     execute_from_command_line(sys.argv)
+notifications-1  |     ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+notifications-1  |   File "/usr/local/lib/python3.13/site-packages/django/core/management/__init__.py", line 442, in execute_from_command_line
+notifications-1  |     utility.execute()
+notifications-1  |     ~~~~~~~~~~~~~~~^^
+notifications-1  |   File "/usr/local/lib/python3.13/site-packages/django/core/management/__init__.py", line 382, in execute
+notifications-1  |     settings.INSTALLED_APPS
+notifications-1  |   File "/usr/local/lib/python3.13/site-packages/django/conf/__init__.py", line 81, in __getattr__
+notifications-1  |     self._setup(name)
+notifications-1  |     ~~~~~~~~~~~^^^^^^
+notifications-1  |   File "/usr/local/lib/python3.13/site-packages/django/conf/__init__.py", line 68, in _setup
+notifications-1  |     self._wrapped = Settings(settings_module)
+notifications-1  |                     ~~~~~~~~^^^^^^^^^^^^^^^^^
+notifications-1  |   File "/usr/local/lib/python3.13/site-packages/django/conf/__init__.py", line 166, in __init__
+notifications-1  |     mod = importlib.import_module(self.SETTINGS_MODULE)
+notifications-1  |   File "/usr/local/lib/python3.13/importlib/__init__.py", line 88, in import_module
+notifications-1  |     return _bootstrap._gcd_import(name[level:], package, level)
+notifications-1  |            ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+notifications-1  |   File "<frozen importlib._bootstrap>", line 1395, in _gcd_import
+notifications-1  |   File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+notifications-1  |   File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+notifications-1  |   File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+notifications-1  |   File "<frozen importlib._bootstrap_external>", line 1023, in exec_module
+notifications-1  |   File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+notifications-1  |   File "/app/nvgs_server/settings.py", line 31, in <module>
+notifications-1  |     SECRET_KEY = env_secret("DJANGO_SECRET_KEY")
+notifications-1  |   File "/app/nvgs_server/settings.py", line 24, in env_secret
+notifications-1  |     return Path(file_name).read_text(encoding="utf-8").strip()
+notifications-1  |            ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+notifications-1  |   File "/usr/local/lib/python3.13/pathlib/_local.py", line 546, in read_text
+notifications-1  |     return PathBase.read_text(self, encoding, errors, newline)
+notifications-1  |            ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+notifications-1  |   File "/usr/local/lib/python3.13/pathlib/_abc.py", line 632, in read_text
+notifications-1  |     with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+notifications-1  |          ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+notifications-1  |   File "/usr/local/lib/python3.13/pathlib/_local.py", line 537, in open
+notifications-1  |     return io.open(self, mode, buffering, encoding, errors, newline)
+notifications-1  |            ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+notifications-1  | PermissionError: [Errno 13] Permission denied: '/run/secrets/django_secret_key'
+(base) gear-ph-02@gear-ph-02:~/Documents/Codes/NVGS-Server$ 
+
