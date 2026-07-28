@@ -41,6 +41,10 @@ chmod +x scripts/*.sh
 nano .env
 ```
 
+The `secrets/` directory remains accessible only to the Ubuntu server account.
+Its individual files are readable through Docker's read-only bind mounts so
+the Django containers can stay unprivileged instead of running as root.
+
 Start locally first:
 
 ```bash

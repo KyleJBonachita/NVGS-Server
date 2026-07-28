@@ -32,8 +32,14 @@ if [[ ! -e secrets/ticket_notification_webhook ]]; then
     echo "Created the disabled ticket-notification webhook file."
 fi
 
-chmod 600 \
-    .env \
+chmod 600 .env
+chmod 700 secrets backups
+
+# Docker Compose bind-mounts these individual files into containers that run as
+# the unprivileged "nvgs" user. The private secrets/ directory prevents other
+# host users from reaching them; readable file modes let the container user
+# open the read-only mounts without running the application as root.
+chmod 644 \
     secrets/postgres_password \
     secrets/django_secret_key \
     secrets/appscript_bridge_secret \

@@ -38,7 +38,26 @@ docker compose up -d --build --remove-orphans
 echo "6/6 Refreshing the selected Ubuntu server mode..."
 sudo ./scripts/install-ubuntu-host.sh
 
-docker compose ps
+sleep 2
+docker compose ps -a
+
+required_services=(app caddy db notifications)
+running_services="$(docker compose ps --status running --services)"
+missing_services=()
+for service in "${required_services[@]}"; do
+    if ! grep -Fxq "$service" <<< "$running_services"; then
+        missing_services+=("$service")
+    fi
+done
+
+if [[ "${#missing_services[@]}" -gt 0 ]]; then
+    echo >&2
+    echo "Update failed because these services are not running:" >&2
+    printf '  %s\n' "${missing_services[@]}" >&2
+    echo "Recent logs:" >&2
+    docker compose logs --tail=80 "${missing_services[@]}" >&2 || true
+    exit 1
+fi
 
 echo
 echo "Update complete. The pre-update database backup is under backups/."
