@@ -178,6 +178,19 @@ Ubuntu laptop. If Avahi is not installed, startup stops with the exact approved
 package command. Test the same name from every approved client because mDNS can
 be blocked by network policy.
 
+For approved clients where mDNS name resolution is unavailable, build the
+standalone client setup package while Caddy is running:
+
+```bash
+./scripts/build-client-setup.sh
+```
+
+Distribute `client-setup-output/NVGS-Client-Setup.zip` through an approved
+method. Its Windows and Ubuntu installers verify the public certificate, add
+the friendly-name mapping, install the CA, and create a ticketing shortcut.
+The package contains no private key or server secret and must not be committed.
+Rebuild and reinstall it whenever an unreserved DHCP address changes.
+
 Without a stable name, a DHCP change also changes client bookmarks. Whenever
 the visible server link changes, the Apps Script bridge callback is
 intentionally not modified remotely; run `./scripts/appscript-login-setup.sh

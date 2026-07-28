@@ -1,0 +1,144 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+server_name="__NVGS_SERVER_NAME__"
+server_ip="__NVGS_SERVER_IP__"
+ticketing_url="__NVGS_TICKETING_URL__"
+expected_certificate_sha256="__NVGS_CERTIFICATE_SHA256__"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+script_path="$script_dir/$(basename "${BASH_SOURCE[0]}")"
+certificate_path="$script_dir/nvgs-local-ca.crt"
+
+if [[ "${EUID}" -ne 0 && ! -t 0 ]]; then
+    if command -v gnome-terminal >/dev/null 2>&1; then
+        exec gnome-terminal -- bash "$script_path"
+    fi
+    if command -v x-terminal-emulator >/dev/null 2>&1; then
+        exec x-terminal-emulator -e bash "$script_path"
+    fi
+    echo "Open Terminal in this folder and run:" >&2
+    echo "  bash \"$(basename "$script_path")\"" >&2
+    exit 1
+fi
+
+if [[ "${EUID}" -ne 0 ]]; then
+    echo "NVGS Client Setup"
+    echo
+    echo "Server: $server_name ($server_ip)"
+    echo "This installs the public NVGS certificate, friendly-name mapping,"
+    echo "and an NVGS Ticketing shortcut. It does not collect passwords."
+    echo
+    read -r -p "Type INSTALL to continue: " confirmation
+    if [[ "$confirmation" != "INSTALL" ]]; then
+        echo "Installation cancelled."
+        exit 2
+    fi
+    exec sudo -- bash "$script_path"
+fi
+
+if [[ ! -s "$certificate_path" ]]; then
+    echo "The NVGS certificate is missing from the setup folder." >&2
+    exit 1
+fi
+
+actual_certificate_sha256="$(
+    sha256sum "$certificate_path" |
+        awk '{print tolower($1)}'
+)"
+if [[ "$actual_certificate_sha256" != "$expected_certificate_sha256" ]]; then
+    echo "The NVGS certificate fingerprint does not match this installer." >&2
+    exit 1
+fi
+
+install -m 0644 \
+    "$certificate_path" \
+    /usr/local/share/ca-certificates/nvgs-local-ca.crt
+update-ca-certificates
+
+hosts_path="/etc/hosts"
+hosts_begin_marker="# BEGIN NVGS TICKETING"
+hosts_end_marker="# END NVGS TICKETING"
+hosts_temporary_file="$(mktemp)"
+cleanup() {
+    rm -f -- "$hosts_temporary_file"
+}
+trap cleanup EXIT
+
+awk \
+    -v begin_marker="$hosts_begin_marker" \
+    -v end_marker="$hosts_end_marker" \
+    '$0 == begin_marker {managed=1; next}
+     $0 == end_marker {managed=0; next}
+     !managed {print}' \
+    "$hosts_path" > "$hosts_temporary_file"
+
+if [[ -s "$hosts_temporary_file" ]] \
+    && [[ -n "$(tail -c 1 "$hosts_temporary_file")" ]]; then
+    printf '\n' >> "$hosts_temporary_file"
+fi
+printf '%s\n%s %s\n%s\n' \
+    "$hosts_begin_marker" \
+    "$server_ip" \
+    "$server_name" \
+    "$hosts_end_marker" \
+    >> "$hosts_temporary_file"
+install -m 0644 "$hosts_temporary_file" "$hosts_path"
+
+desktop_user="${SUDO_USER:-}"
+if [[ -z "$desktop_user" || "$desktop_user" == "root" ]]; then
+    desktop_user="$(logname 2>/dev/null || true)"
+fi
+if [[ -n "$desktop_user" && "$desktop_user" != "root" ]]; then
+    desktop_home="$(getent passwd "$desktop_user" | cut -d: -f6)"
+    applications_dir="$desktop_home/.local/share/applications"
+    desktop_dir="$desktop_home/Desktop"
+    application_file="$applications_dir/nvgs-ticketing.desktop"
+
+    install -d -m 0755 -o "$desktop_user" -g "$desktop_user" \
+        "$applications_dir"
+    cat > "$application_file" <<EOF
+[Desktop Entry]
+Type=Application
+Name=NVGS Ticketing
+Comment=Open the local NVGS ticketing system
+Exec=xdg-open $ticketing_url
+Icon=web-browser
+Terminal=false
+Categories=Network;Office;
+StartupNotify=true
+EOF
+    chmod 0755 "$application_file"
+    chown "$desktop_user:$desktop_user" "$application_file"
+
+    if [[ -d "$desktop_dir" ]]; then
+        desktop_shortcut="$desktop_dir/NVGS Ticketing.desktop"
+        install -m 0755 -o "$desktop_user" -g "$desktop_user" \
+            "$application_file" \
+            "$desktop_shortcut"
+        desktop_uid="$(id -u "$desktop_user")"
+        sudo -u "$desktop_user" env \
+            XDG_RUNTIME_DIR="/run/user/$desktop_uid" \
+            DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$desktop_uid/bus" \
+            gio set "$desktop_shortcut" metadata::trusted true \
+            >/dev/null 2>&1 || true
+    fi
+fi
+
+echo
+echo "NVGS client setup completed."
+echo "Close and reopen the browser, then open:"
+echo "  $ticketing_url"
+echo
+if curl --fail --silent --show-error --location \
+    --max-time 15 \
+    --output /dev/null \
+    "$ticketing_url"; then
+    echo "The NVGS server connection test passed."
+else
+    echo "The setup was installed, but the server could not be tested." >&2
+    echo "Confirm that NVGS is running and this laptop is on the same LAN." >&2
+fi
+
+trap - EXIT
+rm -f -- "$hosts_temporary_file"
+read -r -p "Press Enter to close..." _

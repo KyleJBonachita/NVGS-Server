@@ -213,6 +213,20 @@ current Ethernet IP before Docker starts. Approved client laptops must support
 and be allowed to use mDNS. A hostname does not bypass VLAN, firewall, or
 client-isolation rules.
 
+If an approved Windows client cannot resolve the `.local` alias, build the
+small client setup package while NVGS is running:
+
+```bash
+./scripts/build-client-setup.sh
+```
+
+The resulting `client-setup-output/NVGS-Client-Setup.zip` contains separate
+Windows and Ubuntu installers. Each verifies and installs the public NVGS CA,
+adds the current friendly-name mapping, and creates a ticketing shortcut. It
+contains no private key or application secret and is intentionally ignored by
+Git. Because the mapping contains the current DHCP address, rebuild and rerun
+the package after an address change.
+
 ## Important endpoints
 
 | Method | Endpoint | Access |
