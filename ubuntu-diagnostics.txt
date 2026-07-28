@@ -1,0 +1,126 @@
+(base) gear-ph-02@gear-ph-02:~/Documents/Codes/NVGS-Server$ ./scripts/update-ubuntu-server.sh
+1/6 Backing up the current ticket database...
+Backup created: /home/gear-ph-02/Documents/Codes/NVGS-Server/backups/nvgs_ticketing_20260728T005303Z.dump
+Copy it to a second approved encrypted device and test restores regularly.
+2/6 Downloading the latest code from GitHub...
+Already up to date.
+3/6 Checking local secret files...
+
+Secrets are ready. Review .env before starting the server.
+4/6 Downloading updated server images...
+[+] pull 4/4
+ ✔ app                           Skipped No image to be pulled             0.0s
+ ✔ notifications                 Skipped No image to be pulled             0.0s
+ ✔ Image postgres:17.10-bookworm Pulled                                    3.6s
+ ✔ Image caddy:2.10-alpine       Pulled                                    3.0s
+5/6 Rebuilding and restarting the application...
+[+] Building 1.1s (16/16) FINISHED                                             
+ => [internal] load local bake definitions                                0.0s
+ => => reading from stdin 1.02kB                                          0.0s
+ => [notifications internal] load build definition from Dockerfile        0.0s
+ => => transferring dockerfile: 629B                                      0.0s
+ => [app internal] load metadata for docker.io/library/python:3.13-slim-  0.7s
+ => [notifications internal] load .dockerignore                           0.0s
+ => => transferring context: 198B                                         0.0s
+ => [app 1/7] FROM docker.io/library/python:3.13-slim-bookworm@sha256:9d  0.0s
+ => => resolve docker.io/library/python:3.13-slim-bookworm@sha256:9d7f28  0.0s
+ => [notifications internal] load build context                           0.0s
+ => => transferring context: 5.97kB                                       0.0s
+ => CACHED [app 2/7] WORKDIR /app                                         0.0s
+ => CACHED [app 3/7] RUN groupadd --system nvgs     && useradd --system   0.0s
+ => CACHED [app 4/7] COPY requirements.txt .                              0.0s
+ => CACHED [app 5/7] RUN pip install --no-cache-dir -r requirements.txt   0.0s
+ => CACHED [app 6/7] COPY . .                                             0.0s
+ => CACHED [app 7/7] RUN chmod +x /app/docker/entrypoint.sh     && DJANG  0.0s
+ => [app] exporting to image                                              0.1s
+ => => exporting layers                                                   0.0s
+ => => exporting manifest sha256:d233b2298fe55b1dd5c86b6d3a0815ea47e0d0f  0.0s
+ => => exporting config sha256:a43e10d780673c1308de110a8254fadb96c1f8f2e  0.0s
+ => => exporting attestation manifest sha256:374ff0756eeea5d80080eebe18c  0.0s
+ => => exporting manifest list sha256:ef20523f9825ea94fc8e2b8788c409f083  0.0s
+ => => naming to docker.io/library/nvgs-server-app:latest                 0.0s
+ => => unpacking to docker.io/library/nvgs-server-app:latest              0.0s
+ => [notifications] exporting to image                                    0.1s
+ => => exporting layers                                                   0.0s
+ => => exporting manifest sha256:8feca7c57f026db0a481ca92e615c14cd156af2  0.0s
+ => => exporting config sha256:f6745c8bc753396681a7cb0aab76bb39ca798fb4d  0.0s
+ => => exporting attestation manifest sha256:9a96017f4e725ce30a15c14e9df  0.0s
+ => => exporting manifest list sha256:94573802bbe8056b5b3d5517be7324d3a3  0.0s
+ => => naming to docker.io/library/nvgs-server-notifications:latest       0.0s
+ => => unpacking to docker.io/library/nvgs-server-notifications:latest    0.0s
+ => [app] resolving provenance for metadata file                          0.0s
+ => [notifications] resolving provenance for metadata file                0.0s
+[+] up 6/6
+ ✔ Image nvgs-server-app                 Built                             1.1s
+ ✔ Image nvgs-server-notifications       Built                             1.1s
+ ✔ Container nvgs-server-caddy-1         Running                           0.0s
+ ✔ Container nvgs-server-db-1            Healthy                          12.2s
+ ✔ Container nvgs-server-app-1           Healthy                          17.2s
+ ✔ Container nvgs-server-notifications-1 Started                          16.8s
+6/6 Refreshing the selected Ubuntu server mode...
+NVGS uses app-controlled mode; refreshing its launcher instead.
+Switching NVGS from always-on mode to app-controlled mode...
+NVGS desktop-controlled mode was refreshed.
+NAME                          IMAGE                       COMMAND                  SERVICE         CREATED          STATUS                   PORTS
+nvgs-server-app-1             nvgs-server-app             "/app/docker/entrypo…"   app             20 seconds ago   Up 8 seconds (healthy)   8000/tcp
+nvgs-server-caddy-1           caddy:2.10-alpine           "caddy run --config …"   caddy           22 hours ago     Up 19 hours              80/tcp, 2019/tcp, 127.0.0.1:443->443/tcp, 443/udp
+nvgs-server-db-1              postgres:17.10-bookworm     "docker-entrypoint.s…"   db              22 hours ago     Up 19 hours (healthy)    5432/tcp
+nvgs-server-notifications-1   nvgs-server-notifications   "python manage.py pr…"   notifications   19 seconds ago   Up 2 seconds             8000/tcp
+
+Update complete. The pre-update database backup is under backups/.
+NVGS remains controlled by the open 'NVGS Server Control' window.
+Close and reopen that controller now to activate launcher updates.
+(base) gear-ph-02@gear-ph-02:~/Documents/Codes/NVGS-Server$ ./scripts/configure-approved-lan.sh 192.168.10.102
+[+] Building 1.5s (16/16) FINISHED                                             
+ => [internal] load local bake definitions                                0.0s
+ => => reading from stdin 1.02kB                                          0.0s
+ => [notifications internal] load build definition from Dockerfile        0.0s
+ => => transferring dockerfile: 629B                                      0.0s
+ => [notifications internal] load metadata for docker.io/library/python:  1.1s
+ => [notifications internal] load .dockerignore                           0.0s
+ => => transferring context: 198B                                         0.0s
+ => [notifications 1/7] FROM docker.io/library/python:3.13-slim-bookworm  0.0s
+ => => resolve docker.io/library/python:3.13-slim-bookworm@sha256:9d7f28  0.0s
+ => [notifications internal] load build context                           0.0s
+ => => transferring context: 5.97kB                                       0.0s
+ => CACHED [notifications 2/7] WORKDIR /app                               0.0s
+ => CACHED [notifications 3/7] RUN groupadd --system nvgs     && useradd  0.0s
+ => CACHED [notifications 4/7] COPY requirements.txt .                    0.0s
+ => CACHED [notifications 5/7] RUN pip install --no-cache-dir -r require  0.0s
+ => CACHED [notifications 6/7] COPY . .                                   0.0s
+ => CACHED [app 7/7] RUN chmod +x /app/docker/entrypoint.sh     && DJANG  0.0s
+ => [app] exporting to image                                              0.1s
+ => => exporting layers                                                   0.0s
+ => => exporting manifest sha256:d233b2298fe55b1dd5c86b6d3a0815ea47e0d0f  0.0s
+ => => exporting config sha256:a43e10d780673c1308de110a8254fadb96c1f8f2e  0.0s
+ => => exporting attestation manifest sha256:5974f75de29fa532f3df676debb  0.0s
+ => => exporting manifest list sha256:4c627c530c7aadb0119e32fe1f1ffa876a  0.0s
+ => => naming to docker.io/library/nvgs-server-app:latest                 0.0s
+ => => unpacking to docker.io/library/nvgs-server-app:latest              0.0s
+ => [notifications] exporting to image                                    0.1s
+ => => exporting layers                                                   0.0s
+ => => exporting manifest sha256:8feca7c57f026db0a481ca92e615c14cd156af2  0.0s
+ => => exporting config sha256:f6745c8bc753396681a7cb0aab76bb39ca798fb4d  0.0s
+ => => exporting attestation manifest sha256:10e77a3fcd6c2804eca43b6c2a1  0.0s
+ => => exporting manifest list sha256:4efc18b6de2137f4507210619234de90b3  0.0s
+ => => naming to docker.io/library/nvgs-server-notifications:latest       0.0s
+ => => unpacking to docker.io/library/nvgs-server-notifications:latest    0.0s
+ => [notifications] resolving provenance for metadata file                0.0s
+ => [app] resolving provenance for metadata file                          0.0s
+[+] up 6/6
+ ✔ Image nvgs-server-notifications       Built                             1.5s
+ ✔ Image nvgs-server-app                 Built                             1.5s
+ ✔ Container nvgs-server-db-1            Healthy                          12.3s
+ ✔ Container nvgs-server-app-1           Healthy                          17.3s
+ ✔ Container nvgs-server-caddy-1         Started                          16.9s
+ ✔ Container nvgs-server-notifications-1 Started                          16.9s
+[+] copy 1/1
+ ✔ nvgs-server-caddy-1 Copied nvgs-server-caddy-1:/data/caddy/pki/autho... 0.0s
+mv: replace '/home/gear-ph-02/Documents/Codes/NVGS-Server/nvgs-local-ca.crt', overriding mode 0600 (rw-------)? re
+Public client certificate exported:
+  /home/gear-ph-02/Documents/Codes/NVGS-Server/nvgs-local-ca.crt
+
+SHA-256 fingerprint:
+sha256sum: /home/gear-ph-02/Documents/Codes/NVGS-Server/nvgs-local-ca.crt: Permission denied
+(base) gear-ph-02@gear-ph-02:~/Documents/Codes/NVGS-Server$ 
+
