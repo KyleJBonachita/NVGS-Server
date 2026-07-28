@@ -198,8 +198,19 @@ automatic refresh once:
 
 After that, opening **NVGS Server Control** detects the current IPv4 address on
 that Ethernet interface before starting Docker and the alert monitors. This
-does not make the DHCP address permanent. If it changes, update the Apps Script
-callback and client bookmark; a reservation remains the production setup.
+does not make the DHCP address permanent. Without a stable hostname, an address
+change also requires updating the Apps Script callback and client bookmark.
+
+If the Ubuntu hostname already resolves through mDNS or approved internal DNS,
+save it as a stable link:
+
+```bash
+./scripts/refresh-dynamic-lan.sh enp109s0 gear-ph-02.local
+```
+
+The helper refuses the hostname unless Ubuntu resolves it to the current
+Ethernet address. Client laptops must also resolve it; a hostname does not
+bypass VLAN, firewall, or client-isolation rules.
 
 ## Important endpoints
 

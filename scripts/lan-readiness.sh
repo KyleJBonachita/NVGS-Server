@@ -36,6 +36,7 @@ server_bind_ip="$(read_env_value "SERVER_BIND_IP")"
 server_address="$(read_env_value "SERVER_ADDRESS")"
 lan_mode="$(read_env_value "NVGS_LAN_MODE")"
 lan_interface="$(read_env_value "NVGS_LAN_INTERFACE")"
+lan_server_name="$(read_env_value "NVGS_LAN_SERVER_NAME")"
 
 echo "NVGS LAN readiness (read-only)"
 echo
@@ -53,6 +54,7 @@ echo
 echo "NVGS currently configured for:"
 echo "  NVGS_LAN_MODE=${lan_mode:-manual}"
 echo "  NVGS_LAN_INTERFACE=${lan_interface:-not set}"
+echo "  NVGS_LAN_SERVER_NAME=${lan_server_name:-not set}"
 echo "  SERVER_BIND_IP=${server_bind_ip:-not set}"
 echo "  SERVER_ADDRESS=${server_address:-not set}"
 echo

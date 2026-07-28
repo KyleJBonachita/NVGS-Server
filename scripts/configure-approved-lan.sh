@@ -92,6 +92,7 @@ set_env_value "DJANGO_CSRF_TRUSTED_ORIGINS" "$trusted_origins"
 set_env_value "APPSCRIPT_SSO_SUCCESS_REDIRECT" "/tickets/"
 set_env_value "NVGS_LAN_MODE" "manual"
 set_env_value "NVGS_LAN_INTERFACE" ""
+set_env_value "NVGS_LAN_SERVER_NAME" ""
 chmod 600 .env
 
 host_mode="$(

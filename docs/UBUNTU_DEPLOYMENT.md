@@ -165,10 +165,21 @@ updates Caddy's bind address, Django's allowed host and CSRF origin, and the
 local monitor target. It never changes Ubuntu's DHCP or NetworkManager
 configuration. If Ethernet has no usable IPv4 address, startup stops safely.
 
-If the DHCP address changes, client bookmarks change too. The Apps Script
-bridge callback is intentionally not modified remotely; run
-`./scripts/appscript-login-setup.sh prepare` and update its Script Property.
-A reservation or approved stable DNS name remains the production solution.
+To keep the visible link stable, provide an existing resolvable mDNS or
+internal-DNS hostname:
+
+```bash
+./scripts/refresh-dynamic-lan.sh enp109s0 gear-ph-02.local
+```
+
+The helper verifies that Ubuntu resolves the name to its current Ethernet
+address before saving it. Test the same name from every approved client.
+
+Without a stable name, a DHCP change also changes client bookmarks. Whenever
+the visible server link changes, the Apps Script bridge callback is
+intentionally not modified remotely; run `./scripts/appscript-login-setup.sh
+prepare` and update its Script Property. A reservation or approved internal
+DNS name remains the production solution.
 
 ## 5a. Install the public CA on approved clients
 
