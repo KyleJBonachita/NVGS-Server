@@ -15,6 +15,7 @@ if ! docker compose ps --status running --services | grep -qx "caddy"; then
 fi
 
 temporary_file="$(mktemp "$project_dir/.nvgs_ca_XXXXXX")"
+destination_file="$project_dir/nvgs-local-ca.crt"
 cleanup() {
     rm -f -- "$temporary_file"
 }
@@ -25,14 +26,16 @@ docker compose cp \
     "$temporary_file"
 test -s "$temporary_file"
 chmod 0644 "$temporary_file"
-mv -- "$temporary_file" "$project_dir/nvgs-local-ca.crt"
+mv -f -- "$temporary_file" "$destination_file"
+chmod 0644 "$destination_file"
+test -r "$destination_file"
 trap - EXIT
 
 echo "Public client certificate exported:"
-echo "  $project_dir/nvgs-local-ca.crt"
+echo "  $destination_file"
 echo
 echo "SHA-256 fingerprint:"
-sha256sum "$project_dir/nvgs-local-ca.crt"
+sha256sum "$destination_file"
 echo
 echo "The public certificate may be copied to approved client laptops."
 echo "Never copy files from secrets/ or Caddy's private-key folders."
