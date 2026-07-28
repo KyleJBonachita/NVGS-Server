@@ -5,7 +5,7 @@ project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$project_dir"
 
 if [[ -n "$(git status --porcelain)" ]]; then
-    echo "Update stopped because tracked files were changed on Ubuntu." >&2
+    echo "Update stopped because changed or untracked files were found on Ubuntu." >&2
     echo "Keep code changes on Windows, commit/push them, then pull here." >&2
     echo "Run 'git status' to inspect the Ubuntu changes." >&2
     exit 1
