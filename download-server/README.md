@@ -8,11 +8,15 @@ to the same Wi-Fi or local network.
 1. Put shared files in `download-server/downloads` inside the NVGS repository.
 2. Open **NVGS Server Hub** from Ubuntu Applications.
 3. Choose **Download Server** and keep its control terminal open.
-4. Use any Ethernet or Wi-Fi link shown by the Hub or terminal.
+4. Open or share `http://download-system.local:8080/`. The Hub and terminal
+   also show direct Ethernet or Wi-Fi links as fallbacks.
 
 The container binds to all active IPv4 interfaces on port `8080` by default.
 Change `DOWNLOAD_SERVER_PORT` in the repository `.env` if that port is already
-used. Download content is excluded from Git.
+used. Change `DOWNLOAD_SERVER_NAME` only if a different `.local` name is
+required. The name is published through the Ubuntu host's existing Avahi
+service and is independent from NVGS's `ticketing-system.local` name, so it adds
+negligible overhead. Download content is excluded from Git.
 
 The Windows launcher below remains useful for standalone testing.
 

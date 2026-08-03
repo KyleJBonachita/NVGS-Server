@@ -167,6 +167,9 @@ systemctl daemon-reload
 chmod 0755 \
     scripts/nvgs-session-control.sh \
     scripts/download-session-control.sh \
+    scripts/ensure-lan-ready.sh \
+    scripts/network-repair-control.sh \
+    scripts/refresh-download-mdns.sh \
     host/server_control_gui.py
 
 applications_dir="$desktop_home/.local/share/applications"

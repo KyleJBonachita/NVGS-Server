@@ -145,6 +145,14 @@ After logging in again, open Ubuntu Applications and select **NVGS Server
 Hub**. Choose **NVGS Server** for ticketing and alerts, or **Download Server**
 for local file sharing, then enter your Ubuntu password.
 
+- The Download Server's stable link is
+  `http://download-system.local:8080/`; its IP-address fallbacks are also shown.
+- The Hub shows network health and live service status. **Copy link** copies the
+  preferred address, while **Open site** becomes available when a service is
+  running.
+- Starting either service checks the LAN first and safely reconnects an
+  existing NetworkManager profile if necessary. Use **Repair connection** to
+  run the same check manually.
 - Keep the selected service's control terminal open while people need it.
 - NVGS enables its full-screen warnings and monitoring; both services prevent
   sleep while their control terminal is open.
@@ -171,6 +179,11 @@ continue.
 
 The reboot is needed only the first time you switch away from the old
 always-on installation.
+
+If **Repair connection** reports that the Ethernet device is completely absent,
+the problem is below the server application. Save the device/driver diagnostics
+shown in that window. Do not guess a `modprobe` command: the correct driver
+depends on the laptop's actual Ethernet controller, kernel, and firmware.
 
 If this laptop later becomes a permanent, approved server that must start at
 boot, switch back with:

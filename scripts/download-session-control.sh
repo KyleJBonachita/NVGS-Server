@@ -16,6 +16,12 @@ if [[ "${EUID}" -ne 0 ]]; then
         exit 1
     fi
 
+    if ! "$project_dir/scripts/ensure-lan-ready.sh"; then
+        echo "DownloadServer stopped because the LAN could not be recovered." >&2
+        read -r -p "Press Enter to close..." _
+        exit 1
+    fi
+
     set +e
     sudo -- "$0"
     controller_status="$?"
@@ -41,7 +47,8 @@ read_env_value() {
 
 download_port="$(read_env_value "DOWNLOAD_SERVER_PORT")"
 download_port="${download_port:-8080}"
-stable_server_name="$(read_env_value "NVGS_LAN_SERVER_NAME")"
+stable_server_name="$(read_env_value "DOWNLOAD_SERVER_NAME")"
+stable_server_name="${stable_server_name:-download-system.local}"
 if [[ ! "$download_port" =~ ^[0-9]+$ ]] \
     || (( download_port < 1 || download_port > 65535 )); then
     echo "DOWNLOAD_SERVER_PORT must be a number from 1 to 65535." >&2
@@ -50,6 +57,7 @@ if [[ ! "$download_port" =~ ^[0-9]+$ ]] \
 fi
 
 session_started=false
+mdns_published=false
 
 stop_session() {
     trap - EXIT HUP INT TERM
@@ -57,12 +65,33 @@ stop_session() {
         echo
         echo "Stopping DownloadServer..."
         docker compose --profile downloads stop download-server || true
+        if [[ "$mdns_published" == "true" ]]; then
+            "$project_dir/scripts/refresh-download-mdns.sh" --remove || true
+        fi
         echo "DownloadServer is stopped. Shared files were not changed."
     fi
 }
 trap stop_session EXIT HUP INT TERM
 
 echo "Starting DownloadServer..."
+download_ip="$(
+    ip -4 route get 1.1.1.1 2>/dev/null \
+        | awk 'NR == 1 {for (i=1; i<=NF; i++) if ($i=="src") {print $(i+1); exit}}'
+)"
+if [[ -z "$download_ip" ]]; then
+    download_ip="$(
+        ip -4 -o address show scope global 2>/dev/null \
+            | awk '$2 !~ /^(docker|br-|veth|virbr|podman|tailscale)/ {
+                split($4, address, "/"); print address[1]; exit
+            }'
+    )"
+fi
+if [[ -z "$download_ip" ]]; then
+    echo "DownloadServer has no usable LAN IPv4 address." >&2
+    exit 1
+fi
+"$project_dir/scripts/refresh-download-mdns.sh" --publish "$download_ip"
+mdns_published=true
 session_started=true
 docker compose --profile downloads up -d --build download-server
 

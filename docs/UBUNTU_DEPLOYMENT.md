@@ -263,6 +263,35 @@ After reboot, open **NVGS Server Hub** from Ubuntu Applications and choose
 - Keeps a terminal window open to show that NVGS is running
 - Stops the containers and monitors when you press Enter or close the window
 
+The Hub is catalog-driven so future servers can be added as another card. Its
+network panel shows the active Ethernet/Wi-Fi addresses and provides
+**Repair connection**. Every server start runs the same conservative recovery
+first: enable NetworkManager networking, then activate the best existing saved
+connection for a usable physical adapter. It does not create profiles, change
+static/DHCP settings, or reload kernel drivers.
+
+Choose **Download Server** for the optional file portal. It publishes
+`http://download-system.local:8080/` and direct-IP fallback links. This is a
+separate Avahi host alias from NVGS's `ticketing-system.local`; both point to the
+same Ubuntu LAN address and add no second DNS daemon.
+
+### Ethernet disappears from Ubuntu
+
+Use **Repair connection** first. It handles NetworkManager being disabled, a
+disconnected saved profile, and a missing IPv4 lease. If it cannot recover, it
+prints `ip`, `nmcli`, and PCI driver information.
+
+If the Ethernet interface is absent from both `ip -brief link` and the PCI/USB
+device report, or repeatedly disappears from the kernel, investigate the exact
+laptop NIC/dock model, installed kernel, firmware, cable, and power-management
+behavior. A server launcher cannot safely choose a driver module without that
+hardware evidence. Collect the current-boot kernel log with:
+
+```bash
+sudo journalctl -k -b --no-pager | \
+  grep -Ei 'ethernet|network|link|firmware|r816|e1000|igc|tg3'
+```
+
 The one-time reboot removes the old permanent lid override safely. Normal
 Ubuntu sleep behavior returns whenever the controller is closed.
 

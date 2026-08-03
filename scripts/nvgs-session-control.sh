@@ -17,6 +17,12 @@ if [[ "${EUID}" -ne 0 ]]; then
         exit 1
     fi
 
+    if ! "$project_dir/scripts/ensure-lan-ready.sh"; then
+        echo "NVGS stopped before startup because the LAN could not be recovered." >&2
+        read -r -p "Press Enter to close..." _
+        exit 1
+    fi
+
     if ! "$project_dir/scripts/refresh-dynamic-lan.sh"; then
         echo "NVGS stopped before startup because its LAN address could not refresh." >&2
         read -r -p "Press Enter to close..." _

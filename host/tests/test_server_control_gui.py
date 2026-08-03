@@ -50,6 +50,7 @@ class ServerCatalogTests(unittest.TestCase):
         self.assertEqual(
             server_urls(server, addresses, {}),
             [
+                "http://download-system.local:8080/",
                 "http://192.168.1.20:8080/",
                 "http://192.168.1.30:8080/",
             ],
@@ -62,12 +63,23 @@ class ServerCatalogTests(unittest.TestCase):
             server_urls(
                 server,
                 addresses,
-                {"NVGS_LAN_SERVER_NAME": "ticketing-system.local"},
+                {"DOWNLOAD_SERVER_NAME": "production-downloads.local"},
             ),
             [
-                "http://ticketing-system.local:8080/",
+                "http://production-downloads.local:8080/",
                 "http://192.168.1.20:8080/",
             ],
+        )
+
+    def test_download_name_is_independent_from_nvgs_name(self):
+        server = build_server_catalog({})[1]
+        self.assertEqual(
+            server_urls(
+                server,
+                [],
+                {"NVGS_LAN_SERVER_NAME": "ticketing-system.local"},
+            ),
+            ["http://download-system.local:8080/"],
         )
 
     def test_nvgs_prefers_configured_stable_name(self):

@@ -35,6 +35,7 @@ class NetworkAddress:
 class ServerDefinition:
     key: str
     name: str
+    category: str
     description: str
     script: str
     scheme: str
@@ -42,15 +43,24 @@ class ServerDefinition:
     path: str
 
 
-def load_gtk3_modules() -> tuple[Any, Any, Any]:
+@dataclass
+class ServerCardWidgets:
+    status: Any
+    links: Any
+    control_button: Any
+    copy_button: Any
+    open_button: Any
+
+
+def load_gtk3_modules() -> tuple[Any, Any, Any, Any]:
     """Load matching GTK 3 modules only when the graphical app starts."""
     import gi
 
     gi.require_version("Gdk", "3.0")
     gi.require_version("Gtk", "3.0")
-    from gi.repository import Gdk, GLib, Gtk
+    from gi.repository import Gdk, Gio, GLib, Gtk
 
-    return Gdk, GLib, Gtk
+    return Gdk, Gio, GLib, Gtk
 
 
 def read_env_values(env_path: Path) -> dict[str, str]:
@@ -164,6 +174,7 @@ def build_server_catalog(env: dict[str, str]) -> tuple[ServerDefinition, ...]:
         ServerDefinition(
             key="nvgs",
             name="NVGS Server",
+            category="OPERATIONS PLATFORM",
             description="Ticketing, database, alerts, and secure HTTPS access.",
             script="nvgs-session-control.sh",
             scheme="https",
@@ -173,6 +184,7 @@ def build_server_catalog(env: dict[str, str]) -> tuple[ServerDefinition, ...]:
         ServerDefinition(
             key="downloads",
             name="Download Server",
+            category="LOCAL FILE DELIVERY",
             description="Fast local file delivery with image and cover previews.",
             script="download-session-control.sh",
             scheme="http",
@@ -206,7 +218,10 @@ def server_urls(
         hosts = [preferred_nvgs_host(env, addresses)]
     else:
         hosts = []
-        stable_name = env.get("NVGS_LAN_SERVER_NAME", "").strip()
+        stable_name = env.get(
+            "DOWNLOAD_SERVER_NAME",
+            "download-system.local",
+        ).strip()
         if stable_name:
             hosts.append(stable_name)
         hosts.extend(item.address for item in addresses)
@@ -270,8 +285,8 @@ def terminal_command(script_path: Path) -> list[str]:
     raise RuntimeError("No supported terminal application was found.")
 
 
-def launch_server_control(server: ServerDefinition) -> None:
-    script_path = PROJECT_DIR / "scripts" / server.script
+def launch_control_script(script: str) -> None:
+    script_path = PROJECT_DIR / "scripts" / script
     if not script_path.is_file():
         raise RuntimeError(f"Missing control script: {script_path.name}")
     subprocess.Popen(
@@ -281,9 +296,13 @@ def launch_server_control(server: ServerDefinition) -> None:
     )
 
 
+def launch_server_control(server: ServerDefinition) -> None:
+    launch_control_script(server.script)
+
+
 def run_gui() -> int:
     try:
-        Gdk, GLib, Gtk = load_gtk3_modules()
+        Gdk, Gio, GLib, Gtk = load_gtk3_modules()
     except (ImportError, ValueError) as exc:
         print(
             "NVGS Server Hub requires GTK 3 Python support "
@@ -293,31 +312,63 @@ def run_gui() -> int:
         return 2
 
     css = b"""
-        #server-hub-window { background: #10130f; color: #f3f5ef; }
-        #hub-title { font-size: 30px; font-weight: 800; }
-        #hub-subtitle { color: #a8afa3; font-size: 15px; }
+        #server-hub-window {
+            background-color: #0d100c;
+            color: #f4f7ef;
+        }
+        headerbar {
+            background-color: #151914;
+            color: #f4f7ef;
+            border-bottom: 1px solid #2b3228;
+            box-shadow: none;
+        }
+        #hero-eyebrow, .card-eyebrow, .section-label {
+            color: #cbed6e;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 1px;
+        }
+        #hub-title { font-size: 32px; font-weight: 800; }
+        #hub-subtitle { color: #aab2a5; font-size: 15px; }
         #network-panel, .server-card {
-            background: #191d17;
-            border: 1px solid #30372d;
+            background-color: #171b16;
+            border: 1px solid #30382d;
             border-radius: 14px;
         }
-        #network-title { color: #d6ff65; font-size: 13px; font-weight: 800; }
-        #network-detail { color: #b6bdb1; }
-        .server-name { font-size: 21px; font-weight: 800; }
-        .server-description { color: #a8afa3; font-size: 14px; }
-        .server-link { color: #c7cfbf; font-family: monospace; font-size: 12px; }
-        .status-running { color: #d6ff65; font-weight: 800; }
-        .status-stopped { color: #a8afa3; font-weight: 700; }
-        .launch-button {
-            background: #d6ff65;
-            color: #12160d;
-            border: 0;
-            border-radius: 8px;
-            padding: 11px 18px;
+        #network-panel.network-ready { border-color: #61783c; }
+        #network-panel.network-missing { border-color: #8c6640; }
+        #network-state { font-size: 17px; font-weight: 800; }
+        #network-detail { color: #b7beb2; font-size: 13px; }
+        .server-name { font-size: 22px; font-weight: 800; }
+        .server-description { color: #aab2a5; font-size: 14px; }
+        .server-link {
+            color: #d9dfd4;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .status-running { color: #cbed6e; font-size: 11px; font-weight: 800; }
+        .status-stopped { color: #929a8e; font-size: 11px; font-weight: 800; }
+        button {
+            background-color: #242a21;
+            color: #e5e9e1;
+            border: 1px solid #3b4437;
+            border-radius: 7px;
+            padding: 8px 12px;
+        }
+        button:hover { background-color: #30382c; }
+        .primary-button {
+            background-color: #cbed6e;
+            color: #11150d;
+            border-color: #cbed6e;
             font-weight: 800;
         }
-        .launch-button:hover { background: #e1ff8d; }
-        #footer-note { color: #8e9689; font-size: 12px; }
+        .primary-button:hover { background-color: #d9f593; }
+        .warning-button { border-color: #9b7145; }
+        #activity-bar {
+            background-color: #121511;
+            border-top: 1px solid #272e25;
+        }
+        #activity-label { color: #929a8e; font-size: 12px; }
     """
     provider = Gtk.CssProvider()
     provider.load_from_data(css)
@@ -331,63 +382,120 @@ def run_gui() -> int:
 
     window = Gtk.Window(title="NVGS Server Hub")
     window.set_name("server-hub-window")
-    window.set_default_size(820, 620)
+    window.set_default_size(1040, 720)
+    window.set_size_request(780, 560)
     window.set_position(Gtk.WindowPosition.CENTER)
     window.set_icon_name("network-server")
     window.set_wmclass("nvgs-server-hub", "NVGS Server Hub")
     window.connect("destroy", Gtk.main_quit)
 
-    page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=18)
-    page.set_border_width(28)
-    window.add(page)
+    header = Gtk.HeaderBar()
+    header.set_show_close_button(True)
+    header.set_title("NVGS Server Hub")
+    header.set_subtitle("Local infrastructure control center")
+    window.set_titlebar(header)
 
-    title = Gtk.Label(label="Server Hub")
+    root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+    window.add(root)
+
+    scroller = Gtk.ScrolledWindow()
+    scroller.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+    root.pack_start(scroller, True, True, 0)
+
+    page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=20)
+    page.set_border_width(28)
+    scroller.add(page)
+
+    hero = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+    page.pack_start(hero, False, False, 0)
+
+    eyebrow = Gtk.Label(label="NVGS / LOCAL INFRASTRUCTURE")
+    eyebrow.set_name("hero-eyebrow")
+    eyebrow.set_xalign(0)
+    hero.pack_start(eyebrow, False, False, 0)
+
+    title = Gtk.Label(label="Server control center")
     title.set_name("hub-title")
     title.set_xalign(0)
-    page.pack_start(title, False, False, 0)
+    hero.pack_start(title, False, False, 0)
 
     subtitle = Gtk.Label(
-        label="Choose a local server. Each one opens in its own control terminal."
+        label=(
+            "Start, inspect, and open production services available on your "
+            "Ethernet or Wi-Fi network."
+        )
     )
     subtitle.set_name("hub-subtitle")
     subtitle.set_xalign(0)
-    page.pack_start(subtitle, False, False, 0)
+    subtitle.set_line_wrap(True)
+    hero.pack_start(subtitle, False, False, 0)
 
-    network_panel = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=7)
+    network_panel = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=18)
     network_panel.set_name("network-panel")
-    network_panel.set_border_width(16)
+    network_panel.set_border_width(18)
     page.pack_start(network_panel, False, False, 0)
 
-    network_heading_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
-    network_panel.pack_start(network_heading_row, False, False, 0)
-    network_title = Gtk.Label(label="DETECTED LOCAL NETWORK")
-    network_title.set_name("network-title")
-    network_title.set_xalign(0)
-    network_heading_row.pack_start(network_title, True, True, 0)
-    refresh_button = Gtk.Button(label="Refresh")
-    network_heading_row.pack_end(refresh_button, False, False, 0)
-
+    network_copy = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+    network_panel.pack_start(network_copy, True, True, 0)
+    network_label = Gtk.Label(label="NETWORK HEALTH")
+    network_label.get_style_context().add_class("section-label")
+    network_label.set_xalign(0)
+    network_copy.pack_start(network_label, False, False, 0)
+    network_state = Gtk.Label(label="Checking connections...")
+    network_state.set_name("network-state")
+    network_state.set_xalign(0)
+    network_copy.pack_start(network_state, False, False, 0)
     network_detail = Gtk.Label()
     network_detail.set_name("network-detail")
     network_detail.set_xalign(0)
     network_detail.set_line_wrap(True)
-    network_panel.pack_start(network_detail, False, False, 0)
+    network_copy.pack_start(network_detail, False, False, 0)
 
-    cards = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
-    page.pack_start(cards, True, True, 0)
+    network_actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+    network_actions.set_valign(Gtk.Align.CENTER)
+    network_panel.pack_end(network_actions, False, False, 0)
+    repair_button = Gtk.Button(label="Repair connection")
+    repair_button.get_style_context().add_class("warning-button")
+    network_actions.pack_start(repair_button, False, False, 0)
+    refresh_button = Gtk.Button(label="Refresh")
+    network_actions.pack_start(refresh_button, False, False, 0)
 
-    status_labels: dict[str, Any] = {}
-    link_labels: dict[str, Any] = {}
+    server_section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+    page.pack_start(server_section, True, True, 0)
+    server_heading = Gtk.Label(label="AVAILABLE SERVERS")
+    server_heading.get_style_context().add_class("section-label")
+    server_heading.set_xalign(0)
+    server_section.pack_start(server_heading, False, False, 0)
+
+    cards = Gtk.Grid()
+    cards.set_column_spacing(14)
+    cards.set_row_spacing(14)
+    cards.set_column_homogeneous(True)
+    server_section.pack_start(cards, True, True, 0)
+
+    card_widgets: dict[str, ServerCardWidgets] = {}
+    latest_urls: dict[str, list[str]] = {}
     env = read_env_values(PROJECT_DIR / ".env")
     catalog = build_server_catalog(env)
 
-    def show_error(message: str) -> None:
+    activity_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+    activity_bar.set_name("activity-bar")
+    activity_bar.set_border_width(10)
+    root.pack_end(activity_bar, False, False, 0)
+    activity_label = Gtk.Label(
+        label="Ready. Server control terminals may be closed to stop their services."
+    )
+    activity_label.set_name("activity-label")
+    activity_label.set_xalign(0)
+    activity_bar.pack_start(activity_label, True, True, 8)
+
+    def show_error(title: str, message: str) -> None:
         dialog = Gtk.MessageDialog(
             transient_for=window,
             flags=Gtk.DialogFlags.MODAL,
             message_type=Gtk.MessageType.ERROR,
             buttons=Gtk.ButtonsType.CLOSE,
-            text="Could not open server control",
+            text=title,
         )
         dialog.format_secondary_text(message)
         dialog.run()
@@ -396,89 +504,145 @@ def run_gui() -> int:
     def launch_clicked(_button: object, server: ServerDefinition) -> None:
         try:
             launch_server_control(server)
-            status_labels[server.key].set_text("CONTROL TERMINAL OPENED")
+            card_widgets[server.key].status.set_text("STARTING")
+            activity_label.set_text(
+                f"Opened {server.name} control. Keep its terminal open while in use."
+            )
         except (OSError, RuntimeError) as exc:
-            show_error(str(exc))
+            show_error("Could not open server control", str(exc))
 
-    for server in catalog:
+    def copy_clicked(_button: object, server: ServerDefinition) -> None:
+        urls = latest_urls.get(server.key, [])
+        if not urls:
+            return
+        Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD).set_text(urls[0], -1)
+        activity_label.set_text(f"Copied {urls[0]}")
+
+    def open_clicked(_button: object, server: ServerDefinition) -> None:
+        urls = latest_urls.get(server.key, [])
+        if not urls:
+            return
+        try:
+            Gio.AppInfo.launch_default_for_uri(urls[0], None)
+            activity_label.set_text(f"Opened {urls[0]}")
+        except GLib.Error as exc:
+            show_error("Could not open server address", str(exc))
+
+    def repair_clicked(_button: object) -> None:
+        try:
+            launch_control_script("network-repair-control.sh")
+            activity_label.set_text(
+                "Opened network repair. The hub will refresh automatically."
+            )
+        except (OSError, RuntimeError) as exc:
+            show_error("Could not open network repair", str(exc))
+
+    for index, server in enumerate(catalog):
         frame = Gtk.Frame()
         frame.get_style_context().add_class("server-card")
-        card = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=20)
+        frame.set_vexpand(True)
+        card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
         card.set_border_width(18)
         frame.add(card)
 
-        copy = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=7)
-        card.pack_start(copy, True, True, 0)
+        card_heading = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        card.pack_start(card_heading, False, False, 0)
+        category = Gtk.Label(label=server.category)
+        category.get_style_context().add_class("card-eyebrow")
+        category.set_xalign(0)
+        card_heading.pack_start(category, True, True, 0)
+        status = Gtk.Label(label="CHECKING")
+        status.get_style_context().add_class("status-stopped")
+        card_heading.pack_end(status, False, False, 0)
+
         name = Gtk.Label(label=server.name)
         name.get_style_context().add_class("server-name")
         name.set_xalign(0)
-        copy.pack_start(name, False, False, 0)
+        card.pack_start(name, False, False, 0)
         description = Gtk.Label(label=server.description)
         description.get_style_context().add_class("server-description")
         description.set_xalign(0)
         description.set_line_wrap(True)
-        copy.pack_start(description, False, False, 0)
+        card.pack_start(description, False, False, 0)
+
+        separator = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
+        card.pack_start(separator, False, False, 2)
+        address_label = Gtk.Label(label="PRIMARY ADDRESS")
+        address_label.get_style_context().add_class("section-label")
+        address_label.set_xalign(0)
+        card.pack_start(address_label, False, False, 0)
         links = Gtk.Label()
         links.get_style_context().add_class("server-link")
         links.set_xalign(0)
         links.set_selectable(True)
         links.set_line_wrap(True)
-        copy.pack_start(links, False, False, 3)
-        link_labels[server.key] = links
+        card.pack_start(links, True, True, 0)
 
-        actions = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-        actions.set_valign(Gtk.Align.CENTER)
+        actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         card.pack_end(actions, False, False, 0)
-        status = Gtk.Label(label="CHECKING")
-        actions.pack_start(status, False, False, 0)
-        status_labels[server.key] = status
-        launch_button = Gtk.Button(label="Open control")
-        launch_button.get_style_context().add_class("launch-button")
-        launch_button.connect("clicked", launch_clicked, server)
-        actions.pack_start(launch_button, False, False, 0)
-        cards.pack_start(frame, False, False, 0)
+        control_button = Gtk.Button(label="Start server")
+        control_button.get_style_context().add_class("primary-button")
+        control_button.connect("clicked", launch_clicked, server)
+        actions.pack_start(control_button, False, False, 0)
+        copy_button = Gtk.Button(label="Copy link")
+        copy_button.connect("clicked", copy_clicked, server)
+        actions.pack_start(copy_button, False, False, 0)
+        open_button = Gtk.Button(label="Open site")
+        open_button.connect("clicked", open_clicked, server)
+        actions.pack_end(open_button, False, False, 0)
 
-    footer = Gtk.Label(
-        label=(
-            "Keep a server's control terminal open while it is needed. "
-            "DownloadServer uses every active LAN address; NVGS follows the active "
-            "adapter when dynamic LAN mode is enabled. Ethernet and Wi-Fi clients "
-            "must share a LAN without client isolation."
+        card_widgets[server.key] = ServerCardWidgets(
+            status=status,
+            links=links,
+            control_button=control_button,
+            copy_button=copy_button,
+            open_button=open_button,
         )
-    )
-    footer.set_name("footer-note")
-    footer.set_xalign(0)
-    footer.set_line_wrap(True)
-    page.pack_end(footer, False, False, 0)
+        cards.attach(frame, index % 2, index // 2, 1, 1)
 
     def refresh_view(*_args: object) -> bool:
         current_env = read_env_values(PROJECT_DIR / ".env")
         addresses = detect_lan_addresses()
         current_catalog = build_server_catalog(current_env)
+        network_context = network_panel.get_style_context()
+        network_context.remove_class("network-ready")
+        network_context.remove_class("network-missing")
         if addresses:
+            network_state.set_text("Local network ready")
             network_detail.set_text("\n".join(interface_label(item) for item in addresses))
+            network_context.add_class("network-ready")
         else:
+            network_state.set_text("No usable LAN address")
             network_detail.set_text(
-                "No active Ethernet or Wi-Fi IPv4 address detected. Connect to a LAN and refresh."
+                "Ethernet or Wi-Fi has no IPv4 address. Use Repair connection, "
+                "then check the cable, modem, or Ubuntu driver if it remains missing."
             )
+            network_context.add_class("network-missing")
 
         for server in current_catalog:
-            link_labels[server.key].set_text(
-                "\n".join(server_urls(server, addresses, current_env))
-            )
-            status = status_labels[server.key]
+            widgets = card_widgets[server.key]
+            urls = server_urls(server, addresses, current_env)
+            latest_urls[server.key] = urls
+            widgets.links.set_text("\n".join(urls))
+            widgets.copy_button.set_sensitive(bool(urls))
+            status = widgets.status
             context = status.get_style_context()
             context.remove_class("status-running")
             context.remove_class("status-stopped")
-            if server_is_running(server, addresses, current_env):
+            running = server_is_running(server, addresses, current_env)
+            if running:
                 status.set_text("RUNNING")
                 context.add_class("status-running")
+                widgets.control_button.set_label("Open control")
             else:
                 status.set_text("STOPPED")
                 context.add_class("status-stopped")
+                widgets.control_button.set_label("Start server")
+            widgets.open_button.set_sensitive(running and bool(urls))
         return True
 
     refresh_button.connect("clicked", refresh_view)
+    repair_button.connect("clicked", repair_clicked)
     GLib.timeout_add_seconds(3, refresh_view)
     refresh_view()
 

@@ -161,12 +161,26 @@ sudo reboot
 Open **NVGS Server Hub** from Ubuntu Applications after reboot. Its desktop ID
 is unchanged, so an existing pinned taskbar icon continues to work. Choose
 **NVGS Server** or **Download Server**; the selected service opens in its own
-control terminal. Press Enter or close that terminal to stop only that service.
+control terminal. The Hub shows live network/server status and provides copy,
+open, refresh, and conservative network-repair actions. Press Enter or close
+that terminal to stop only that service.
 
 DownloadServer shares files from `download-server/downloads` at port `8080` by
-default. It binds to all active IPv4 interfaces, so the Hub shows a link for
-each detected Ethernet and Wi-Fi address. Files under that folder are ignored
-by Git except for the placeholder. Never commit production downloads.
+default. Its friendly address is
+`http://download-system.local:8080/`, independently of the NVGS
+`ticketing-system.local` address. It also binds to all active IPv4 interfaces,
+so the Hub shows fallback links for every detected Ethernet and Wi-Fi address.
+The extra name is only a small Avahi host record; it does not run another DNS
+server or duplicate the application. Files under that folder are ignored by
+Git except for the placeholder. Never commit production downloads.
+
+Before either server starts, its controller checks for a usable LAN address.
+If needed, it re-enables NetworkManager networking and reconnects an existing
+saved Ethernet or Wi-Fi profile. The same recovery is available through
+**Repair connection** in the Hub. It deliberately does not invent a new network
+profile or reload an unknown kernel driver. If Ubuntu no longer shows the
+Ethernet device at all, collect the diagnostics displayed by the repair window;
+the remaining cause may be the driver, kernel, firmware, cable/dock, or hardware.
 
 Remote notification setup is explained in
 [`docs/ALERTS.md`](docs/ALERTS.md). Without a webhook, alerts are still saved in

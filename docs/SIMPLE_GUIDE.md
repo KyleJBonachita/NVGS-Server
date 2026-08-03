@@ -134,9 +134,18 @@ anti-sleep running. Do not log out while NVGS is running. Ubuntu may hide
 notification details while locked, but the journal and webhook continue.
 
 To share files instead, choose **Download Server** in the same Hub. Put files
-under `download-server/downloads` and use one of the Ethernet or Wi-Fi links
-shown in the Hub or control terminal. Press Enter or close that terminal to
-stop DownloadServer without affecting NVGS.
+under `download-server/downloads` and share
+`http://download-system.local:8080/`. The Hub also shows the current Ethernet
+and Wi-Fi IP links as fallbacks. Press Enter or close that terminal to stop
+DownloadServer without affecting NVGS.
+
+The Hub checks the local network before starting either service. It can turn
+NetworkManager networking back on and reconnect a saved profile, and the same
+safe check is available through **Repair connection**. This can recover a
+disabled/disconnected adapter or a lost DHCP address. If the Ethernet device
+vanishes from Ubuntu completely, the cause may instead be its driver, kernel,
+firmware, cable/dock, or hardware; the repair window prints diagnostics but
+does not guess which kernel module to reload.
 
 ## Things GitHub must never contain
 
