@@ -49,6 +49,8 @@ download_port="$(read_env_value "DOWNLOAD_SERVER_PORT")"
 download_port="${download_port:-8080}"
 stable_server_name="$(read_env_value "DOWNLOAD_SERVER_NAME")"
 stable_server_name="${stable_server_name:-download-system.local}"
+preferred_interface="$(read_env_value "NVGS_ACTIVE_LAN_INTERFACE")"
+preferred_interface="${preferred_interface:-$(read_env_value "NVGS_LAN_INTERFACE")}"
 if [[ ! "$download_port" =~ ^[0-9]+$ ]] \
     || (( download_port < 1 || download_port > 65535 )); then
     echo "DOWNLOAD_SERVER_PORT must be a number from 1 to 65535." >&2
@@ -74,28 +76,39 @@ stop_session() {
 trap stop_session EXIT HUP INT TERM
 
 echo "Starting DownloadServer..."
-download_ip="$(
-    if command -v nmcli >/dev/null 2>&1; then
-        while IFS=: read -r candidate candidate_type _state; do
-            if [[ "$candidate_type" != "ethernet" ]]; then
-                continue
-            fi
-            candidate_ip="$(
-                ip -4 -o address show dev "$candidate" scope global 2>/dev/null \
-                    | awk 'NR == 1 {split($4, address, "/"); print address[1]}'
-            )"
-            if [[ -n "$candidate_ip" ]]; then
-                printf '%s\n' "$candidate_ip"
-                break
-            fi
-        done < <(nmcli -t -f DEVICE,TYPE,STATE device status 2>/dev/null || true)
-    else
-        ip -4 -o address show scope global 2>/dev/null \
-            | awk '$2 ~ /^(en|eth)/ {
-                split($4, address, "/"); print address[1]; exit
-            }'
-    fi
-)"
+download_ip=""
+if [[ -n "$preferred_interface" \
+    && "$preferred_interface" =~ ^[A-Za-z0-9_.:-]+$ \
+    && -d "/sys/class/net/$preferred_interface" ]]; then
+    download_ip="$(
+        ip -4 -o address show dev "$preferred_interface" scope global 2>/dev/null \
+            | awk 'NR == 1 {split($4, address, "/"); print address[1]}'
+    )"
+fi
+if [[ -z "$download_ip" ]]; then
+    download_ip="$(
+        if command -v nmcli >/dev/null 2>&1; then
+            while IFS=: read -r candidate candidate_type _state; do
+                if [[ "$candidate_type" != "ethernet" ]]; then
+                    continue
+                fi
+                candidate_ip="$(
+                    ip -4 -o address show dev "$candidate" scope global 2>/dev/null \
+                        | awk 'NR == 1 {split($4, address, "/"); print address[1]}'
+                )"
+                if [[ -n "$candidate_ip" ]]; then
+                    printf '%s\n' "$candidate_ip"
+                    break
+                fi
+            done < <(nmcli -t -f DEVICE,TYPE,STATE device status 2>/dev/null || true)
+        else
+            ip -4 -o address show scope global 2>/dev/null \
+                | awk '$2 ~ /^(en|eth)/ {
+                    split($4, address, "/"); print address[1]; exit
+                }'
+        fi
+    )"
+fi
 if [[ -z "$download_ip" ]]; then
     download_ip="$(
         ip -4 route get 1.1.1.1 2>/dev/null \

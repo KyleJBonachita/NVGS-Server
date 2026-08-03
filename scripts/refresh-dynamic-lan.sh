@@ -51,6 +51,7 @@ elif [[ "${lan_mode:-manual}" != "dynamic" ]]; then
 fi
 
 configured_interface="$(read_env_value "NVGS_LAN_INTERFACE")"
+active_interface="$(read_env_value "NVGS_ACTIVE_LAN_INTERFACE")"
 network_interface="${requested_interface:-$configured_interface}"
 
 valid_interface() {
@@ -102,20 +103,22 @@ address_cidr=""
 if [[ -n "$requested_interface" ]]; then
     network_interface="$requested_interface"
     address_cidr="$(interface_address "$network_interface")"
-else
+elif valid_interface "$configured_interface"; then
+    # An interface explicitly selected in an earlier invocation stays selected
+    # while it has an address. This preserves the documented Wi-Fi workaround
+    # for sites whose access points isolate wireless clients from wired LAN.
+    network_interface="$configured_interface"
+    address_cidr="$(interface_address "$network_interface")"
+fi
+
+if [[ -z "$requested_interface" && -z "$address_cidr" ]]; then
     # Prefer a usable wired adapter even when Wi-Fi remains Ubuntu's current
-    # default route. This keeps the production server and its friendly names
-    # on Ethernet after the recovery helper restores the cable connection.
+    # default route only when no selected interface is currently usable.
     detected_interface="$(first_active_ethernet || true)"
     if valid_interface "$detected_interface"; then
         network_interface="$detected_interface"
         address_cidr="$(interface_address "$network_interface")"
     fi
-fi
-
-if [[ -z "$requested_interface" && -z "$address_cidr" ]] \
-    && valid_interface "$network_interface"; then
-    address_cidr="$(interface_address "$network_interface")"
 fi
 
 # Wi-Fi remains an allowed fallback when no Ethernet adapter has an address.
@@ -203,7 +206,13 @@ if [[ -n "$server_name" ]]; then
 fi
 
 set_env_value "NVGS_LAN_MODE" "dynamic"
-set_env_value "NVGS_LAN_INTERFACE" "$network_interface"
+if [[ -n "$requested_interface" ]]; then
+    configured_interface="$requested_interface"
+elif [[ -z "$configured_interface" ]]; then
+    configured_interface="$network_interface"
+fi
+set_env_value "NVGS_LAN_INTERFACE" "$configured_interface"
+set_env_value "NVGS_ACTIVE_LAN_INTERFACE" "$network_interface"
 set_env_value "NVGS_LAN_SERVER_NAME" "$server_name"
 set_env_value "SERVER_BIND_IP" "$current_ip"
 set_env_value "SERVER_ADDRESS" "$server_address"
@@ -219,8 +228,11 @@ if [[ "$old_ip" == "$current_ip" ]]; then
 else
     echo "Dynamic LAN address refreshed: ${old_ip:-not set} -> $current_ip"
 fi
-if [[ -n "$configured_interface" && "$configured_interface" != "$network_interface" ]]; then
-    echo "Active LAN adapter changed: $configured_interface -> $network_interface"
+if [[ -n "$active_interface" && "$active_interface" != "$network_interface" ]]; then
+    echo "Active LAN adapter changed: $active_interface -> $network_interface"
+fi
+if [[ "$configured_interface" != "$network_interface" ]]; then
+    echo "Preferred adapter $configured_interface is unavailable; using $network_interface temporarily."
 fi
 echo "NVGS link: https://$server_address/tickets/"
 

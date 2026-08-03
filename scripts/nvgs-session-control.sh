@@ -97,7 +97,8 @@ read_env_value() {
 }
 
 server_address="$(read_env_value "SERVER_ADDRESS")"
-network_interface="$(read_env_value "NVGS_LAN_INTERFACE")"
+network_interface="$(read_env_value "NVGS_ACTIVE_LAN_INTERFACE")"
+network_interface="${network_interface:-$(read_env_value "NVGS_LAN_INTERFACE")}"
 if [[ -z "$network_interface" ]]; then
     network_interface="$(
         ip route show default 2>/dev/null \

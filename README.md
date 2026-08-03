@@ -242,10 +242,12 @@ automatic refresh once:
 ```
 
 After that, choosing **NVGS Server** in **NVGS Server Hub** detects the current
-IPv4 address before starting Docker and the alert monitors. If the saved adapter is
-disconnected, it follows the active default-route adapter. This
-does not make the DHCP address permanent. Without a stable hostname, an address
-change also requires updating the Apps Script callback and client bookmark.
+IPv4 address before starting Docker and the alert monitors. An explicitly
+selected adapter remains preferred while it has an address. If it is
+disconnected, startup can use another active adapter temporarily without
+forgetting the preference. This does not make the DHCP address permanent.
+Without a stable hostname, an address change also requires updating the Apps
+Script callback and client bookmark.
 
 To publish a custom mDNS alias without renaming the Ubuntu laptop:
 
@@ -255,9 +257,22 @@ To publish a custom mDNS alias without renaming the Ubuntu laptop:
 
 The controller adds the alias to Ubuntu's local hosts file, publishes it
 through Avahi, and configures Caddy to accept both the friendly name and the
-current Ethernet IP before Docker starts. Approved client laptops must support
-and be allowed to use mDNS. A hostname does not bypass VLAN, firewall, or
-client-isolation rules.
+current selected-interface IP before Docker starts. Approved clients must
+support and be allowed to use mDNS. A hostname does not bypass VLAN, firewall,
+or client-isolation rules.
+
+If a modem isolates its Wi-Fi clients from the wired LAN, connect Ubuntu to the
+same approved SSID and select its Wi-Fi interface explicitly while leaving
+Ethernet connected for normal host traffic:
+
+```bash
+./scripts/refresh-dynamic-lan.sh wlp110s0f0 ticketing-system.local
+```
+
+Replace the interface name with the one shown by `nmcli device status`. NVGS
+and DownloadServer then publish their friendly names using that selected
+interface. This is a server-side compatibility path, not a network bridge: it
+still cannot defeat guest/client isolation between devices on the same SSID.
 
 If an approved Windows client cannot resolve the `.local` alias, build the
 small client setup package while NVGS is running:

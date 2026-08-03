@@ -153,7 +153,7 @@ reachable from the LAN.
 ### Temporary dynamic-DHCP pilot
 
 When the network owner permits a temporary pilot but has not provided a DHCP
-reservation, the desktop controller can refresh the current Ethernet IPv4
+reservation, the desktop controller can refresh the selected interface's IPv4
 address every time it opens. Enable this once with the actual interface name:
 
 ```bash
@@ -162,9 +162,11 @@ address every time it opens. Enable this once with the actual interface name:
 
 Close the NVGS control terminal and reopen it from **NVGS Server Hub**. Before Docker starts, the controller
 updates Caddy's bind address, Django's allowed host and CSRF origin, and the
-local monitor target. If the saved adapter has no address, it follows the
-active default-route adapter. It never changes Ubuntu's DHCP or NetworkManager
-configuration. If no usable IPv4 address exists, startup stops safely.
+local monitor target. The saved adapter remains preferred while usable. If it
+has no address, startup follows another usable adapter temporarily without
+forgetting the explicit choice. It never changes Ubuntu's DHCP or
+NetworkManager configuration. If no usable IPv4 address exists, startup stops
+safely.
 
 To keep the visible link stable, provide a custom `.local` mDNS name:
 
@@ -178,6 +180,19 @@ both the alias and current IP before Docker starts. It does not rename the
 Ubuntu laptop. If Avahi is not installed, startup stops with the exact approved
 package command. Test the same name from every approved client because mDNS can
 be blocked by network policy.
+
+For an isolated Wi-Fi segment, first connect Ubuntu to the same approved SSID,
+then select the actual wireless interface:
+
+```bash
+./scripts/refresh-dynamic-lan.sh wlp110s0f0 ticketing-system.local
+```
+
+Ethernet may remain connected for normal host traffic. NVGS binds to the
+selected Wi-Fi address, and DownloadServer publishes its alias on that address
+while continuing to listen on every host interface. This does not bridge or
+route the two networks and cannot bypass guest/client isolation within the
+SSID.
 
 For approved clients where mDNS name resolution is unavailable, use the
 standalone client setup package. The controller rebuilds it after Caddy starts;
