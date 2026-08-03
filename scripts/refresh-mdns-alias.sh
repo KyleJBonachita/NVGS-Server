@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if [[ "${EUID}" -ne 0 ]]; then
-    echo "This helper is run automatically by NVGS Server Control with sudo." >&2
+    echo "This helper runs automatically when NVGS is chosen in Server Hub." >&2
     exit 1
 fi
 

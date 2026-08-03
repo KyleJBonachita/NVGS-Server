@@ -18,6 +18,8 @@ nvgs-local-ca.crt
 /local-backups/
 /imports/
 /client-setup-output/
+/download-server/downloads/*
+!/download-server/downloads/.gitkeep
 /appscript-bridge/.clasp.json
 /appscript-notification-bridge/.clasp.json
 /.playwright-cli/

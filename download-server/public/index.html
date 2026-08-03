@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="A fast, private download library for the local network."
+    />
+    <meta name="theme-color" content="#10120f" />
+    <title>DownloadServer</title>
+    <link rel="stylesheet" href="/styles.css?v=2" />
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="site-header">
+        <a class="brand" href="/" aria-label="DownloadServer home">
+          <span class="brand-mark" aria-hidden="true">
+            <span></span>
+            <span></span>
+          </span>
+          <span class="brand-name" data-site-name>DownloadServer</span>
+        </a>
+        <div class="network-pill">
+          <span class="status-dot" aria-hidden="true"></span>
+          Same-network access
+        </div>
+      </header>
+
+      <main>
+        <section class="hero" aria-labelledby="page-title">
+          <div class="hero-copy">
+            <p class="eyebrow" data-eyebrow>LOCAL FILE LIBRARY</p>
+            <h1 id="page-title" data-headline>Ready when you are.</h1>
+            <p class="hero-description" data-description>
+              Browse the collection and download what you need—directly over the
+              local network.
+            </p>
+          </div>
+
+          <div class="library-stat" aria-label="Library summary">
+            <span class="stat-value" data-file-count>—</span>
+            <span class="stat-label">files available</span>
+            <span class="stat-size" data-total-size>Loading library…</span>
+          </div>
+        </section>
+
+        <section class="library" aria-labelledby="library-heading">
+          <div class="library-heading-row">
+            <div>
+              <p class="section-kicker">THE COLLECTION</p>
+              <h2 id="library-heading">Choose a file</h2>
+            </div>
+            <button class="refresh-button" type="button" data-refresh>
+              <span aria-hidden="true">↻</span>
+              Refresh
+            </button>
+          </div>
+
+          <div class="toolbar">
+            <label class="search-field">
+              <span class="search-icon" aria-hidden="true"></span>
+              <span class="sr-only">Search files</span>
+              <input
+                type="search"
+                placeholder="Search the library"
+                autocomplete="off"
+                data-search
+              />
+              <kbd>/</kbd>
+            </label>
+
+            <div class="sort-wrap">
+              <label for="sort">Sort by</label>
+              <select id="sort" data-sort>
+                <option value="newest">Newest</option>
+                <option value="name">Name</option>
+                <option value="size">Size</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="filter-row" data-filters aria-label="Filter by file type"></div>
+
+          <div class="result-line" aria-live="polite">
+            <span data-result-count>Loading files…</span>
+            <span data-last-updated></span>
+          </div>
+
+          <div class="file-grid" data-file-grid aria-busy="true">
+            <div class="loading-card"></div>
+            <div class="loading-card"></div>
+            <div class="loading-card"></div>
+          </div>
+
+          <div class="empty-state" data-empty hidden>
+            <span class="empty-icon" aria-hidden="true">↓</span>
+            <h3 data-empty-title>No files yet</h3>
+            <p data-empty-copy>
+              Add files to the <strong>downloads</strong> folder, then refresh
+              this page.
+            </p>
+          </div>
+        </section>
+      </main>
+
+      <footer>
+        <span>Private transfer, direct from this computer.</span>
+        <span class="footer-brand" data-footer-brand>DownloadServer</span>
+      </footer>
+    </div>
+
+    <template id="file-card-template">
+      <article class="file-card">
+        <div class="file-preview">
+          <img alt="" loading="lazy" hidden />
+          <div class="file-fallback">
+            <span class="file-extension"></span>
+            <span class="file-lines" aria-hidden="true"></span>
+          </div>
+          <span class="category-badge"></span>
+        </div>
+        <div class="file-card-body">
+          <div class="file-details">
+            <h3></h3>
+            <p class="file-meta"></p>
+            <p class="file-folder" hidden></p>
+          </div>
+          <a class="download-button">
+            <span>Download</span>
+            <span class="download-arrow" aria-hidden="true">↓</span>
+          </a>
+        </div>
+      </article>
+    </template>
+  </body>
+</html>

@@ -118,8 +118,8 @@ or another device monitoring this server.
 
 ## Starting and stopping NVGS
 
-Open Ubuntu Applications and select **NVGS Server Control**. While its terminal
-window remains open:
+Open Ubuntu Applications, select **NVGS Server Hub**, and choose **NVGS
+Server**. While its control terminal remains open:
 
 - The ticket website and database are running.
 - Charger, network, application, lid, and rejected-login alerts are running.
@@ -132,6 +132,11 @@ ticket data remains stored, and Ubuntu returns to its normal sleep behavior.
 Locking the screen with `Super+L` leaves the controller, server, alerts, and
 anti-sleep running. Do not log out while NVGS is running. Ubuntu may hide
 notification details while locked, but the journal and webhook continue.
+
+To share files instead, choose **Download Server** in the same Hub. Put files
+under `download-server/downloads` and use one of the Ethernet or Wi-Fi links
+shown in the Hub or control terminal. Press Enter or close that terminal to
+stop DownloadServer without affecting NVGS.
 
 ## Things GitHub must never contain
 

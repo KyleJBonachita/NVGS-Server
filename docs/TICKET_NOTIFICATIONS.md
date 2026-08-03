@@ -18,7 +18,7 @@ Internal notes are never sent.
 
 ## Recommended setup helper
 
-On Ubuntu, keep **NVGS Server Control** open and run:
+On Ubuntu, choose **NVGS Server** in **NVGS Server Hub**, keep its terminal open, and run:
 
 ```bash
 cd ~/NVGS-Server

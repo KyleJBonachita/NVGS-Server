@@ -62,7 +62,7 @@ restart_if_running() {
         echo "Applying notification configuration to the running server..."
         docker compose up -d --build
     elif [[ "${host_mode:-always_on}" == "on_demand" ]]; then
-        echo "Configuration saved. Reopen NVGS Server Control to apply it."
+        echo "Configuration saved. Reopen NVGS from NVGS Server Hub to apply it."
     else
         docker compose up -d --build
     fi

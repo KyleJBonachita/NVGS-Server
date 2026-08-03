@@ -141,14 +141,16 @@ sudo ./scripts/install-app-controlled-mode.sh
 sudo reboot
 ```
 
-After logging in again, open Ubuntu Applications, search for **NVGS Server
-Control**, and enter your Ubuntu password.
+After logging in again, open Ubuntu Applications and select **NVGS Server
+Hub**. Choose **NVGS Server** for ticketing and alerts, or **Download Server**
+for local file sharing, then enter your Ubuntu password.
 
-- Keep its terminal window open while people need the server.
-- Full-screen warning alerts and anti-sleep are active while that window is
-  open.
-- Press Enter or close the window to stop the website, database, and alerts.
-- Closing it restores normal sleep behavior. Ticket data is not deleted.
+- Keep the selected service's control terminal open while people need it.
+- NVGS enables its full-screen warnings and monitoring; both services prevent
+  sleep while their control terminal is open.
+- Press Enter or close that terminal to stop only the selected service.
+- Closing all control terminals restores normal sleep behavior. Ticket and
+  download data are not deleted.
 
 Test the popup:
 
@@ -273,6 +275,7 @@ cd ~/NVGS-Server
 ```
 
 This update command creates a database backup before pulling new code.
-In desktop-controller mode, open **NVGS Server Control** before running the
-update so the database is available for that backup. When the update finishes,
-stop and reopen the controller so launcher/overlay changes take effect.
+In desktop-controller mode, open **NVGS Server Hub** and choose **NVGS Server**
+before running the update so the database is available for that backup. When
+the update finishes, stop the NVGS control terminal and reopen the Hub so
+launcher/overlay changes take effect.

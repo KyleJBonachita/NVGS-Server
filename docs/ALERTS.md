@@ -2,8 +2,9 @@
 
 ## Local alerts
 
-In desktop-controlled mode, local alerts start when you open **NVGS Server
-Control** and stop when you close it. Install that mode with:
+In desktop-controlled mode, local alerts start when you choose **NVGS Server**
+in **NVGS Server Hub** and stop when you close its control terminal. Install
+that mode with:
 
 ```bash
 sudo ./scripts/install-app-controlled-mode.sh
@@ -13,7 +14,7 @@ For a permanent server, `sudo ./scripts/install-ubuntu-host.sh
 --force-always-on` starts the alerts at boot.
 
 Warnings take over the Ubuntu display with a red full-screen acknowledgement
-screen while **NVGS Server Control** is open. A normal desktop notification and
+screen while the NVGS control terminal launched from **NVGS Server Hub** is open. A normal desktop notification and
 the journal remain as fallbacks. Recovery events use a normal desktop
 notification instead of interrupting the whole screen.
 

@@ -104,7 +104,7 @@ fi
 current_ip="${address_cidr%%/*}"
 if [[ -z "$current_ip" ]]; then
     echo "No usable IPv4 LAN address was detected." >&2
-    echo "Connect Ethernet or Wi-Fi and try opening NVGS Server Control again." >&2
+    echo "Connect Ethernet or Wi-Fi and choose NVGS Server in the Hub again." >&2
     exit 1
 fi
 

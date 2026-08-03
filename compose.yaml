@@ -138,6 +138,39 @@ services:
     security_opt:
       - no-new-privileges:true
 
+  download-server:
+    build:
+      context: ./download-server
+    profiles:
+      - downloads
+    restart: "no"
+    environment:
+      HOST: 0.0.0.0
+      PORT: "8080"
+    ports:
+      - "${DOWNLOAD_SERVER_BIND_IP:-0.0.0.0}:${DOWNLOAD_SERVER_PORT:-8080}:8080"
+    volumes:
+      - ./download-server/downloads:/app/downloads:ro
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8080/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
 secrets:
   postgres_password:
     file: ./secrets/postgres_password

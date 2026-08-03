@@ -110,7 +110,7 @@ if grep -qx "app" <<< "$running_services" || [[ "$host_mode" != "on_demand" ]]; 
     echo "NVGS is available at https://${server_address}/tickets/"
 else
     echo "LAN configuration saved."
-    echo "Open NVGS Server Control to start the server, then run:"
+    echo "Open NVGS Server Hub, choose NVGS Server, then run:"
     echo "  ./scripts/export-client-ca.sh"
 fi
 

@@ -139,7 +139,7 @@ stop_session() {
         echo "Stopping NVGS alerts, website, and database..."
         systemctl stop nvgs-monitor.service nvgs-auth-monitor.service \
             >/dev/null 2>&1 || true
-        docker compose stop || true
+        docker compose stop db app notifications caddy || true
         echo "NVGS is stopped. Ticket data remains safely stored."
     fi
 }

@@ -50,8 +50,8 @@ This repository currently provides the backend/server foundation:
   login monitoring
 - Full-screen Ubuntu warning acknowledgements, recovery notifications, and an
   optional remote webhook
-- A desktop launcher that starts the server, alerts, and temporary anti-sleep
-  only while its terminal window is open
+- An extensible Ubuntu Server Hub that chooses between NVGS and DownloadServer,
+  with each service running only while its control terminal is open
 - An optional permanent always-on Ubuntu mode
 - A safe Ubuntu update command that backs up before pulling
 
@@ -158,9 +158,15 @@ sudo ./scripts/install-app-controlled-mode.sh
 sudo reboot
 ```
 
-Open **NVGS Server Control** from Ubuntu Applications after reboot. Press Enter
-or close its terminal window when the server is no longer needed. The database
-is stopped cleanly and its ticket data remains stored.
+Open **NVGS Server Hub** from Ubuntu Applications after reboot. Its desktop ID
+is unchanged, so an existing pinned taskbar icon continues to work. Choose
+**NVGS Server** or **Download Server**; the selected service opens in its own
+control terminal. Press Enter or close that terminal to stop only that service.
+
+DownloadServer shares files from `download-server/downloads` at port `8080` by
+default. It binds to all active IPv4 interfaces, so the Hub shows a link for
+each detected Ethernet and Wi-Fi address. Files under that folder are ignored
+by Git except for the placeholder. Never commit production downloads.
 
 Remote notification setup is explained in
 [`docs/ALERTS.md`](docs/ALERTS.md). Without a webhook, alerts are still saved in
@@ -197,8 +203,8 @@ automatic refresh once:
 ./scripts/refresh-dynamic-lan.sh enp109s0
 ```
 
-After that, opening **NVGS Server Control** detects the current IPv4 address
-before starting Docker and the alert monitors. If the saved adapter is
+After that, choosing **NVGS Server** in **NVGS Server Hub** detects the current
+IPv4 address before starting Docker and the alert monitors. If the saved adapter is
 disconnected, it follows the active default-route adapter. This
 does not make the DHCP address permanent. Without a stable hostname, an address
 change also requires updating the Apps Script callback and client bookmark.
@@ -288,8 +294,9 @@ cd NVGS-Server
 
 This backs up PostgreSQL before pulling, rebuilds the application, and refreshes
 the selected Ubuntu run mode. In desktop-controller mode, open **NVGS Server
-Control** before updating so the database is available for the backup. Stop and
-reopen the controller after an update so launcher changes take effect.
+Hub** and choose **NVGS Server** before updating so the database is available
+for the backup. Stop the NVGS control terminal and reopen the Hub after an
+update so launcher changes take effect.
 
 Prepare the optional standalone Apps Script login with:
 

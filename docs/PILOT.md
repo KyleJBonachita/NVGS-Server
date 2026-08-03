@@ -5,14 +5,14 @@ real ticket data yet.
 
 ## 1. Pull and open the dashboard
 
-On the Ubuntu server, keep **NVGS Server Control** open, then run:
+On Ubuntu, choose **NVGS Server** in **NVGS Server Hub**, keep its terminal open, then run:
 
 ```bash
 cd ~/NVGS-Server
 ./scripts/update-ubuntu-server.sh
 ```
 
-Close and reopen **NVGS Server Control** after the update. Open:
+Close the NVGS control terminal and reopen it from **NVGS Server Hub** after the update. Open:
 
 ```text
 https://localhost/

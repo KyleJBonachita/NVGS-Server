@@ -127,7 +127,7 @@ restart_if_running() {
         docker compose up -d --build
     elif [[ "${host_mode:-always_on}" == "on_demand" ]]; then
         echo "Configuration saved."
-        echo "Open NVGS Server Control to start with the new setting."
+        echo "Open NVGS Server Hub and choose NVGS Server to use the new setting."
     else
         echo "Starting the server with the new login configuration..."
         docker compose up -d --build

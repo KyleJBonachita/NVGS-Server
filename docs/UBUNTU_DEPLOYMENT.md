@@ -160,7 +160,7 @@ address every time it opens. Enable this once with the actual interface name:
 ./scripts/refresh-dynamic-lan.sh enp109s0
 ```
 
-Close and reopen **NVGS Server Control**. Before Docker starts, the controller
+Close the NVGS control terminal and reopen it from **NVGS Server Hub**. Before Docker starts, the controller
 updates Caddy's bind address, Django's allowed host and CSRF origin, and the
 local monitor target. If the saved adapter has no address, it follows the
 active default-route adapter. It never changes Ubuntu's DHCP or NetworkManager
@@ -253,8 +253,8 @@ sudo ./scripts/install-app-controlled-mode.sh
 sudo reboot
 ```
 
-After reboot, open **NVGS Server Control** from Ubuntu Applications. The
-launcher:
+After reboot, open **NVGS Server Hub** from Ubuntu Applications and choose
+**NVGS Server**. The NVGS control terminal:
 
 - Starts PostgreSQL, Django, Caddy, and both alert monitors
 - Shows a red full-screen acknowledgement for warnings and a normal desktop
@@ -319,7 +319,7 @@ For the normal Windows-to-GitHub-to-Ubuntu workflow, use:
 ```
 
 It performs the backup, pull, rebuild, and monitor refresh in order.
-In desktop-controlled mode, run the update while **NVGS Server Control** is
-open, because the first update step backs up the running database. Keep the
-controller window open during the update, then stop and reopen it so launcher
+In desktop-controlled mode, run the update while the **NVGS Server** control
+terminal is open, because the first update step backs up the running database.
+Keep that terminal open during the update, then stop and reopen it so launcher
 changes take effect.

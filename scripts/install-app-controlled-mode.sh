@@ -123,6 +123,13 @@ if ! python3 -c \
     echo "Install it with:" >&2
     echo "  sudo apt install python3-gi gir1.2-gtk-3.0" >&2
 fi
+if ! command -v gnome-terminal >/dev/null 2>&1 \
+    && ! command -v kgx >/dev/null 2>&1 \
+    && ! command -v x-terminal-emulator >/dev/null 2>&1 \
+    && ! command -v konsole >/dev/null 2>&1; then
+    echo "WARNING: No supported terminal application was found." >&2
+    echo "The Server Hub opens each selected server in a control terminal." >&2
+fi
 
 set_env_value() {
     local key="$1"
@@ -157,7 +164,10 @@ if [[ -f "$logind_config" ]]; then
 fi
 systemctl daemon-reload
 
-chmod 0755 scripts/nvgs-session-control.sh
+chmod 0755 \
+    scripts/nvgs-session-control.sh \
+    scripts/download-session-control.sh \
+    host/server_control_gui.py
 
 applications_dir="$desktop_home/.local/share/applications"
 install -d -o "$desktop_user" -g "$desktop_group" -m 0755 \
@@ -184,17 +194,22 @@ cat > "$launcher_file" <<EOF
 [Desktop Entry]
 Type=Application
 Version=1.0
-Name=NVGS Server Control
-Comment=Run NVGS only while this window is open
-Exec="${project_dir}/scripts/nvgs-session-control.sh"
+Name=NVGS Server Hub
+Comment=Choose which local server to run
+Exec=python3 "${project_dir}/host/server_control_gui.py"
 Path=${project_dir}
-Icon=utilities-terminal
-Terminal=true
+Icon=network-server
+Terminal=false
 Categories=Development;System;
 StartupNotify=true
+StartupWMClass=nvgs-server-hub
 EOF
 chmod 0755 "$launcher_file"
 chown "$desktop_user:$desktop_group" "$launcher_file"
+if command -v update-desktop-database >/dev/null 2>&1; then
+    runuser -u "$desktop_user" -- \
+        update-desktop-database "$applications_dir" >/dev/null 2>&1 || true
+fi
 
 # Older versions copied a shortcut to the desktop. Ubuntu 22.04 may open that
 # copy as text, while the Applications entry works correctly.
@@ -225,14 +240,15 @@ docker compose up -d --force-recreate
 docker compose stop
 
 echo
-echo "NVGS Server Control is installed."
+echo "NVGS Server Hub is installed."
 echo "Reboot once so Ubuntu returns to its normal lid and sleep behavior."
 echo
 echo "After reboot:"
-echo "  1. Open 'NVGS Server Control' from Ubuntu Applications."
-echo "  2. Enter your Ubuntu password when asked."
-echo "  3. Keep its terminal window open while NVGS is needed."
-echo "  4. Press Enter or close the window to stop NVGS."
+echo "  1. Open 'NVGS Server Hub' from Ubuntu Applications."
+echo "  2. Choose NVGS Server or Download Server."
+echo "  3. Enter your Ubuntu password when asked."
+echo "  4. Keep the selected server's control terminal open while it is needed."
+echo "  5. Press Enter or close that terminal to stop the selected server."
 echo
 echo "Test the visible alert while NVGS is open:"
 echo "  sudo ./scripts/test-alert.sh"

@@ -10,7 +10,7 @@ if [[ "${EUID}" -eq 0 ]]; then
 fi
 
 if ! docker compose ps --status running --services | grep -qx "caddy"; then
-    echo "Caddy is not running. Open NVGS Server Control first." >&2
+    echo "Caddy is not running. Open NVGS Server Hub and choose NVGS Server first." >&2
     exit 1
 fi
 

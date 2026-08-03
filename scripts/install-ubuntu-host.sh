@@ -36,7 +36,7 @@ if [[ -f .env ]]; then
 fi
 
 if [[ "$host_mode" == "on_demand" && "$force_always_on" == "false" ]]; then
-    echo "NVGS uses app-controlled mode; refreshing its launcher instead."
+    echo "NVGS uses app-controlled mode; refreshing Server Hub instead."
     exec "$project_dir/scripts/install-app-controlled-mode.sh" --refresh
 fi
 
@@ -180,7 +180,7 @@ echo "Configure an approved remote webhook:"
 echo "  sudo nano /etc/nvgs-monitor.env"
 echo "  sudo systemctl restart nvgs-monitor.service nvgs-auth-monitor.service"
 echo
-echo "Switch to the open-to-run desktop controller:"
+echo "Switch to the open-to-run NVGS Server Hub:"
 echo "  sudo ./scripts/install-app-controlled-mode.sh"
 echo
 echo "Undo the sleep-target block if this laptop stops being a server:"
