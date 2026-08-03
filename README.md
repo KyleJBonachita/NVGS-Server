@@ -184,6 +184,18 @@ kernel driver. If Ubuntu no longer shows the Ethernet device at all, collect
 the diagnostics displayed by the repair window; the remaining cause may be the
 driver, kernel, firmware, cable/dock, or hardware.
 
+The Ubuntu installers also enable `nvgs-ethernet-watchdog.service`. It keeps
+the Ethernet PCI device at full runtime power, disables Energy Efficient
+Ethernet when `ethtool` and the NIC support it, and watches carrier state every
+15 seconds. On a drop it cycles the link and reconnects the saved profile. If
+that fails, it may reload the verified `r8169` Realtek driver once per
+continuous outage; it refuses unknown drivers and never reboots the laptop,
+changes GRUB/ASPM globally, or disables Wi-Fi. View its decisions with:
+
+```bash
+sudo journalctl -u nvgs-ethernet-watchdog.service -f
+```
+
 Remote notification setup is explained in
 [`docs/ALERTS.md`](docs/ALERTS.md). Without a webhook, alerts are still saved in
 Ubuntu's local journal.

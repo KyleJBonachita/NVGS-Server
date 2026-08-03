@@ -93,6 +93,11 @@ for service in nvgs-monitor.service nvgs-auth-monitor.service; do
     chmod 0644 "/etc/systemd/system/${service}"
 done
 
+chmod 0755 \
+    scripts/ethernet-watchdog.sh \
+    scripts/install-ethernet-watchdog.sh
+"$project_dir/scripts/install-ethernet-watchdog.sh"
+
 if [[ ! -f /etc/nvgs-monitor.env ]]; then
     default_interface="$(
         ip route show default 2>/dev/null \
@@ -165,6 +170,8 @@ systemctl restart nvgs-monitor.service nvgs-auth-monitor.service
 
 echo
 echo "Ubuntu host setup installed."
+echo "Automatic Ethernet recovery is enabled."
+echo "View it with: sudo journalctl -u nvgs-ethernet-watchdog.service -f"
 echo "Anti-sleep takes full effect after the next reboot."
 echo
 echo "View condition alerts:"

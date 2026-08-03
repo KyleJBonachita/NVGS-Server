@@ -148,6 +148,13 @@ Ethernet device vanishes from Ubuntu completely, the cause may instead be its
 driver, kernel, firmware, cable/dock, or hardware; the repair window prints
 diagnostics but does not guess which kernel module to reload.
 
+The installed Ethernet watchdog continues checking in the background. It keeps
+the NIC out of runtime power-save, turns off EEE when supported, cycles a lost
+link, and reconnects the existing NetworkManager profile. For the detected
+Realtek card it can reload only the verified `r8169` driver, at most once per
+continuous outage. It never automatically reboots, edits GRUB, or turns off
+Wi-Fi.
+
 When the Ubuntu server is on Wi-Fi and another laptop is wired, both can only
 communicate if the modem/router bridges those clients onto the same LAN. A
 guest Wi-Fi, client isolation, separate VLANs, or blocked routing cannot be

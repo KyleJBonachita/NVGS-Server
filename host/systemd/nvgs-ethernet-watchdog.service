@@ -1,0 +1,20 @@
+[Unit]
+Description=NVGS automatic Ethernet stability and recovery watchdog
+After=NetworkManager.service network.target
+Wants=NetworkManager.service
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/nvgs-ethernet-watchdog.env
+ExecStart=/usr/local/libexec/nvgs-ethernet-watchdog --watch
+Restart=always
+RestartSec=10
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

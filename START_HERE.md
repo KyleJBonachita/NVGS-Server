@@ -137,6 +137,7 @@ For this laptop, use the simple desktop-controller mode:
 
 ```bash
 cd ~/NVGS-Server
+sudo apt install ethtool
 sudo ./scripts/install-app-controlled-mode.sh
 sudo reboot
 ```
@@ -152,8 +153,12 @@ for local file sharing, then enter your Ubuntu password.
   running.
 - Starting either service checks Ethernet first and safely reconnects its
   existing NetworkManager profile if necessary. Use **Repair / prefer
-  Ethernet** for a strict wired recovery check; Wi-Fi remains connected only as
-  a fallback.
+  Ethernet** for a strict wired recovery check. It performs a privileged,
+  rate-limited `r8169` hardware reset if ordinary recovery fails; Wi-Fi remains
+  connected as a fallback.
+- An automatic Ethernet watchdog runs in the background, including when only
+  DownloadServer is used. It prevents NIC runtime power-down, disables EEE when
+  supported, and attempts recovery without rebooting the laptop.
 - Keep the selected service's control terminal open while people need it.
 - NVGS enables its full-screen warnings and monitoring; both services prevent
   sleep while their control terminal is open.
@@ -181,10 +186,17 @@ continue.
 The reboot is needed only the first time you switch away from the old
 always-on installation.
 
-If **Repair connection** reports that the Ethernet device is completely absent,
+If **Repair / prefer Ethernet** reports that the Ethernet device is completely absent,
 the problem is below the server application. Save the device/driver diagnostics
 shown in that window. Do not guess a `modprobe` command: the correct driver
 depends on the laptop's actual Ethernet controller, kernel, and firmware.
+
+Inspect automatic recovery at any time:
+
+```bash
+systemctl status nvgs-ethernet-watchdog.service
+sudo journalctl -u nvgs-ethernet-watchdog.service -n 100 --no-pager
+```
 
 If this laptop later becomes a permanent, approved server that must start at
 boot, switch back with:

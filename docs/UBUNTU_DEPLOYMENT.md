@@ -270,7 +270,7 @@ selection first: use working Ethernet, try its best existing saved
 NetworkManager connection, and only then allow working Wi-Fi as a fallback.
 The manual repair action is stricter and succeeds only when Ethernet has an
 IPv4 address. It does not create profiles, change static/DHCP settings, disable
-Wi-Fi, or reload kernel drivers.
+Wi-Fi, or reload an unverified kernel driver.
 
 Choose **Download Server** for the optional file portal. It publishes
 `http://download-system.local:8080/` and direct-IP fallback links. This is a
@@ -282,6 +282,38 @@ same Ubuntu LAN address and add no second DNS daemon.
 Use **Repair / prefer Ethernet** first. It handles NetworkManager networking
 being disabled, a disconnected saved profile, and a missing IPv4 lease. If it
 cannot recover, it prints `ip`, routes, `nmcli`, and PCI driver information.
+
+The installer enables `nvgs-ethernet-watchdog.service` for recovery between
+manual checks. Install `ethtool` so the watchdog can also disable EEE:
+
+```bash
+sudo apt install ethtool
+sudo ./scripts/install-app-controlled-mode.sh --refresh
+```
+
+The watchdog applies targeted recovery in this order:
+
+1. Force the Ethernet PCI device's runtime power policy to `on`.
+2. Disable EEE when the installed driver reports that control is supported.
+3. Cycle only the Ethernet interface and reconnect its saved profile.
+4. If carrier remains absent, reload the dynamically verified `r8169` module.
+
+The driver reload is limited to one attempt per continuous outage with a
+ten-minute cooldown, is refused for any unknown driver, and is skipped if that
+module controls another live interface. The service does not automatically
+reboot, disable Wi-Fi, mask sleep, or change global PCIe ASPM/GRUB settings.
+
+Monitor it with:
+
+```bash
+systemctl status nvgs-ethernet-watchdog.service
+sudo journalctl -u nvgs-ethernet-watchdog.service -f
+```
+
+If the service reports that `r8169` reloaded but the PCI device did not return,
+a full shutdown/power-on cycle, BIOS/firmware update, different cable/port, or
+hardware service may still be required. Automatic rebooting is intentionally
+not used because it would abruptly interrupt tickets and downloads.
 
 If a Wi-Fi-hosted server cannot be reached from an Ethernet client, try the
 Wi-Fi IP address displayed by the Hub, not only the `.local` name. If the IP is

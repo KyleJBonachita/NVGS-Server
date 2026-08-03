@@ -168,9 +168,13 @@ chmod 0755 \
     scripts/nvgs-session-control.sh \
     scripts/download-session-control.sh \
     scripts/ensure-lan-ready.sh \
+    scripts/ethernet-watchdog.sh \
+    scripts/install-ethernet-watchdog.sh \
     scripts/network-repair-control.sh \
     scripts/refresh-download-mdns.sh \
     host/server_control_gui.py
+
+"$project_dir/scripts/install-ethernet-watchdog.sh"
 
 applications_dir="$desktop_home/.local/share/applications"
 install -d -o "$desktop_user" -g "$desktop_group" -m 0755 \
@@ -244,6 +248,8 @@ docker compose stop
 
 echo
 echo "NVGS Server Hub is installed."
+echo "Automatic Ethernet recovery is enabled."
+echo "View it with: sudo journalctl -u nvgs-ethernet-watchdog.service -f"
 echo "Reboot once so Ubuntu returns to its normal lid and sleep behavior."
 echo
 echo "After reboot:"
