@@ -184,13 +184,23 @@ kernel driver. If Ubuntu no longer shows the Ethernet device at all, collect
 the diagnostics displayed by the repair window; the remaining cause may be the
 driver, kernel, firmware, cable/dock, or hardware.
 
-The Ubuntu installers also enable `nvgs-ethernet-watchdog.service`. It keeps
-the Ethernet PCI device at full runtime power, disables Energy Efficient
-Ethernet when `ethtool` and the NIC support it, and watches carrier state every
-15 seconds. On a drop it cycles the link and reconnects the saved profile. If
-that fails, it may reload the verified `r8169` Realtek driver once per
-continuous outage; it refuses unknown drivers and never reboots the laptop,
-changes GRUB/ASPM globally, or disables Wi-Fi. View its decisions with:
+The Ubuntu installers also enable `nvgs-ethernet-watchdog.service`. The
+installer records the physical adapter's PCI address, vendor, and device ID;
+Docker bridges and `veth` interfaces are never eligible. A targeted udev rule
+and the watchdog keep that adapter and its PCI path at full runtime power. The
+watchdog also disables Energy Efficient Ethernet when `ethtool` and the NIC
+support it and checks carrier every 15 seconds.
+
+On a drop it cycles the link and reconnects the saved profile. If that fails,
+it reloads only the identity-verified `r8169` adapter. For the observed Realtek
+`D3cold`/`-EIO` failure, it can then try that function's supported PCI reset and
+a final hot-remove/rescan of that one verified device. These stronger steps are
+rate-limited to once per continuous outage. It refuses an absent or mismatched
+PCI identity and never treats a Docker interface as recovery, reboots the
+laptop, changes GRUB/ASPM globally, resets an upstream PCI bridge, or disables
+Wi-Fi. After installing this version, reboot Ubuntu once so the already-stuck
+adapter starts cleanly under the new prevention policy. View its decisions
+with:
 
 ```bash
 sudo journalctl -u nvgs-ethernet-watchdog.service -f

@@ -37,9 +37,23 @@ is_physical_lan_type() {
     [[ "$1" == "ethernet" || "$1" == "wifi" ]]
 }
 
+is_physical_interface() {
+    local interface_name="$1"
+    [[ -n "$interface_name" && -d "/sys/class/net/$interface_name" ]] \
+        || return 1
+    case "$interface_name" in
+        lo|docker*|br-*|veth*|virbr*|podman*|tailscale*) return 1 ;;
+    esac
+    [[ -e "/sys/class/net/$interface_name/device" ]]
+}
+
 interface_type() {
     local interface_name="$1"
     local detected_type=""
+    if ! is_physical_interface "$interface_name"; then
+        printf 'other\n'
+        return 0
+    fi
     if command -v nmcli >/dev/null 2>&1; then
         detected_type="$(
             nmcli -g GENERAL.TYPE device show "$interface_name" 2>/dev/null \
@@ -108,7 +122,8 @@ append_candidate "$default_interface"
 
 if command -v nmcli >/dev/null 2>&1; then
     while IFS=: read -r device device_type _state; do
-        if is_physical_lan_type "$device_type"; then
+        if is_physical_lan_type "$device_type" \
+            && is_physical_interface "$device"; then
             append_candidate "$device"
         fi
     done < <(nmcli -t -f DEVICE,TYPE,STATE device status 2>/dev/null || true)
