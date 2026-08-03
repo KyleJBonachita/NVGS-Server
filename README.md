@@ -175,12 +175,14 @@ server or duplicate the application. Files under that folder are ignored by
 Git except for the placeholder. Never commit production downloads.
 
 Before either server starts, its controller checks for a usable LAN address.
-If needed, it re-enables NetworkManager networking and reconnects an existing
-saved Ethernet or Wi-Fi profile. The same recovery is available through
-**Repair connection** in the Hub. It deliberately does not invent a new network
-profile or reload an unknown kernel driver. If Ubuntu no longer shows the
-Ethernet device at all, collect the diagnostics displayed by the repair window;
-the remaining cause may be the driver, kernel, firmware, cable/dock, or hardware.
+It now tries usable Ethernet first, including reconnecting its existing saved
+NetworkManager profile, before accepting Wi-Fi as a fallback. The stricter
+**Repair / prefer Ethernet** action reports failure unless wired Ethernet is
+actually restored; it leaves Wi-Fi connected so the laptop is not stranded.
+It deliberately does not invent a new network profile or reload an unknown
+kernel driver. If Ubuntu no longer shows the Ethernet device at all, collect
+the diagnostics displayed by the repair window; the remaining cause may be the
+driver, kernel, firmware, cable/dock, or hardware.
 
 Remote notification setup is explained in
 [`docs/ALERTS.md`](docs/ALERTS.md). Without a webhook, alerts are still saved in

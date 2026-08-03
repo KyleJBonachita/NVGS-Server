@@ -29,8 +29,8 @@ class ServerControlNetworkTests(unittest.TestCase):
         self.assertEqual(
             addresses,
             [
-                NetworkAddress("wlp2s0", "192.168.1.30", True),
                 NetworkAddress("enp3s0", "192.168.1.20", False),
+                NetworkAddress("wlp2s0", "192.168.1.30", True),
             ],
         )
 

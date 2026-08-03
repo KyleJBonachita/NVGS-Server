@@ -4,6 +4,14 @@ set -euo pipefail
 project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$project_dir"
 
+require_ethernet=false
+if [[ "${1:-}" == "--require-ethernet" ]]; then
+    require_ethernet=true
+elif [[ -n "${1:-}" ]]; then
+    echo "Usage: $0 [--require-ethernet]" >&2
+    exit 1
+fi
+
 if [[ "${EUID}" -eq 0 ]]; then
     echo "Run network recovery from the normal Ubuntu desktop account." >&2
     exit 1
@@ -29,6 +37,34 @@ is_physical_lan_type() {
     [[ "$1" == "ethernet" || "$1" == "wifi" ]]
 }
 
+interface_type() {
+    local interface_name="$1"
+    local detected_type=""
+    if command -v nmcli >/dev/null 2>&1; then
+        detected_type="$(
+            nmcli -g GENERAL.TYPE device show "$interface_name" 2>/dev/null \
+                | head -n 1 \
+                || true
+        )"
+    fi
+    if is_physical_lan_type "$detected_type"; then
+        printf '%s\n' "$detected_type"
+    elif [[ -d "/sys/class/net/$interface_name/wireless" ]] \
+        || [[ "$interface_name" == wl* ]]; then
+        printf 'wifi\n'
+    elif [[ "$interface_name" == en* || "$interface_name" == eth* ]]; then
+        printf 'ethernet\n'
+    else
+        printf 'other\n'
+    fi
+}
+
+interface_address() {
+    local interface_name="$1"
+    ip -4 -o address show dev "$interface_name" scope global 2>/dev/null \
+        | awk 'NR == 1 {split($4, value, "/"); print value[1]}'
+}
+
 append_candidate() {
     local interface_name="$1"
     local existing
@@ -43,6 +79,7 @@ print_driver_diagnostics() {
     echo
     echo "Network device diagnostics:"
     ip -brief link 2>/dev/null || true
+    ip -4 route 2>/dev/null || true
     if command -v nmcli >/dev/null 2>&1; then
         nmcli -f DEVICE,TYPE,STATE,CONNECTION device status 2>/dev/null || true
     fi
@@ -85,42 +122,44 @@ else
     )
 fi
 
+ethernet_candidates=()
+wifi_candidates=()
 for candidate in "${candidates[@]}"; do
+    case "$(interface_type "$candidate")" in
+        ethernet) ethernet_candidates+=("$candidate") ;;
+        wifi) wifi_candidates+=("$candidate") ;;
+    esac
+done
+
+for candidate in "${ethernet_candidates[@]}"; do
     if [[ -d "/sys/class/net/$candidate" ]] && has_ipv4 "$candidate"; then
-        address="$(
-            ip -4 -o address show dev "$candidate" scope global \
-                | awk 'NR == 1 {split($4, value, "/"); print value[1]}'
-        )"
-        echo "LAN ready: $candidate has $address"
+        echo "Ethernet ready: $candidate has $(interface_address "$candidate")"
         exit 0
     fi
 done
 
-if ! command -v nmcli >/dev/null 2>&1 \
-    || ! systemctl is-active --quiet NetworkManager.service; then
-    echo "No LAN address is active and NetworkManager recovery is unavailable." >&2
-    print_driver_diagnostics
-    exit 2
-fi
-
-echo "No usable LAN address was found. Trying safe NetworkManager recovery..."
-nmcli networking on >/dev/null 2>&1 || true
-nmcli radio wifi on >/dev/null 2>&1 || true
-
 device_seen=false
 carrier_seen=false
-for candidate in "${candidates[@]}"; do
+network_manager_ready=false
+if command -v nmcli >/dev/null 2>&1 \
+    && systemctl is-active --quiet NetworkManager.service; then
+    network_manager_ready=true
+    nmcli networking on >/dev/null 2>&1 || true
+fi
+
+reconnect_candidate() {
+    local candidate="$1"
+    local device_type="$2"
+    local state
+    local managed
+    local carrier
+
     if [[ ! -d "/sys/class/net/$candidate" ]]; then
         echo "- $candidate is configured but missing from the kernel device list."
-        continue
+        return 1
     fi
     device_seen=true
 
-    device_type="$(
-        nmcli -g GENERAL.TYPE device show "$candidate" 2>/dev/null \
-            | head -n 1 \
-            || true
-    )"
     state="$(
         nmcli -g GENERAL.STATE device show "$candidate" 2>/dev/null \
             | head -n 1 \
@@ -135,12 +174,12 @@ for candidate in "${candidates[@]}"; do
 
     if [[ "$device_type" == "ethernet" && "$carrier" != "1" ]]; then
         echo "- $candidate has no Ethernet carrier; check the cable, modem, or dock."
-        continue
+        return 1
     fi
     carrier_seen=true
     if [[ "$managed" == "no" || "$state" == *"unmanaged"* ]]; then
         echo "- $candidate is not managed by NetworkManager; leaving its configuration unchanged."
-        continue
+        return 1
     fi
 
     echo "- Reconnecting $candidate using its best saved connection profile..."
@@ -148,17 +187,49 @@ for candidate in "${candidates[@]}"; do
 
     for _attempt in {1..12}; do
         if has_ipv4 "$candidate"; then
-            address="$(
-                ip -4 -o address show dev "$candidate" scope global \
-                    | awk 'NR == 1 {split($4, value, "/"); print value[1]}'
-            )"
-            echo "LAN recovered: $candidate has $address"
-            exit 0
+            echo "${device_type^} recovered: $candidate has $(interface_address "$candidate")"
+            return 0
         fi
         sleep 1
     done
     echo "- $candidate did not receive an IPv4 address."
+    return 1
+}
+
+if [[ "$network_manager_ready" == "true" ]]; then
+    if [[ "${#ethernet_candidates[@]}" -gt 0 ]]; then
+        echo "Trying Ethernet before using Wi-Fi..."
+    fi
+    for candidate in "${ethernet_candidates[@]}"; do
+        if reconnect_candidate "$candidate" "ethernet"; then
+            exit 0
+        fi
+    done
+fi
+
+if [[ "$require_ethernet" == "true" ]]; then
+    echo "Ethernet could not be restored; Wi-Fi was left connected as a fallback." >&2
+    print_driver_diagnostics
+    exit 4
+fi
+
+for candidate in "${wifi_candidates[@]}"; do
+    if [[ -d "/sys/class/net/$candidate" ]] && has_ipv4 "$candidate"; then
+        echo "Wi-Fi fallback: $candidate has $(interface_address "$candidate")"
+        exit 0
+    fi
 done
+
+if [[ "$network_manager_ready" == "true" ]]; then
+    nmcli radio wifi on >/dev/null 2>&1 || true
+    for candidate in "${wifi_candidates[@]}"; do
+        if reconnect_candidate "$candidate" "wifi"; then
+            exit 0
+        fi
+    done
+else
+    echo "No LAN address is active and NetworkManager recovery is unavailable." >&2
+fi
 
 if [[ "$device_seen" == "false" ]]; then
     echo "No physical Ethernet or Wi-Fi device is visible to Ubuntu." >&2

@@ -150,9 +150,10 @@ for local file sharing, then enter your Ubuntu password.
 - The Hub shows network health and live service status. **Copy link** copies the
   preferred address, while **Open site** becomes available when a service is
   running.
-- Starting either service checks the LAN first and safely reconnects an
-  existing NetworkManager profile if necessary. Use **Repair connection** to
-  run the same check manually.
+- Starting either service checks Ethernet first and safely reconnects its
+  existing NetworkManager profile if necessary. Use **Repair / prefer
+  Ethernet** for a strict wired recovery check; Wi-Fi remains connected only as
+  a fallback.
 - Keep the selected service's control terminal open while people need it.
 - NVGS enables its full-screen warnings and monitoring; both services prevent
   sleep while their control terminal is open.

@@ -90,6 +90,15 @@ def parse_primary_interface(route_output: str) -> str:
     return ""
 
 
+def physical_interface_priority(interface: str) -> int:
+    lowered = interface.lower()
+    if lowered.startswith(("en", "eth")):
+        return 0
+    if lowered.startswith(("wl", "wlan")):
+        return 1
+    return 2
+
+
 def parse_lan_addresses(
     address_output: str,
     primary_interface: str = "",
@@ -134,7 +143,12 @@ def parse_lan_addresses(
 
     return sorted(
         addresses,
-        key=lambda item: (not item.primary, item.interface, item.address),
+        key=lambda item: (
+            physical_interface_priority(item.interface),
+            not item.primary,
+            item.interface,
+            item.address,
+        ),
     )
 
 
@@ -238,14 +252,18 @@ def server_urls(
 
 def interface_label(address: NetworkAddress) -> str:
     lowered = address.interface.lower()
+    notes: list[str] = []
     if lowered.startswith(("wl", "wlan")):
         kind = "Wi-Fi"
     elif lowered.startswith(("en", "eth")):
         kind = "Ethernet"
+        notes.append("server preferred")
     else:
         kind = "Network"
-    primary = " - active route" if address.primary else ""
-    return f"{kind} {address.interface}: {address.address}{primary}"
+    if address.primary:
+        notes.append("active Internet route")
+    suffix = f" - {', '.join(notes)}" if notes else ""
+    return f"{kind} {address.interface}: {address.address}{suffix}"
 
 
 def server_is_running(
@@ -336,7 +354,8 @@ def run_gui() -> int:
             border-radius: 14px;
         }
         #network-panel.network-ready { border-color: #61783c; }
-        #network-panel.network-missing { border-color: #8c6640; }
+        #network-panel.network-wifi { border-color: #8c6640; }
+        #network-panel.network-missing { border-color: #96534b; }
         #network-state { font-size: 17px; font-weight: 800; }
         #network-detail { color: #b7beb2; font-size: 13px; }
         .server-name { font-size: 22px; font-weight: 800; }
@@ -454,7 +473,7 @@ def run_gui() -> int:
     network_actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
     network_actions.set_valign(Gtk.Align.CENTER)
     network_panel.pack_end(network_actions, False, False, 0)
-    repair_button = Gtk.Button(label="Repair connection")
+    repair_button = Gtk.Button(label="Repair / prefer Ethernet")
     repair_button.get_style_context().add_class("warning-button")
     network_actions.pack_start(repair_button, False, False, 0)
     refresh_button = Gtk.Button(label="Refresh")
@@ -606,11 +625,20 @@ def run_gui() -> int:
         current_catalog = build_server_catalog(current_env)
         network_context = network_panel.get_style_context()
         network_context.remove_class("network-ready")
+        network_context.remove_class("network-wifi")
         network_context.remove_class("network-missing")
         if addresses:
-            network_state.set_text("Local network ready")
+            has_ethernet = any(
+                physical_interface_priority(item.interface) == 0
+                for item in addresses
+            )
+            if has_ethernet:
+                network_state.set_text("Ethernet connected")
+                network_context.add_class("network-ready")
+            else:
+                network_state.set_text("Wi-Fi only — Ethernet unavailable")
+                network_context.add_class("network-wifi")
             network_detail.set_text("\n".join(interface_label(item) for item in addresses))
-            network_context.add_class("network-ready")
         else:
             network_state.set_text("No usable LAN address")
             network_detail.set_text(

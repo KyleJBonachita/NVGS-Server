@@ -75,13 +75,39 @@ trap stop_session EXIT HUP INT TERM
 
 echo "Starting DownloadServer..."
 download_ip="$(
-    ip -4 route get 1.1.1.1 2>/dev/null \
-        | awk 'NR == 1 {for (i=1; i<=NF; i++) if ($i=="src") {print $(i+1); exit}}'
+    if command -v nmcli >/dev/null 2>&1; then
+        while IFS=: read -r candidate candidate_type _state; do
+            if [[ "$candidate_type" != "ethernet" ]]; then
+                continue
+            fi
+            candidate_ip="$(
+                ip -4 -o address show dev "$candidate" scope global 2>/dev/null \
+                    | awk 'NR == 1 {split($4, address, "/"); print address[1]}'
+            )"
+            if [[ -n "$candidate_ip" ]]; then
+                printf '%s\n' "$candidate_ip"
+                break
+            fi
+        done < <(nmcli -t -f DEVICE,TYPE,STATE device status 2>/dev/null || true)
+    else
+        ip -4 -o address show scope global 2>/dev/null \
+            | awk '$2 ~ /^(en|eth)/ {
+                split($4, address, "/"); print address[1]; exit
+            }'
+    fi
 )"
 if [[ -z "$download_ip" ]]; then
     download_ip="$(
+        ip -4 route get 1.1.1.1 2>/dev/null \
+            | awk 'NR == 1 {
+                for (i=1; i<=NF; i++) if ($i=="src") {print $(i+1); exit}
+            }'
+    )"
+fi
+if [[ -z "$download_ip" ]]; then
+    download_ip="$(
         ip -4 -o address show scope global 2>/dev/null \
-            | awk '$2 !~ /^(docker|br-|veth|virbr|podman|tailscale)/ {
+            | awk '$2 !~ /^(lo|docker|br-|veth|virbr|podman|tailscale)/ {
                 split($4, address, "/"); print address[1]; exit
             }'
     )"

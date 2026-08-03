@@ -139,13 +139,20 @@ under `download-server/downloads` and share
 and Wi-Fi IP links as fallbacks. Press Enter or close that terminal to stop
 DownloadServer without affecting NVGS.
 
-The Hub checks the local network before starting either service. It can turn
-NetworkManager networking back on and reconnect a saved profile, and the same
-safe check is available through **Repair connection**. This can recover a
-disabled/disconnected adapter or a lost DHCP address. If the Ethernet device
-vanishes from Ubuntu completely, the cause may instead be its driver, kernel,
-firmware, cable/dock, or hardware; the repair window prints diagnostics but
-does not guess which kernel module to reload.
+The Hub checks Ethernet before starting either service. It can turn
+NetworkManager networking back on and reconnect a saved profile. **Repair /
+prefer Ethernet** runs a strict wired check and says whether Ethernet was
+actually restored instead of treating an existing Wi-Fi address as success.
+This can recover a disabled/disconnected adapter or a lost DHCP address. If the
+Ethernet device vanishes from Ubuntu completely, the cause may instead be its
+driver, kernel, firmware, cable/dock, or hardware; the repair window prints
+diagnostics but does not guess which kernel module to reload.
+
+When the Ubuntu server is on Wi-Fi and another laptop is wired, both can only
+communicate if the modem/router bridges those clients onto the same LAN. A
+guest Wi-Fi, client isolation, separate VLANs, or blocked routing cannot be
+fixed by Server Hub. Test a direct IP link from the Hub first; `.local` mDNS
+names may not cross separated network segments even when routed IP traffic can.
 
 ## Things GitHub must never contain
 

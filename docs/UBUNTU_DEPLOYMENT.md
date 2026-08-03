@@ -265,10 +265,12 @@ After reboot, open **NVGS Server Hub** from Ubuntu Applications and choose
 
 The Hub is catalog-driven so future servers can be added as another card. Its
 network panel shows the active Ethernet/Wi-Fi addresses and provides
-**Repair connection**. Every server start runs the same conservative recovery
-first: enable NetworkManager networking, then activate the best existing saved
-connection for a usable physical adapter. It does not create profiles, change
-static/DHCP settings, or reload kernel drivers.
+**Repair / prefer Ethernet**. Every server start runs the same conservative
+selection first: use working Ethernet, try its best existing saved
+NetworkManager connection, and only then allow working Wi-Fi as a fallback.
+The manual repair action is stricter and succeeds only when Ethernet has an
+IPv4 address. It does not create profiles, change static/DHCP settings, disable
+Wi-Fi, or reload kernel drivers.
 
 Choose **Download Server** for the optional file portal. It publishes
 `http://download-system.local:8080/` and direct-IP fallback links. This is a
@@ -277,9 +279,15 @@ same Ubuntu LAN address and add no second DNS daemon.
 
 ### Ethernet disappears from Ubuntu
 
-Use **Repair connection** first. It handles NetworkManager being disabled, a
-disconnected saved profile, and a missing IPv4 lease. If it cannot recover, it
-prints `ip`, `nmcli`, and PCI driver information.
+Use **Repair / prefer Ethernet** first. It handles NetworkManager networking
+being disabled, a disconnected saved profile, and a missing IPv4 lease. If it
+cannot recover, it prints `ip`, routes, `nmcli`, and PCI driver information.
+
+If a Wi-Fi-hosted server cannot be reached from an Ethernet client, try the
+Wi-Fi IP address displayed by the Hub, not only the `.local` name. If the IP is
+also unreachable, compare both laptops' IP/subnet and check the modem/router
+for guest Wi-Fi, AP/client isolation, VLAN separation, or wired-to-wireless
+firewall rules. Those network policies are outside the Ubuntu server process.
 
 If the Ethernet interface is absent from both `ip -brief link` and the PCI/USB
 device report, or repeatedly disappears from the kernel, investigate the exact

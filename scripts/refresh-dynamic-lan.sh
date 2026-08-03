@@ -66,19 +66,59 @@ interface_address() {
         | awk 'NR == 1 {print $4}'
 }
 
+first_active_ethernet() {
+    local candidate
+    local candidate_type
+    while read -r candidate; do
+        candidate_type=""
+        if command -v nmcli >/dev/null 2>&1; then
+            candidate_type="$(
+                nmcli -g GENERAL.TYPE device show "$candidate" 2>/dev/null \
+                    | head -n 1 \
+                    || true
+            )"
+        fi
+        if [[ "$candidate_type" == "ethernet" ]] \
+            || { [[ -z "$candidate_type" ]] \
+                && [[ "$candidate" == en* || "$candidate" == eth* ]]; }; then
+            printf '%s\n' "$candidate"
+            return 0
+        fi
+    done < <(
+        ip -4 -o address show scope global 2>/dev/null \
+            | awk '$2 !~ /^(lo|docker|br-|veth|virbr|podman|tailscale)/ {
+                if (!seen[$2]++) print $2
+            }'
+    )
+    return 1
+}
+
 if [[ -n "$requested_interface" ]] && ! valid_interface "$requested_interface"; then
     echo "Unknown or unsupported network interface: $requested_interface" >&2
     exit 1
 fi
 
 address_cidr=""
-if valid_interface "$network_interface"; then
+if [[ -n "$requested_interface" ]]; then
+    network_interface="$requested_interface"
+    address_cidr="$(interface_address "$network_interface")"
+else
+    # Prefer a usable wired adapter even when Wi-Fi remains Ubuntu's current
+    # default route. This keeps the production server and its friendly names
+    # on Ethernet after the recovery helper restores the cable connection.
+    detected_interface="$(first_active_ethernet || true)"
+    if valid_interface "$detected_interface"; then
+        network_interface="$detected_interface"
+        address_cidr="$(interface_address "$network_interface")"
+    fi
+fi
+
+if [[ -z "$requested_interface" && -z "$address_cidr" ]] \
+    && valid_interface "$network_interface"; then
     address_cidr="$(interface_address "$network_interface")"
 fi
 
-# When the desktop controller opens, follow the active default route if the
-# previously saved adapter is disconnected or has no IPv4 address. An
-# explicitly supplied adapter remains strict so setup mistakes are visible.
+# Wi-Fi remains an allowed fallback when no Ethernet adapter has an address.
 if [[ -z "$requested_interface" && -z "$address_cidr" ]]; then
     detected_interface="$(
         ip -4 route show default 2>/dev/null \
@@ -93,7 +133,9 @@ fi
 if [[ -z "$requested_interface" && -z "$address_cidr" ]]; then
     detected_interface="$(
         ip -4 -o address show scope global 2>/dev/null \
-            | awk '$2 !~ /^(docker|br-|veth)/ {print $2; exit}'
+            | awk '$2 !~ /^(lo|docker|br-|veth|virbr|podman|tailscale)/ {
+                print $2; exit
+            }'
     )"
     if valid_interface "$detected_interface"; then
         network_interface="$detected_interface"
