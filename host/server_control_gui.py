@@ -5,15 +5,19 @@ from __future__ import annotations
 
 import argparse
 import ipaddress
+import os
 import shutil
 import socket
 import subprocess
 import sys
+import tempfile
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
+DOWNLOADS_DIR = PROJECT_DIR / "download-server" / "downloads"
 VIRTUAL_INTERFACE_PREFIXES = (
     "br-",
     "docker",
@@ -50,6 +54,114 @@ class ServerCardWidgets:
     control_button: Any
     copy_button: Any
     open_button: Any
+
+
+@dataclass(frozen=True)
+class DownloadImportResult:
+    copied: tuple[Path, ...]
+    errors: tuple[str, ...]
+
+
+def next_available_download_path(downloads_dir: Path, filename: str) -> Path:
+    """Return a non-existing path without replacing an existing download."""
+    candidate = downloads_dir / filename
+    if not candidate.exists():
+        return candidate
+
+    original = Path(filename)
+    stem = original.stem
+    suffix = original.suffix
+    copy_number = 2
+    while True:
+        candidate = downloads_dir / f"{stem} ({copy_number}){suffix}"
+        if not candidate.exists():
+            return candidate
+        copy_number += 1
+
+
+def import_download_files(
+    sources: list[Path],
+    downloads_dir: Path = DOWNLOADS_DIR,
+) -> DownloadImportResult:
+    """Atomically copy local files into the download library."""
+    downloads_dir.mkdir(parents=True, exist_ok=True)
+    library_path = downloads_dir.resolve()
+    copied: list[Path] = []
+    errors: list[str] = []
+    seen_sources: set[Path] = set()
+
+    for untrusted_source in sources:
+        source = Path(untrusted_source)
+        try:
+            resolved_source = source.resolve(strict=True)
+        except OSError as exc:
+            errors.append(f"{source.name or source}: {exc}")
+            continue
+
+        if resolved_source in seen_sources:
+            continue
+        seen_sources.add(resolved_source)
+
+        if not resolved_source.is_file():
+            errors.append(f"{source.name or source}: only individual files are supported")
+            continue
+        if source.name.startswith("."):
+            errors.append(f"{source.name}: hidden files are not added")
+            continue
+        if resolved_source.parent == library_path:
+            errors.append(f"{source.name}: already in the download library")
+            continue
+
+        temporary_path: Path | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="wb",
+                prefix=".nvgs-upload-",
+                suffix=".part",
+                dir=downloads_dir,
+                delete=False,
+            ) as temporary_file:
+                temporary_path = Path(temporary_file.name)
+                with resolved_source.open("rb") as source_file:
+                    shutil.copyfileobj(source_file, temporary_file, length=1024 * 1024)
+                temporary_file.flush()
+                os.fsync(temporary_file.fileno())
+
+            temporary_path.chmod(0o644)
+            while True:
+                destination = next_available_download_path(
+                    downloads_dir,
+                    source.name,
+                )
+                try:
+                    # The hard link makes the completed file appear in the
+                    # library in one operation, so clients never download a
+                    # partially copied upload.
+                    os.link(temporary_path, destination)
+                    break
+                except FileExistsError:
+                    continue
+            temporary_path.unlink()
+            temporary_path = None
+            copied.append(destination)
+        except OSError as exc:
+            errors.append(f"{source.name}: {exc}")
+        finally:
+            if temporary_path is not None:
+                temporary_path.unlink(missing_ok=True)
+
+    return DownloadImportResult(tuple(copied), tuple(errors))
+
+
+def count_download_files(downloads_dir: Path = DOWNLOADS_DIR) -> int:
+    try:
+        return sum(
+            1
+            for item in downloads_dir.rglob("*")
+            if item.is_file() and not item.name.startswith(".")
+        )
+    except OSError:
+        return 0
 
 
 def load_gtk3_modules() -> tuple[Any, Any, Any, Any]:
@@ -353,6 +465,25 @@ def run_gui() -> int:
             border: 1px solid #30382d;
             border-radius: 14px;
         }
+        #download-library-panel {
+            background-color: #171b16;
+            border: 1px solid #30382d;
+            border-radius: 14px;
+        }
+        #download-drop-zone {
+            background-color: #111510;
+            border: 2px dashed #4b5845;
+            border-radius: 10px;
+        }
+        #download-drop-zone.drag-active {
+            background-color: #20291b;
+            border-color: #cbed6e;
+        }
+        #download-drop-title { font-size: 16px; font-weight: 800; }
+        #download-drop-help, #download-library-path {
+            color: #aab2a5;
+            font-size: 12px;
+        }
         #network-panel.network-ready { border-color: #61783c; }
         #network-panel.network-wifi { border-color: #8c6640; }
         #network-panel.network-missing { border-color: #96534b; }
@@ -619,10 +750,196 @@ def run_gui() -> int:
         )
         cards.attach(frame, index % 2, index // 2, 1, 1)
 
+    library_panel = Gtk.Frame()
+    library_panel.set_name("download-library-panel")
+    page.pack_start(library_panel, False, False, 0)
+    library_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+    library_box.set_border_width(18)
+    library_panel.add(library_box)
+
+    library_heading_row = Gtk.Box(
+        orientation=Gtk.Orientation.HORIZONTAL,
+        spacing=12,
+    )
+    library_box.pack_start(library_heading_row, False, False, 0)
+    library_heading_copy = Gtk.Box(
+        orientation=Gtk.Orientation.VERTICAL,
+        spacing=4,
+    )
+    library_heading_row.pack_start(library_heading_copy, True, True, 0)
+    library_eyebrow = Gtk.Label(label="DOWNLOAD LIBRARY")
+    library_eyebrow.get_style_context().add_class("section-label")
+    library_eyebrow.set_xalign(0)
+    library_heading_copy.pack_start(library_eyebrow, False, False, 0)
+    library_title = Gtk.Label(label="Add files for local download")
+    library_title.get_style_context().add_class("server-name")
+    library_title.set_xalign(0)
+    library_heading_copy.pack_start(library_title, False, False, 0)
+    library_count = Gtk.Label()
+    library_count.get_style_context().add_class("status-running")
+    library_heading_row.pack_end(library_count, False, False, 0)
+
+    library_path = Gtk.Label(label=str(DOWNLOADS_DIR))
+    library_path.set_name("download-library-path")
+    library_path.set_xalign(0)
+    library_path.set_selectable(True)
+    library_path.set_ellipsize(3)
+    library_box.pack_start(library_path, False, False, 0)
+
+    drop_zone = Gtk.EventBox()
+    drop_zone.set_name("download-drop-zone")
+    drop_zone.set_visible_window(True)
+    library_box.pack_start(drop_zone, False, False, 0)
+    drop_copy = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+    drop_copy.set_border_width(20)
+    drop_zone.add(drop_copy)
+    drop_title = Gtk.Label(label="Drop files here")
+    drop_title.set_name("download-drop-title")
+    drop_copy.pack_start(drop_title, False, False, 0)
+    drop_help = Gtk.Label(
+        label=(
+            "Any regular file is accepted, including PNG/JPG cover images. "
+            "The public website remains download-only."
+        )
+    )
+    drop_help.set_name("download-drop-help")
+    drop_help.set_line_wrap(True)
+    drop_help.set_justify(Gtk.Justification.CENTER)
+    drop_copy.pack_start(drop_help, False, False, 0)
+
+    library_actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+    library_box.pack_start(library_actions, False, False, 0)
+    add_files_button = Gtk.Button(label="Choose files")
+    add_files_button.get_style_context().add_class("primary-button")
+    library_actions.pack_start(add_files_button, False, False, 0)
+    open_folder_button = Gtk.Button(label="Open downloads folder")
+    library_actions.pack_start(open_folder_button, False, False, 0)
+
+    upload_in_progress = False
+
+    def refresh_library_count() -> None:
+        file_count = count_download_files()
+        unit = "FILE" if file_count == 1 else "FILES"
+        library_count.set_text(f"{file_count} {unit}")
+
+    def finish_file_import(result: DownloadImportResult) -> bool:
+        nonlocal upload_in_progress
+        upload_in_progress = False
+        add_files_button.set_sensitive(True)
+        drop_zone.set_sensitive(True)
+        refresh_library_count()
+
+        copied_count = len(result.copied)
+        if copied_count:
+            unit = "file" if copied_count == 1 else "files"
+            activity_label.set_text(
+                f"Added {copied_count} {unit}. The download page updates automatically."
+            )
+        if result.errors:
+            show_error(
+                "Some files were not added",
+                "\n".join(result.errors[:8]),
+            )
+        elif not copied_count:
+            activity_label.set_text("No new files were selected.")
+        return False
+
+    def import_files(paths: list[Path]) -> None:
+        nonlocal upload_in_progress
+        if upload_in_progress or not paths:
+            return
+        upload_in_progress = True
+        add_files_button.set_sensitive(False)
+        drop_zone.set_sensitive(False)
+        activity_label.set_text(f"Adding {len(paths)} file(s) to the library...")
+
+        def worker() -> None:
+            result = import_download_files(paths)
+            GLib.idle_add(finish_file_import, result)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def choose_files_clicked(_button: object) -> None:
+        dialog = Gtk.FileChooserDialog(
+            title="Add files to the NVGS download library",
+            transient_for=window,
+            action=Gtk.FileChooserAction.OPEN,
+        )
+        dialog.add_buttons(
+            Gtk.STOCK_CANCEL,
+            Gtk.ResponseType.CANCEL,
+            "Add files",
+            Gtk.ResponseType.ACCEPT,
+        )
+        dialog.set_select_multiple(True)
+        try:
+            if dialog.run() == Gtk.ResponseType.ACCEPT:
+                import_files([Path(name) for name in dialog.get_filenames()])
+        finally:
+            dialog.destroy()
+
+    def open_downloads_folder(_button: object) -> None:
+        try:
+            DOWNLOADS_DIR.mkdir(parents=True, exist_ok=True)
+            Gio.AppInfo.launch_default_for_uri(DOWNLOADS_DIR.as_uri(), None)
+            activity_label.set_text("Opened the download library folder.")
+        except (OSError, GLib.Error) as exc:
+            show_error("Could not open the downloads folder", str(exc))
+
+    def drag_motion(
+        widget: object,
+        context: object,
+        _x: int,
+        _y: int,
+        timestamp: int,
+    ) -> bool:
+        widget.get_style_context().add_class("drag-active")
+        Gdk.drag_status(context, Gdk.DragAction.COPY, timestamp)
+        return True
+
+    def drag_leave(widget: object, _context: object, _timestamp: int) -> None:
+        widget.get_style_context().remove_class("drag-active")
+
+    def files_dropped(
+        widget: object,
+        context: object,
+        _x: int,
+        _y: int,
+        selection_data: object,
+        _info: int,
+        timestamp: int,
+    ) -> None:
+        widget.get_style_context().remove_class("drag-active")
+        paths: list[Path] = []
+        for uri in selection_data.get_uris() or []:
+            local_path = Gio.File.new_for_uri(uri).get_path()
+            if local_path:
+                paths.append(Path(local_path))
+        accepted = bool(paths) and not upload_in_progress
+        Gtk.drag_finish(context, accepted, False, timestamp)
+        if accepted:
+            import_files(paths)
+        elif not paths:
+            show_error("Files could not be added", "Drop local files from Ubuntu Files.")
+
+    drop_targets = [Gtk.TargetEntry.new("text/uri-list", 0, 0)]
+    drop_zone.drag_dest_set(
+        Gtk.DestDefaults.ALL,
+        drop_targets,
+        Gdk.DragAction.COPY,
+    )
+    drop_zone.connect("drag-motion", drag_motion)
+    drop_zone.connect("drag-leave", drag_leave)
+    drop_zone.connect("drag-data-received", files_dropped)
+    add_files_button.connect("clicked", choose_files_clicked)
+    open_folder_button.connect("clicked", open_downloads_folder)
+    refresh_library_count()
+
     def refresh_view(*_args: object) -> bool:
         current_env = read_env_values(PROJECT_DIR / ".env")
         addresses = detect_lan_addresses()
         current_catalog = build_server_catalog(current_env)
+        refresh_library_count()
         network_context = network_panel.get_style_context()
         network_context.remove_class("network-ready")
         network_context.remove_class("network-wifi")

@@ -5,8 +5,9 @@ to the same Wi-Fi or local network.
 
 ## Start it from the Ubuntu NVGS host
 
-1. Put shared files in `download-server/downloads` inside the NVGS repository.
-2. Open **NVGS Server Hub** from Ubuntu Applications.
+1. Open **NVGS Server Hub** from Ubuntu Applications.
+2. Drag files into **Download Library** or click **Choose files**. The Hub
+   copies them into `download-server/downloads`.
 3. Choose **Download Server** and keep its control terminal open.
 4. Open or share `http://download-system.local:8080/`. The Hub and terminal
    also show direct Ethernet or Wi-Fi links as fallbacks.
@@ -17,6 +18,11 @@ used. Change `DOWNLOAD_SERVER_NAME` only if a different `.local` name is
 required. The name is published through the Ubuntu host's existing Avahi
 service and is independent from NVGS's `ticketing-system.local` name, so it adds
 negligible overhead. Download content is excluded from Git.
+
+The Server Hub is the only upload surface. Network users can download files but
+cannot upload, replace, or delete them. An existing filename is never
+overwritten; the Hub adds a number such as `guide (2).pdf`. Files appear on the
+download page immediately without restarting the server.
 
 The Windows launcher below remains useful for standalone testing.
 

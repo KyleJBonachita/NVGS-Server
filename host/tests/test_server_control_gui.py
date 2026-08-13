@@ -5,6 +5,9 @@ from pathlib import Path
 from host.server_control_gui import (
     NetworkAddress,
     build_server_catalog,
+    count_download_files,
+    import_download_files,
+    next_available_download_path,
     parse_lan_addresses,
     parse_primary_interface,
     preferred_nvgs_host,
@@ -100,6 +103,66 @@ class ServerCatalogTests(unittest.TestCase):
             self.assertEqual(
                 read_env_values(env_path),
                 {"SERVER_ADDRESS": "ticketing.local", "PORT": "8080"},
+            )
+
+
+class DownloadLibraryTests(unittest.TestCase):
+    def test_imports_regular_files_and_keeps_existing_names(self):
+        with tempfile.TemporaryDirectory() as temporary_dir:
+            root = Path(temporary_dir)
+            source_dir = root / "source"
+            downloads_dir = root / "downloads"
+            source_dir.mkdir()
+            downloads_dir.mkdir()
+            source = source_dir / "guide.pdf"
+            image = source_dir / "guide.cover.png"
+            source.write_bytes(b"new guide")
+            image.write_bytes(b"png")
+            (downloads_dir / "guide.pdf").write_bytes(b"existing guide")
+
+            result = import_download_files([source, image], downloads_dir)
+
+            self.assertEqual(result.errors, ())
+            self.assertEqual(
+                [item.name for item in result.copied],
+                ["guide (2).pdf", "guide.cover.png"],
+            )
+            self.assertEqual(
+                (downloads_dir / "guide.pdf").read_bytes(),
+                b"existing guide",
+            )
+            self.assertEqual(
+                (downloads_dir / "guide (2).pdf").read_bytes(),
+                b"new guide",
+            )
+            self.assertEqual(count_download_files(downloads_dir), 3)
+
+    def test_rejects_directories_hidden_files_and_library_files(self):
+        with tempfile.TemporaryDirectory() as temporary_dir:
+            root = Path(temporary_dir)
+            downloads_dir = root / "downloads"
+            downloads_dir.mkdir()
+            hidden = root / ".secret"
+            hidden.write_text("secret", encoding="utf-8")
+            existing = downloads_dir / "existing.txt"
+            existing.write_text("existing", encoding="utf-8")
+
+            result = import_download_files(
+                [root, hidden, existing],
+                downloads_dir,
+            )
+
+            self.assertEqual(result.copied, ())
+            self.assertEqual(len(result.errors), 3)
+
+    def test_next_available_path_adds_a_number(self):
+        with tempfile.TemporaryDirectory() as temporary_dir:
+            downloads_dir = Path(temporary_dir)
+            (downloads_dir / "photo.png").touch()
+            (downloads_dir / "photo (2).png").touch()
+            self.assertEqual(
+                next_available_download_path(downloads_dir, "photo.png").name,
+                "photo (3).png",
             )
 
 
