@@ -9,6 +9,7 @@ urlpatterns = [
     path("login/", login_page, name="login-page"),
     path("tickets/", dashboard, name="ticket-dashboard"),
     path("admin/", admin.site.urls),
+    path("downloads/", include("downloads.urls")),
     path("api/", include("core.urls")),
     path("api/auth/", include("accounts.urls")),
     path("api/tickets/", include("tickets.urls")),

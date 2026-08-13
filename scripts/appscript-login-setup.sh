@@ -17,6 +17,7 @@ Commands:
   ./scripts/appscript-login-setup.sh prepare
   ./scripts/appscript-login-setup.sh enable APPS_SCRIPT_EXEC_URL
   ./scripts/appscript-login-setup.sh status
+  ./scripts/appscript-login-setup.sh diagnose
   ./scripts/appscript-login-setup.sh disable
 
 Use "prepare" first. It shows the exact Script Properties for this server.
@@ -175,6 +176,37 @@ show_status() {
     echo "Login URL: https://${url_host}/api/auth/appscript/start/"
 }
 
+diagnose_bridge() {
+    show_status
+    echo
+    echo "Ubuntu clock:"
+    if command -v timedatectl >/dev/null 2>&1; then
+        timedatectl show \
+            --property=LocalTime \
+            --property=NTPSynchronized \
+            --property=Timezone \
+            2>/dev/null || true
+    else
+        date --iso-8601=seconds
+    fi
+
+    echo
+    echo "Recent Apps Script login result:"
+    login_log="$({
+        docker compose logs --tail=200 app 2>/dev/null || true
+    } | grep -E 'Rejected Apps Script login assertion|Apps Script SSO login succeeded' \
+        | tail -n 5 || true)"
+    if [[ -n "$login_log" ]]; then
+        printf '%s\n' "$login_log"
+    else
+        echo "No recent Apps Script login result was found."
+    fi
+    echo
+    echo "If the result says Invalid login signature, run prepare and copy the"
+    echo "new NVGS_BRIDGE_SECRET into the Apps Script project's Script Properties."
+    echo "If it says expired or too old, enable Ubuntu automatic time and retry."
+}
+
 disable_bridge() {
     set_env_value "APPSCRIPT_SSO_ENABLED" "false"
     chmod 600 .env
@@ -199,6 +231,10 @@ case "$command_name" in
     status)
         require_local_configuration
         show_status
+        ;;
+    diagnose)
+        require_local_configuration
+        diagnose_bridge
         ;;
     disable)
         require_local_configuration

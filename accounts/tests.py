@@ -433,6 +433,7 @@ class AppsScriptSsoTests(TestCase):
         )
         response = self._post_callback(client, token)
         self.assertEqual(response.status_code, 400)
+        self.assertContains(response, "signing secrets do not match", status_code=400)
         self.assertFalse(User.objects.filter(email="agent@nvidia.com").exists())
 
         response = client.post(

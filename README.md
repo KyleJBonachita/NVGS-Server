@@ -174,6 +174,20 @@ The extra name is only a small Avahi host record; it does not run another DNS
 server or duplicate the application. Files under that folder are ignored by
 Git except for the placeholder. Never commit production downloads.
 
+Signed-in Tech Team/TL/Manager and system-administrator accounts can upload
+from another reachable laptop at `https://ticketing-system.local/downloads/manage/`.
+The page supports file selection and drag-and-drop, asks whether duplicate names
+should replace the old file or create a numbered copy, and records the uploader
+in the Django log. Agents remain download-only. The port-8080 Download Server
+never accepts uploads.
+
+The Server Hub also opens the password-protected Django database administration
+at `https://localhost:8443/admin/`. That listener is bound only to Ubuntu's
+loopback address, and `/admin/` is blocked on the normal LAN website. Use the
+existing system-administrator/superuser login to manage users, roles, tickets,
+and audit records. Tech Team, TL, and Manager accounts share the editable
+database role `team`; do not commit real employee addresses to Git.
+
 Before either server starts, its controller checks for a usable LAN address.
 It now tries usable Ethernet first, including reconnecting its existing saved
 NetworkManager profile, before accepting Wi-Fi as a fallback. The stricter

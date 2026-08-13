@@ -9,6 +9,16 @@ The Django application uses one restricted application login. End users do not
 receive database accounts. Agent and Tech Team/TL/Manager permissions are
 enforced by the application and stored on the user record.
 
+Real elevated email accounts are provisioned in Django administration, not
+hard-coded in the repository. Tech Team, TL, and Manager users all use the
+`team` role; system maintainers use `system_admin`. New Google-verified users
+start as `agent`, while an existing role is preserved on later logins.
+
+The Ubuntu Server Hub opens database administration on
+`https://localhost:8443/admin/`. Docker binds that maintenance listener only to
+the server laptop. The normal LAN site blocks `/admin/`, and the maintenance
+page still requires a Django system-administrator password.
+
 ## Ticketing tables
 
 - `accounts_user`: approved users and application roles

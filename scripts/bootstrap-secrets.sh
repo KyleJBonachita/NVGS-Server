@@ -12,6 +12,19 @@ if [[ ! -f .env ]]; then
     echo "Created .env from .env.example."
 fi
 
+set_env_default() {
+    local key="$1"
+    local value="$2"
+    if ! grep -q "^[[:space:]]*${key}[[:space:]]*=" .env; then
+        printf '\n%s=%s\n' "$key" "$value" >> .env
+    fi
+}
+
+set_env_default "NVGS_HOST_UID" "$(id -u)"
+set_env_default "NVGS_HOST_GID" "$(id -g)"
+set_env_default "DOWNLOAD_UPLOAD_MAX_BYTES" "2147483648"
+set_env_default "DOWNLOAD_UPLOAD_MAX_FILES" "50"
+
 if [[ ! -s secrets/postgres_password ]]; then
     openssl rand -base64 48 > secrets/postgres_password
     echo "Created secrets/postgres_password."

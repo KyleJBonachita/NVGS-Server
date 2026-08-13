@@ -45,6 +45,39 @@ def _bridge_error(message: str, status_code: int):
     )
 
 
+def _bridge_token_error_message(error: BridgeTokenError) -> str:
+    reason = str(error)
+    if reason == "Invalid login signature.":
+        return (
+            "The Apps Script and Ubuntu signing secrets do not match. "
+            "Run ./scripts/appscript-login-setup.sh prepare on Ubuntu and "
+            "update NVGS_BRIDGE_SECRET in Apps Script."
+        )
+    if reason in {
+        "Login token is not active yet.",
+        "Login token is too old.",
+        "Login token has expired.",
+        "Invalid login lifetime.",
+    }:
+        return (
+            "The login response expired or the Ubuntu clock is incorrect. "
+            "Start login again and check timedatectl status on Ubuntu."
+        )
+    if reason == "Login state did not match this browser.":
+        return (
+            "This login was started in another or expired browser session. "
+            "Return to the NVGS login page and start again in the same browser tab."
+        )
+    if reason in {"Invalid login issuer.", "Invalid login audience."}:
+        return (
+            "The Apps Script bridge settings do not match NVGS. Run "
+            "./scripts/appscript-login-setup.sh prepare and update the Script Properties."
+        )
+    if reason == "Login email domain was not approved.":
+        return "The verified Google account is not in the approved NVIDIA domain."
+    return "The signed login response was invalid. Start a fresh login and try again."
+
+
 def _needs_onboarding(user: User) -> bool:
     return (
         not user.first_name.strip()
@@ -139,7 +172,7 @@ def appscript_sso_callback(request):
         )
     except BridgeTokenError as exc:
         logger.warning("Rejected Apps Script login assertion: %s", exc)
-        return _bridge_error("The signed login response was invalid.", 400)
+        return _bridge_error(_bridge_token_error_message(exc), 400)
 
     try:
         user = User.objects.get(email=identity.email)

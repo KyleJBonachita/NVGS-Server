@@ -18,6 +18,7 @@ from typing import Any
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 DOWNLOADS_DIR = PROJECT_DIR / "download-server" / "downloads"
+LOCAL_DATABASE_ADMIN_URL = "https://localhost:8443/admin/"
 VIRTUAL_INTERFACE_PREFIXES = (
     "br-",
     "docker",
@@ -498,6 +499,11 @@ def run_gui() -> int:
             border: 1px solid #30382d;
             border-radius: 14px;
         }
+        #maintenance-panel {
+            background-color: #171b16;
+            border: 1px solid #30382d;
+            border-radius: 14px;
+        }
         #download-library-panel {
             background-color: #171b16;
             border: 1px solid #30382d;
@@ -643,6 +649,38 @@ def run_gui() -> int:
     refresh_button = Gtk.Button(label="Refresh")
     network_actions.pack_start(refresh_button, False, False, 0)
 
+    maintenance_panel = Gtk.Box(
+        orientation=Gtk.Orientation.HORIZONTAL,
+        spacing=18,
+    )
+    maintenance_panel.set_name("maintenance-panel")
+    maintenance_panel.set_border_width(18)
+    page.pack_start(maintenance_panel, False, False, 0)
+    maintenance_copy = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+    maintenance_panel.pack_start(maintenance_copy, True, True, 0)
+    maintenance_label = Gtk.Label(label="SERVER-ONLY MAINTENANCE")
+    maintenance_label.get_style_context().add_class("section-label")
+    maintenance_label.set_xalign(0)
+    maintenance_copy.pack_start(maintenance_label, False, False, 0)
+    maintenance_title = Gtk.Label(label="Database administration")
+    maintenance_title.get_style_context().add_class("server-name")
+    maintenance_title.set_xalign(0)
+    maintenance_copy.pack_start(maintenance_title, False, False, 0)
+    maintenance_help = Gtk.Label(
+        label=(
+            "View and edit users, roles, tickets, and audit records. "
+            "Requires the Django system-administrator password."
+        )
+    )
+    maintenance_help.get_style_context().add_class("server-description")
+    maintenance_help.set_xalign(0)
+    maintenance_help.set_line_wrap(True)
+    maintenance_copy.pack_start(maintenance_help, False, False, 0)
+    database_admin_button = Gtk.Button(label="Open database admin")
+    database_admin_button.get_style_context().add_class("warning-button")
+    database_admin_button.set_valign(Gtk.Align.CENTER)
+    maintenance_panel.pack_end(database_admin_button, False, False, 0)
+
     server_section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
     page.pack_start(server_section, True, True, 0)
     server_heading = Gtk.Label(label="AVAILABLE SERVERS")
@@ -719,6 +757,15 @@ def run_gui() -> int:
             )
         except (OSError, RuntimeError) as exc:
             show_error("Could not open network repair", str(exc))
+
+    def database_admin_clicked(_button: object) -> None:
+        try:
+            Gio.AppInfo.launch_default_for_uri(LOCAL_DATABASE_ADMIN_URL, None)
+            activity_label.set_text(
+                "Opened the server-only database administration login."
+            )
+        except GLib.Error as exc:
+            show_error("Could not open database administration", str(exc))
 
     for index, server in enumerate(catalog):
         frame = Gtk.Frame()
@@ -1015,6 +1062,7 @@ def run_gui() -> int:
     drop_zone.connect("drag-data-received", files_dropped)
     add_files_button.connect("clicked", choose_files_clicked)
     open_folder_button.connect("clicked", open_downloads_folder)
+    database_admin_button.connect("clicked", database_admin_clicked)
     refresh_library_count()
 
     def refresh_view(*_args: object) -> bool:
@@ -1066,6 +1114,12 @@ def run_gui() -> int:
                 context.add_class("status-stopped")
                 widgets.control_button.set_label("Start server")
             widgets.open_button.set_sensitive(running and bool(urls))
+        nvgs_server = next(
+            server for server in current_catalog if server.key == "nvgs"
+        )
+        database_admin_button.set_sensitive(
+            server_is_running(nvgs_server, addresses, current_env)
+        )
         return True
 
     refresh_button.connect("clicked", refresh_view)

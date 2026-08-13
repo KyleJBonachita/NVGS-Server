@@ -133,11 +133,17 @@ Locking the screen with `Super+L` leaves the controller, server, alerts, and
 anti-sleep running. Do not log out while NVGS is running. Ubuntu may hide
 notification details while locked, but the journal and webhook continue.
 
-To share files instead, choose **Download Server** in the same Hub. Put files
-under `download-server/downloads` and share
+To share files instead, choose **Download Server** in the same Hub. Add files
+through the Hub's **Download Library**, or sign in with a Team/TL/Manager account
+and open `https://ticketing-system.local/downloads/manage/` from another
+reachable laptop. Files are stored under `download-server/downloads`. Share
 `http://download-system.local:8080/`. The Hub also shows the current Ethernet
 and Wi-Fi IP links as fallbacks. Press Enter or close that terminal to stop
 DownloadServer without affecting NVGS.
+
+For server maintenance, select **Open database admin** in the Ubuntu Server Hub.
+Enter the Django system-administrator password. This administration listener is
+available only on the Ubuntu laptop, not through the LAN website.
 
 The Hub checks Ethernet before starting either service. It can turn
 NetworkManager networking back on and reconnect a saved profile. **Repair /

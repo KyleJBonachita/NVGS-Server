@@ -1,6 +1,11 @@
 #!/bin/sh
 set -eu
 
+if [ -n "${DOWNLOAD_LIBRARY_DIR:-}" ]; then
+    mkdir -p "${DOWNLOAD_LIBRARY_DIR}/.upload-tmp"
+    chmod 700 "${DOWNLOAD_LIBRARY_DIR}/.upload-tmp"
+fi
+
 python manage.py migrate --noinput
 
 exec gunicorn nvgs_server.wsgi:application \
@@ -9,4 +14,3 @@ exec gunicorn nvgs_server.wsgi:application \
     --access-logfile - \
     --error-logfile - \
     --capture-output
-

@@ -1,0 +1,111 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="same-origin">
+  <title>NVGS Download Manager</title>
+  <link rel="stylesheet" href="{% static 'tickets/dashboard.css' %}">
+  <link rel="stylesheet" href="{% static 'downloads/manage.css' %}">
+</head>
+<body class="download-manager-page">
+  <header class="topbar">
+    <a class="brand" href="/tickets/">
+      <span class="brand-mark" aria-hidden="true">N</span>
+      <span><strong>NVIDIA</strong> Download Manager</span>
+    </a>
+    <div class="download-manager-account">
+      <span>{{ request.user.display_name }}</span>
+      <a class="button button-ghost" href="/tickets/">Back to tickets</a>
+    </div>
+  </header>
+
+  <main class="download-manager-main">
+    <section class="download-manager-heading">
+      <div>
+        <p class="eyebrow">Protected team workspace</p>
+        <h1>Publish files without a flash drive</h1>
+        <p class="muted">
+          Files uploaded here are stored on the Ubuntu server and appear on the
+          local Download Server automatically.
+        </p>
+      </div>
+      <span class="role-chip">{{ request.user.get_role_display }}</span>
+    </section>
+
+    <section class="panel upload-panel">
+      <form id="upload-form" method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <input id="conflict-policy" name="conflict_policy" type="hidden" value="rename">
+        <input id="file-input" name="files" type="file" multiple hidden>
+        <button id="drop-zone" class="web-drop-zone" type="button">
+          <span class="drop-icon" aria-hidden="true">+</span>
+          <strong>Drop files here</strong>
+          <span>or select files from this laptop</span>
+        </button>
+        <div class="upload-actions">
+          <button id="choose-files" class="button button-primary" type="button">
+            Choose files
+          </button>
+          <span id="selection-summary" class="muted">No files selected.</span>
+        </div>
+        <div id="upload-progress" class="upload-progress" hidden>
+          <progress id="upload-progress-bar" max="100" value="0"></progress>
+          <span id="upload-progress-label">Uploading…</span>
+        </div>
+        <p id="upload-message" class="form-error" role="alert" hidden></p>
+      </form>
+    </section>
+
+    <section class="panel library-panel">
+      <div class="panel-heading">
+        <div>
+          <h2>Current download library</h2>
+          <p class="muted">{{ entries|length }} file{{ entries|length|pluralize }} currently stored.</p>
+        </div>
+        <button id="refresh-library" class="button button-secondary" type="button">
+          Refresh
+        </button>
+      </div>
+      {% if entries %}
+        <div class="download-file-list">
+          {% for entry in entries %}
+            <article class="download-file-row">
+              <div>
+                <strong>{{ entry.relative_path }}</strong>
+                <small>{{ entry.modified|date:"M j, Y g:i A" }}</small>
+              </div>
+              <span>{{ entry.size|filesizeformat }}</span>
+            </article>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="empty-state compact">
+          <p>No downloadable files have been added yet.</p>
+        </div>
+      {% endif %}
+    </section>
+  </main>
+
+  <dialog id="duplicate-dialog" class="duplicate-dialog">
+    <form method="dialog">
+      <p class="eyebrow">Filename conflict</p>
+      <h2>Some files already exist</h2>
+      <p id="duplicate-names" class="duplicate-names"></p>
+      <p class="muted">
+        Replace updates the current file. Keep both creates a numbered copy,
+        such as <code>guide (2).pdf</code>. Your choice applies to every file listed.
+      </p>
+      <div class="duplicate-actions">
+        <button class="button button-ghost" value="cancel">Cancel</button>
+        <button class="button button-secondary" value="rename">Keep both</button>
+        <button class="button button-danger" value="replace">Replace existing</button>
+      </div>
+    </form>
+  </dialog>
+
+  {{ existing_root_names|json_script:"existing-download-names" }}
+  <script src="{% static 'downloads/manage.js' %}" defer></script>
+</body>
+</html>

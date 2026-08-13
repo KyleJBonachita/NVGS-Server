@@ -45,6 +45,8 @@ if not ALLOWED_HOSTS:
     raise ImproperlyConfigured("DJANGO_ALLOWED_HOSTS must contain the server host.")
 
 CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS")
+if "https://localhost:8443" not in CSRF_TRUSTED_ORIGINS:
+    CSRF_TRUSTED_ORIGINS.append("https://localhost:8443")
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -57,6 +59,7 @@ INSTALLED_APPS = [
     "accounts",
     "tickets",
     "core",
+    "downloads",
 ]
 
 MIDDLEWARE = [
@@ -157,6 +160,19 @@ STORAGES = {
 }
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+DOWNLOAD_LIBRARY_DIR = Path(
+    os.getenv(
+        "DOWNLOAD_LIBRARY_DIR",
+        str(BASE_DIR / "download-server" / "downloads"),
+    )
+)
+DOWNLOAD_UPLOAD_MAX_BYTES = int(
+    os.getenv("DOWNLOAD_UPLOAD_MAX_BYTES", str(2 * 1024 * 1024 * 1024))
+)
+DOWNLOAD_UPLOAD_MAX_FILES = int(os.getenv("DOWNLOAD_UPLOAD_MAX_FILES", "50"))
+FILE_UPLOAD_TEMP_DIR = os.getenv("FILE_UPLOAD_TEMP_DIR") or None
+FILE_UPLOAD_MAX_MEMORY_SIZE = 2 * 1024 * 1024
 
 ALLOWED_EMAIL_DOMAINS = [
     domain.lower() for domain in env_list("ALLOWED_EMAIL_DOMAINS", "nvidia.com")

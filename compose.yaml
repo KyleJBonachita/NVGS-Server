@@ -30,6 +30,7 @@ services:
   app:
     build:
       context: .
+    user: "${NVGS_HOST_UID:-1000}:${NVGS_HOST_GID:-1000}"
     restart: "${NVGS_RESTART_POLICY:-unless-stopped}"
     env_file:
       - .env
@@ -43,6 +44,8 @@ services:
       TICKET_NOTIFICATION_WEBHOOK_URL_FILE: /run/secrets/ticket_notification_webhook
       TICKET_NOTIFICATION_APPSCRIPT_SECRET_FILE: /run/secrets/appscript_notification_secret
       EMAIL_HOST_PASSWORD_FILE: /run/secrets/smtp_password
+      DOWNLOAD_LIBRARY_DIR: /downloads
+      FILE_UPLOAD_TEMP_DIR: /downloads/.upload-tmp
     secrets:
       - postgres_password
       - django_secret_key
@@ -52,6 +55,7 @@ services:
       - smtp_password
     volumes:
       - ./imports:/imports:ro
+      - ./download-server/downloads:/downloads
     depends_on:
       db:
         condition: service_healthy
@@ -123,6 +127,7 @@ services:
       CADDY_SITE_ADDRESSES: ${CADDY_SITE_ADDRESSES:-localhost}
     ports:
       - "${SERVER_BIND_IP:-127.0.0.1}:443:443"
+      - "127.0.0.1:8443:8443"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data

@@ -260,6 +260,10 @@ a {
   color: var(--text);
 }
 
+a.nav-button {
+  text-decoration: none;
+}
+
 .nav-button.active {
   color: var(--nv-bright);
 }

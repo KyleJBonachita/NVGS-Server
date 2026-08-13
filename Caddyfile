@@ -4,8 +4,7 @@
 	skip_install_trust
 }
 
-{$CADDY_SITE_ADDRESSES:localhost} {
-	tls internal
+(nvgs_common) {
 	encode zstd gzip
 
 	header {
@@ -16,10 +15,24 @@
 		Permissions-Policy "camera=(), microphone=(), geolocation=()"
 	}
 
-	reverse_proxy app:8000
-
 	log {
 		output stdout
 		format json
 	}
+}
+
+{$CADDY_SITE_ADDRESSES:localhost} {
+	tls internal
+	import nvgs_common
+
+	@database_admin path /admin /admin/*
+	respond @database_admin "Database administration is available only on the Ubuntu server." 403
+
+	reverse_proxy app:8000
+}
+
+https://localhost:8443 {
+	tls internal
+	import nvgs_common
+	reverse_proxy app:8000
 }

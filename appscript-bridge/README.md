@@ -262,6 +262,9 @@ Django's standard CSRF protection. Local Django bridge pages use
 
 ### Signed response is invalid
 
+- Run `./scripts/appscript-login-setup.sh diagnose` immediately after the
+  failure. It reports the exact safe reason from the local app log without
+  printing the bridge secret.
 - Run `timedatectl status` and ensure Ubuntu's clock synchronization is active.
 - Run `prepare` again and confirm the Apps Script secret exactly matches.
 - Confirm issuer and audience match the printed values.
