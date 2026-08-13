@@ -12,6 +12,7 @@ from pathlib import Path
 PLACEHOLDERS = {
     "server_name": "__NVGS_SERVER_NAME__",
     "server_ip": "__NVGS_SERVER_IP__",
+    "server_ips": "__NVGS_SERVER_IPS__",
     "ticketing_url": "__NVGS_TICKETING_URL__",
     "certificate_sha256": "__NVGS_CERTIFICATE_SHA256__",
 }
@@ -115,17 +116,28 @@ def main() -> None:
 
     env = parse_env(env_path)
     server_ip = env.get("SERVER_BIND_IP", "").strip()
+    configured_server_ips = [
+        value.strip()
+        for value in env.get("NVGS_LAN_ADDRESSES", "").split(",")
+        if value.strip()
+    ]
+    server_ips = list(dict.fromkeys([server_ip, *configured_server_ips]))
     server_name = (
         env.get("NVGS_LAN_SERVER_NAME", "").strip()
         or env.get("SERVER_ADDRESS", "").strip()
     ).lower()
 
-    try:
-        parsed_ip = ipaddress.ip_address(server_ip)
-    except ValueError as error:
-        raise SystemExit(f"SERVER_BIND_IP is invalid: {error}") from error
-    if parsed_ip.version != 4 or not parsed_ip.is_private:
-        raise SystemExit("Client setup requires a private IPv4 LAN address.")
+    for candidate_ip in server_ips:
+        try:
+            parsed_ip = ipaddress.ip_address(candidate_ip)
+        except ValueError as error:
+            raise SystemExit(
+                f"NVGS LAN address {candidate_ip!r} is invalid: {error}"
+            ) from error
+        if parsed_ip.version != 4 or not parsed_ip.is_private:
+            raise SystemExit(
+                "Client setup requires private IPv4 LAN addresses."
+            )
     if (
         not server_name
         or any(
@@ -145,6 +157,7 @@ def main() -> None:
     replacements = {
         "server_name": server_name,
         "server_ip": server_ip,
+        "server_ips": ",".join(server_ips),
         "ticketing_url": ticketing_url,
         "certificate_sha256": certificate_sha256,
     }
@@ -199,7 +212,8 @@ def main() -> None:
     readme = f"""NVGS CLIENT SETUP
 
 Server: {server_name}
-Current LAN address: {server_ip}
+Preferred LAN address: {server_ip}
+Available LAN addresses: {", ".join(server_ips)}
 Ticketing link: {ticketing_url}
 Certificate SHA-256: {certificate_sha256}
 
@@ -215,8 +229,9 @@ UBUNTU
      bash "Install NVGS on Ubuntu.run"
 3. Type INSTALL and enter the Ubuntu administrator password.
 
-The installer trusts only the public NVGS CA, maps the friendly name to the
-current LAN address, and creates an NVGS Ticketing desktop shortcut. It never
+The installer trusts only the public NVGS CA, tests the listed LAN addresses,
+maps the friendly name to the address reachable from that client, and creates
+an NVGS Ticketing desktop shortcut. It never
 contains the CA private key, server secrets, or user passwords.
 
 If the server receives a different DHCP address, rebuild this package and run

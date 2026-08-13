@@ -135,6 +135,7 @@ The equivalent manual `.env` values are:
 
 ```dotenv
 SERVER_BIND_IP=ASSIGNED_IP
+SERVER_LISTEN_IP=ASSIGNED_IP
 SERVER_ADDRESS=ASSIGNED_IP_OR_DNS_NAME
 DJANGO_ALLOWED_HOSTS=ASSIGNED_IP_OR_DNS_NAME
 DJANGO_CSRF_TRUSTED_ORIGINS=https://ASSIGNED_IP_OR_DNS_NAME
@@ -147,8 +148,9 @@ docker compose up -d
 docker compose ps
 ```
 
-Changing `SERVER_BIND_IP` from `127.0.0.1` is the action that makes the service
-reachable from the LAN.
+`SERVER_LISTEN_IP` controls where Docker publishes HTTPS. The approved manual
+helper sets it to the assigned address. Dynamic mode uses `0.0.0.0` while
+Caddy and Django accept only the detected physical LAN addresses and name.
 
 ### Temporary dynamic-DHCP pilot
 
@@ -161,10 +163,11 @@ address every time it opens. Enable this once with the actual interface name:
 ```
 
 Close the NVGS control terminal and reopen it from **NVGS Server Hub**. Before Docker starts, the controller
-updates Caddy's bind address, Django's allowed host and CSRF origin, and the
-local monitor target. The saved adapter remains preferred while usable. If it
-has no address, startup follows another usable adapter temporarily without
-forgetting the explicit choice. It never changes Ubuntu's DHCP or
+updates Caddy's preferred address, all active physical Ethernet/Wi-Fi
+addresses, Django's allowed hosts and CSRF origins, and the local monitor
+target. Docker bridge and VPN addresses are excluded. The saved adapter remains
+preferred while usable. If it has no address, startup follows another usable
+adapter temporarily without forgetting the explicit choice. It never changes Ubuntu's DHCP or
 NetworkManager configuration. If no usable IPv4 address exists, startup stops
 safely.
 
@@ -175,8 +178,8 @@ To keep the visible link stable, provide a custom `.local` mDNS name:
 ```
 
 The controller resolves the alias locally through `/etc/hosts`, publishes it
-through Avahi with the current Ethernet address, and configures Caddy to accept
-both the alias and current IP before Docker starts. It does not rename the
+through Avahi with the preferred address, and configures Caddy to accept the
+alias and every active physical LAN IP before Docker starts. It does not rename the
 Ubuntu laptop. If Avahi is not installed, startup stops with the exact approved
 package command. Test the same name from every approved client because mDNS can
 be blocked by network policy.
@@ -188,9 +191,9 @@ then select the actual wireless interface:
 ./scripts/refresh-dynamic-lan.sh wlp110s0f0 ticketing-system.local
 ```
 
-Ethernet may remain connected for normal host traffic. NVGS binds to the
-selected Wi-Fi address, and DownloadServer publishes its alias on that address
-while continuing to listen on every host interface. This does not bridge or
+Ethernet may remain connected for normal host traffic. NVGS and DownloadServer
+listen on both physical addresses. The client installer maps the friendly name
+to whichever address is reachable from that laptop. This does not bridge or
 route the two networks and cannot bypass guest/client isolation within the
 SSID.
 
@@ -203,8 +206,9 @@ it can also be built manually:
 ```
 
 Distribute `client-setup-output/NVGS-Client-Setup.zip` through an approved
-method. Its Windows and Ubuntu installers verify the public certificate, add
-the friendly-name mapping, install the CA, and create a ticketing shortcut.
+method. Its Windows and Ubuntu installers verify the public certificate, test
+all current NVGS LAN addresses, map the friendly name to the reachable one,
+install the CA, and create a ticketing shortcut.
 The package contains no private key or server secret and must not be committed.
 The Windows installer verifies both its hosts-file mapping and port 443, and
 creates an IP fallback shortcut when company name-resolution policy still

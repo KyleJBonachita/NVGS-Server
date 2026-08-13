@@ -88,6 +88,7 @@ if [[ "$server_address" != "$assigned_ip" ]]; then
 fi
 
 set_env_value "SERVER_BIND_IP" "$assigned_ip"
+set_env_value "SERVER_LISTEN_IP" "$assigned_ip"
 set_env_value "SERVER_ADDRESS" "$server_address"
 set_env_value "CADDY_SITE_ADDRESSES" "\"$caddy_site_addresses\""
 set_env_value "DJANGO_ALLOWED_HOSTS" "$allowed_hosts"
@@ -96,6 +97,7 @@ set_env_value "APPSCRIPT_SSO_SUCCESS_REDIRECT" "/tickets/"
 set_env_value "NVGS_LAN_MODE" "manual"
 set_env_value "NVGS_LAN_INTERFACE" ""
 set_env_value "NVGS_ACTIVE_LAN_INTERFACE" ""
+set_env_value "NVGS_LAN_ADDRESSES" "$assigned_ip"
 set_env_value "NVGS_LAN_SERVER_NAME" ""
 chmod 600 .env
 

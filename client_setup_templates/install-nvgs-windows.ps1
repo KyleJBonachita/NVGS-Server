@@ -1,7 +1,8 @@
 $ErrorActionPreference = "Stop"
 
 $ServerName = "__NVGS_SERVER_NAME__"
-$ServerIp = "__NVGS_SERVER_IP__"
+$ServerIps = @("__NVGS_SERVER_IPS__".Split(","))
+$ServerIp = $ServerIps[0]
 $TicketingUrl = "__NVGS_TICKETING_URL__"
 $ExpectedCertificateSha256 = "__NVGS_CERTIFICATE_SHA256__"
 
@@ -34,14 +35,36 @@ if (-not (Test-IsAdministrator)) {
 
 Add-Type -AssemblyName System.Windows.Forms
 
+# A laptop on the router Wi-Fi may reach the Ubuntu Wi-Fi address while a
+# wired production laptop reaches its Ethernet address. Select the first HTTPS
+# endpoint reachable from this particular client before writing its hosts map.
+foreach ($CandidateIp in $ServerIps) {
+    try {
+        $candidateReachable = Test-NetConnection `
+            -ComputerName $CandidateIp `
+            -Port 443 `
+            -InformationLevel Quiet `
+            -WarningAction SilentlyContinue
+        if ($candidateReachable) {
+            $ServerIp = $CandidateIp
+            break
+        }
+    }
+    catch {
+        continue
+    }
+}
+
 $confirmationMessage = @"
 Install the approved NVGS client setup on this Windows laptop?
 
-Server: $ServerName ($ServerIp)
+Server: $ServerName
+Available addresses: $($ServerIps -join ", ")
+Selected for this laptop: $ServerIp
 
 This will:
 - Trust only the public NVGS certificate authority
-- Map $ServerName to $ServerIp
+- Map $ServerName to the reachable address $ServerIp
 - Create an NVGS Ticketing desktop shortcut
 
 It does not collect your Windows or NVIDIA password.

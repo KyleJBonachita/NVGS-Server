@@ -24,6 +24,13 @@ set_env_default "NVGS_HOST_UID" "$(id -u)"
 set_env_default "NVGS_HOST_GID" "$(id -g)"
 set_env_default "DOWNLOAD_UPLOAD_MAX_BYTES" "2147483648"
 set_env_default "DOWNLOAD_UPLOAD_MAX_FILES" "50"
+current_server_bind_ip="$(
+    sed -n 's/^[[:space:]]*SERVER_BIND_IP[[:space:]]*=[[:space:]]*//p' .env \
+        | tail -n 1 \
+        | tr -d '\r"'
+)"
+set_env_default "SERVER_LISTEN_IP" "${current_server_bind_ip:-127.0.0.1}"
+set_env_default "NVGS_LAN_ADDRESSES" ""
 
 if [[ ! -s secrets/postgres_password ]]; then
     openssl rand -base64 48 > secrets/postgres_password

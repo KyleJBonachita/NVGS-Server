@@ -28,6 +28,8 @@ class ServerControlNetworkTests(unittest.TestCase):
 3: wlp2s0 inet 192.168.1.30/24 brd 192.168.1.255 scope global wlp2s0
 4: docker0 inet 172.17.0.1/16 brd 172.17.255.255 scope global docker0
 5: veth123 inet 169.254.10.2/16 brd 169.254.255.255 scope global veth123
+6: tun0 inet 10.8.0.2/24 brd 10.8.0.255 scope global tun0
+7: wg0 inet 10.9.0.2/24 brd 10.9.0.255 scope global wg0
 """
         addresses = parse_lan_addresses(output, "wlp2s0")
         self.assertEqual(
@@ -92,6 +94,25 @@ class ServerCatalogTests(unittest.TestCase):
         self.assertEqual(
             preferred_nvgs_host(env, addresses),
             "ticketing-system.local",
+        )
+
+    def test_nvgs_urls_include_friendly_name_and_all_lan_addresses(self):
+        server = build_server_catalog({})[0]
+        addresses = [
+            NetworkAddress("enp3s0", "192.168.10.112", False),
+            NetworkAddress("wlp2s0", "192.168.5.237", True),
+        ]
+        self.assertEqual(
+            server_urls(
+                server,
+                addresses,
+                {"SERVER_ADDRESS": "ticketing-system.local"},
+            ),
+            [
+                "https://ticketing-system.local/tickets/",
+                "https://192.168.10.112/tickets/",
+                "https://192.168.5.237/tickets/",
+            ],
         )
 
     def test_env_reader_ignores_comments_and_quotes(self):

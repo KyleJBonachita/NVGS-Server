@@ -2,12 +2,26 @@
 set -euo pipefail
 
 server_name="__NVGS_SERVER_NAME__"
-server_ip="__NVGS_SERVER_IP__"
+server_ips_csv="__NVGS_SERVER_IPS__"
+IFS=',' read -r -a server_ips <<< "$server_ips_csv"
+server_ip="${server_ips[0]}"
 ticketing_url="__NVGS_TICKETING_URL__"
 expected_certificate_sha256="__NVGS_CERTIFICATE_SHA256__"
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 script_path="$script_dir/$(basename "${BASH_SOURCE[0]}")"
 certificate_path="$script_dir/nvgs-local-ca.crt"
+
+# Use the address reachable from this client. This permits the same friendly
+# name on a wired production client and a router Wi-Fi client when Ubuntu has
+# an active address on both networks.
+for candidate_ip in "${server_ips[@]}"; do
+    if curl --insecure --silent --output /dev/null \
+        --connect-timeout 2 --max-time 3 \
+        "https://$candidate_ip/api/health/"; then
+        server_ip="$candidate_ip"
+        break
+    fi
+done
 
 if [[ "${EUID}" -ne 0 && ! -t 0 ]]; then
     if command -v gnome-terminal >/dev/null 2>&1; then
@@ -24,7 +38,9 @@ fi
 if [[ "${EUID}" -ne 0 ]]; then
     echo "NVGS Client Setup"
     echo
-    echo "Server: $server_name ($server_ip)"
+    echo "Server: $server_name"
+    echo "Available addresses: ${server_ips[*]}"
+    echo "Selected for this laptop: $server_ip"
     echo "This installs the public NVGS certificate, friendly-name mapping,"
     echo "and an NVGS Ticketing shortcut. It does not collect passwords."
     echo

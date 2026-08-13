@@ -98,8 +98,8 @@ Only Caddy publishes a host port. PostgreSQL has no host port mapping. Users,
 browser JavaScript, and Python desktop tools must never receive PostgreSQL
 credentials.
 
-The default bind address is `127.0.0.1`. The server is therefore local-only
-until an administrator deliberately sets `SERVER_BIND_IP` in `.env`.
+The default listen address is `127.0.0.1`. The server is therefore local-only
+until an administrator deliberately configures LAN mode.
 
 ## Roles
 
@@ -138,6 +138,7 @@ Before LAN deployment, keep these values:
 
 ```dotenv
 SERVER_BIND_IP=127.0.0.1
+SERVER_LISTEN_IP=127.0.0.1
 SERVER_ADDRESS=localhost
 DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1
 DJANGO_CSRF_TRUSTED_ORIGINS=https://localhost
@@ -234,6 +235,7 @@ reservation, edit `.env`. For example only:
 
 ```dotenv
 SERVER_BIND_IP=10.20.30.20
+SERVER_LISTEN_IP=10.20.30.20
 SERVER_ADDRESS=10.20.30.20
 DJANGO_ALLOWED_HOSTS=10.20.30.20
 DJANGO_CSRF_TRUSTED_ORIGINS=https://10.20.30.20
@@ -256,10 +258,12 @@ automatic refresh once:
 ```
 
 After that, choosing **NVGS Server** in **NVGS Server Hub** detects the current
-IPv4 address before starting Docker and the alert monitors. An explicitly
-selected adapter remains preferred while it has an address. If it is
-disconnected, startup can use another active adapter temporarily without
-forgetting the preference. This does not make the DHCP address permanent.
+IPv4 addresses before starting Docker and the alert monitors. Dynamic mode
+publishes HTTPS on every active physical Ethernet and Wi-Fi address, while
+excluding Docker bridges and VPN adapters. An explicitly selected adapter
+remains the preferred address while it is usable. If it is disconnected,
+startup can use another active adapter temporarily without forgetting the
+preference. This does not make any DHCP address permanent.
 Without a stable hostname, an address change also requires updating the Apps
 Script callback and client bookmark.
 
@@ -270,10 +274,10 @@ To publish a custom mDNS alias without renaming the Ubuntu laptop:
 ```
 
 The controller adds the alias to Ubuntu's local hosts file, publishes it
-through Avahi, and configures Caddy to accept both the friendly name and the
-current selected-interface IP before Docker starts. Approved clients must
-support and be allowed to use mDNS. A hostname does not bypass VLAN, firewall,
-or client-isolation rules.
+through Avahi, and configures Caddy to accept the friendly name and all active
+physical LAN IPs before Docker starts. Approved clients must support and be
+allowed to use mDNS. A hostname does not bypass VLAN, firewall, routing, or
+client-isolation rules.
 
 If a modem isolates its Wi-Fi clients from the wired LAN, connect Ubuntu to the
 same approved SSID and select its Wi-Fi interface explicitly while leaving
@@ -299,10 +303,17 @@ The controller now rebuilds the package after the services start. You can also
 run the helper manually. The resulting
 `client-setup-output/NVGS-Client-Setup.zip` contains separate
 Windows and Ubuntu installers. Each verifies and installs the public NVGS CA,
-adds the current friendly-name mapping, and creates a ticketing shortcut. It
+tests all current NVGS LAN addresses, maps the friendly name to the address
+reachable from that client, and creates a ticketing shortcut. It
 contains no private key or application secret and is intentionally ignored by
-Git. Because the mapping contains the current DHCP address, rebuild and rerun
-the package after an address change.
+Git. Because the mapping contains current DHCP addresses, rebuild and rerun the
+package after an address change.
+
+When Ubuntu is connected to both `192.168.10.x` Ethernet and `192.168.5.x`
+Wi-Fi, the Hub also shows both direct HTTPS links. The same
+`ticketing-system.local` shortcut works after the client installer selects the
+reachable address for that laptop. Truly automatic DNS across separated
+subnets still requires an approved internal DNS record or network routing.
 
 ## Important endpoints
 

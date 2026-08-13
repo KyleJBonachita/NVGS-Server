@@ -56,9 +56,17 @@ network_interface="${requested_interface:-$configured_interface}"
 
 valid_interface() {
     local candidate="$1"
-    [[ -n "$candidate" ]] \
-        && [[ "$candidate" =~ ^[A-Za-z0-9_.:-]+$ ]] \
-        && [[ -d "/sys/class/net/$candidate" ]]
+    if [[ -z "$candidate" ]] \
+        || [[ ! "$candidate" =~ ^[A-Za-z0-9_.:-]+$ ]] \
+        || [[ ! -d "/sys/class/net/$candidate" ]]; then
+        return 1
+    fi
+    case "$candidate" in
+        lo|docker*|br-*|veth*|virbr*|podman*|tailscale*|tun*|tap*|wg*|zt*|vmnet*|vboxnet*)
+            return 1
+            ;;
+    esac
+    return 0
 }
 
 interface_address() {
@@ -87,7 +95,7 @@ first_active_ethernet() {
         fi
     done < <(
         ip -4 -o address show scope global 2>/dev/null \
-            | awk '$2 !~ /^(lo|docker|br-|veth|virbr|podman|tailscale)/ {
+            | awk '$2 !~ /^(lo|docker|br-|veth|virbr|podman|tailscale|tun|tap|wg|zt|vmnet|vboxnet)/ {
                 if (!seen[$2]++) print $2
             }'
     )
@@ -136,7 +144,7 @@ fi
 if [[ -z "$requested_interface" && -z "$address_cidr" ]]; then
     detected_interface="$(
         ip -4 -o address show scope global 2>/dev/null \
-            | awk '$2 !~ /^(lo|docker|br-|veth|virbr|podman|tailscale)/ {
+            | awk '$2 !~ /^(lo|docker|br-|veth|virbr|podman|tailscale|tun|tap|wg|zt|vmnet|vboxnet)/ {
                 print $2; exit
             }'
     )"
@@ -153,19 +161,50 @@ if [[ -z "$current_ip" ]]; then
     exit 1
 fi
 
-python3 - "$current_ip" <<'PY'
+is_physical_lan_interface() {
+    local candidate="$1"
+    valid_interface "$candidate" || return 1
+    [[ -e "/sys/class/net/$candidate/device" ]] \
+        || [[ -d "/sys/class/net/$candidate/wireless" ]]
+}
+
+# Keep the selected/preferred address first, but also accept every active
+# physical Ethernet/Wi-Fi IPv4 address. This mirrors Download Server's useful
+# multi-adapter behavior without admitting Docker bridge or VPN addresses into
+# Django's allowed hosts or Caddy's TLS site list.
+lan_ips=("$current_ip")
+while read -r candidate_interface candidate_cidr; do
+    is_physical_lan_interface "$candidate_interface" || continue
+    candidate_ip="${candidate_cidr%%/*}"
+    already_added="false"
+    for known_ip in "${lan_ips[@]}"; do
+        if [[ "$known_ip" == "$candidate_ip" ]]; then
+            already_added="true"
+            break
+        fi
+    done
+    if [[ "$already_added" == "false" ]]; then
+        lan_ips+=("$candidate_ip")
+    fi
+done < <(
+    ip -4 -o address show scope global 2>/dev/null \
+        | awk '{print $2, $4}'
+)
+
+python3 - "${lan_ips[@]}" <<'PY'
 import ipaddress
 import sys
 
-address = ipaddress.ip_address(sys.argv[1])
-if (
-    address.version != 4
-    or address.is_loopback
-    or address.is_link_local
-    or address.is_multicast
-    or address.is_unspecified
-):
-    raise SystemExit(f"Refusing unusable dynamic IPv4 address: {address}")
+for raw_address in sys.argv[1:]:
+    address = ipaddress.ip_address(raw_address)
+    if (
+        address.version != 4
+        or address.is_loopback
+        or address.is_link_local
+        or address.is_multicast
+        or address.is_unspecified
+    ):
+        raise SystemExit(f"Refusing unusable dynamic IPv4 address: {address}")
 PY
 
 old_ip="$(read_env_value "SERVER_BIND_IP")"
@@ -173,9 +212,15 @@ old_server_address="$(read_env_value "SERVER_ADDRESS")"
 server_name="${requested_server_name:-$(read_env_value "NVGS_LAN_SERVER_NAME")}"
 server_name="${server_name,,}"
 server_address="$current_ip"
-caddy_site_addresses="$current_ip"
-allowed_hosts="$current_ip,localhost,127.0.0.1"
-trusted_origins="https://$current_ip"
+caddy_hosts=()
+allowed_host_values=()
+trusted_origin_values=()
+for lan_ip in "${lan_ips[@]}"; do
+    caddy_hosts+=("https://$lan_ip")
+    allowed_host_values+=("$lan_ip")
+    trusted_origin_values+=("https://$lan_ip")
+done
+allowed_host_values+=("localhost" "127.0.0.1")
 
 if [[ -n "$server_name" ]]; then
     if [[ ! "$server_name" =~ ^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$ ]] \
@@ -192,18 +237,30 @@ if [[ -n "$server_name" ]]; then
                 | sort -u \
                 || true
         )"
-        if ! grep -Fxq "$current_ip" <<< "$resolved_addresses"; then
-            echo "$server_name does not resolve to $current_ip on Ubuntu." >&2
+        name_matches_lan="false"
+        for lan_ip in "${lan_ips[@]}"; do
+            if grep -Fxq "$lan_ip" <<< "$resolved_addresses"; then
+                name_matches_lan="true"
+                break
+            fi
+        done
+        if [[ "$name_matches_lan" != "true" ]]; then
+            echo "$server_name does not resolve to an active Ubuntu LAN address." >&2
             echo "Check internal DNS before enabling this stable name." >&2
             exit 1
         fi
     fi
 
     server_address="$server_name"
-    caddy_site_addresses="$server_name https://$current_ip"
-    allowed_hosts="$server_name,$current_ip,localhost,127.0.0.1"
-    trusted_origins="https://$server_name,https://$current_ip"
+    caddy_hosts=("$server_name" "${caddy_hosts[@]}")
+    allowed_host_values=("$server_name" "${allowed_host_values[@]}")
+    trusted_origin_values=("https://$server_name" "${trusted_origin_values[@]}")
 fi
+
+caddy_site_addresses="${caddy_hosts[*]}"
+allowed_hosts="$(IFS=,; printf '%s' "${allowed_host_values[*]}")"
+trusted_origins="$(IFS=,; printf '%s' "${trusted_origin_values[*]}")"
+lan_addresses="$(IFS=,; printf '%s' "${lan_ips[*]}")"
 
 set_env_value "NVGS_LAN_MODE" "dynamic"
 if [[ -n "$requested_interface" ]]; then
@@ -214,7 +271,9 @@ fi
 set_env_value "NVGS_LAN_INTERFACE" "$configured_interface"
 set_env_value "NVGS_ACTIVE_LAN_INTERFACE" "$network_interface"
 set_env_value "NVGS_LAN_SERVER_NAME" "$server_name"
+set_env_value "NVGS_LAN_ADDRESSES" "$lan_addresses"
 set_env_value "SERVER_BIND_IP" "$current_ip"
+set_env_value "SERVER_LISTEN_IP" "0.0.0.0"
 set_env_value "SERVER_ADDRESS" "$server_address"
 set_env_value "CADDY_SITE_ADDRESSES" "\"$caddy_site_addresses\""
 set_env_value "DJANGO_ALLOWED_HOSTS" "$allowed_hosts"
@@ -235,6 +294,12 @@ if [[ "$configured_interface" != "$network_interface" ]]; then
     echo "Preferred adapter $configured_interface is unavailable; using $network_interface temporarily."
 fi
 echo "NVGS link: https://$server_address/tickets/"
+if [[ "${#lan_ips[@]}" -gt 1 || "$server_address" != "$current_ip" ]]; then
+    echo "Direct links for the active laptop adapters:"
+    for lan_ip in "${lan_ips[@]}"; do
+        echo "  https://$lan_ip/tickets/"
+    done
+fi
 
 if [[ "$old_server_address" != "$server_address" ]] \
     && [[ "$(read_env_value "APPSCRIPT_SSO_ENABLED")" == "true" ]]; then

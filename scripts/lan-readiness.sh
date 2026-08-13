@@ -33,11 +33,13 @@ current_addresses="$(
         | awk '{print $2 " " $4}'
 )"
 server_bind_ip="$(read_env_value "SERVER_BIND_IP")"
+server_listen_ip="$(read_env_value "SERVER_LISTEN_IP")"
 server_address="$(read_env_value "SERVER_ADDRESS")"
 lan_mode="$(read_env_value "NVGS_LAN_MODE")"
 lan_interface="$(read_env_value "NVGS_LAN_INTERFACE")"
 active_lan_interface="$(read_env_value "NVGS_ACTIVE_LAN_INTERFACE")"
 lan_server_name="$(read_env_value "NVGS_LAN_SERVER_NAME")"
+lan_addresses="$(read_env_value "NVGS_LAN_ADDRESSES")"
 
 echo "NVGS LAN readiness (read-only)"
 echo
@@ -57,7 +59,9 @@ echo "  NVGS_LAN_MODE=${lan_mode:-manual}"
 echo "  NVGS_LAN_INTERFACE=${lan_interface:-not set}"
 echo "  NVGS_ACTIVE_LAN_INTERFACE=${active_lan_interface:-not set}"
 echo "  NVGS_LAN_SERVER_NAME=${lan_server_name:-not set}"
+echo "  NVGS_LAN_ADDRESSES=${lan_addresses:-not set}"
 echo "  SERVER_BIND_IP=${server_bind_ip:-not set}"
+echo "  SERVER_LISTEN_IP=${server_listen_ip:-not set}"
 echo "  SERVER_ADDRESS=${server_address:-not set}"
 echo
 

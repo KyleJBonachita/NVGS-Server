@@ -24,8 +24,14 @@ VIRTUAL_INTERFACE_PREFIXES = (
     "docker",
     "podman",
     "tailscale",
+    "tap",
+    "tun",
     "veth",
     "virbr",
+    "vboxnet",
+    "vmnet",
+    "wg",
+    "zt",
 )
 
 
@@ -376,6 +382,7 @@ def server_urls(
 ) -> list[str]:
     if server.key == "nvgs":
         hosts = [preferred_nvgs_host(env, addresses)]
+        hosts.extend(item.address for item in addresses)
     else:
         hosts = []
         stable_name = env.get(
