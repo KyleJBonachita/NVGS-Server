@@ -86,7 +86,12 @@
       }
       setBusy(false);
       progress.hidden = true;
-      showError(result.error || "The upload failed. Check the server and try again.");
+      const responseCode = request.status ? " HTTP " + request.status + "." : "";
+      showError(
+        result.error ||
+        "The upload failed with" + responseCode +
+        " Check the server logs and available disk space, then try again."
+      );
     });
     request.addEventListener("error", function () {
       setBusy(false);

@@ -182,6 +182,14 @@ should replace the old file or create a numbered copy, and records the uploader
 in the Django log. Agents remain download-only. The port-8080 Download Server
 never accepts uploads.
 
+Uploads are individual files, not folders; zip a folder before uploading it.
+The default maximum is 2 GiB per file. Large uploads stream through the hidden
+`download-server/downloads/.upload-tmp` staging directory and may run for up to
+one hour. The staging directory is intentional and should remain present. A
+completed upload is moved into the visible library without a second full-size
+copy. Recognized incomplete staging files are removed safely the next time the
+application container starts.
+
 The Server Hub also opens the password-protected Django database administration
 at `https://localhost:8443/admin/`. That listener is bound only to Ubuntu's
 loopback address, and `/admin/` is blocked on the normal LAN website. Use the

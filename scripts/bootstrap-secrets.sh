@@ -24,6 +24,7 @@ set_env_default "NVGS_HOST_UID" "$(id -u)"
 set_env_default "NVGS_HOST_GID" "$(id -g)"
 set_env_default "DOWNLOAD_UPLOAD_MAX_BYTES" "2147483648"
 set_env_default "DOWNLOAD_UPLOAD_MAX_FILES" "50"
+set_env_default "GUNICORN_TIMEOUT" "3600"
 current_server_bind_ip="$(
     sed -n 's/^[[:space:]]*SERVER_BIND_IP[[:space:]]*=[[:space:]]*//p' .env \
         | tail -n 1 \

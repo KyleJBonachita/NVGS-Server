@@ -92,29 +92,52 @@ def store_uploaded_files(
         validated_uploads.append((uploaded, name))
 
     library = prepare_download_library()
+    staging_directory = library / ".upload-tmp"
     stored: list[StoredDownload] = []
     for uploaded, name in validated_uploads:
         temporary_path: Path | None = None
         try:
-            with tempfile.NamedTemporaryFile(
-                mode="wb",
-                prefix=".nvgs-web-upload-",
-                suffix=".part",
-                dir=library / ".upload-tmp",
-                delete=False,
-            ) as temporary_file:
-                temporary_path = Path(temporary_file.name)
-                bytes_written = 0
-                for chunk in uploaded.chunks():
-                    bytes_written += len(chunk)
-                    if bytes_written > settings.DOWNLOAD_UPLOAD_MAX_BYTES:
-                        max_mib = settings.DOWNLOAD_UPLOAD_MAX_BYTES // (1024 * 1024)
-                        raise DownloadUploadError(
-                            f"{name} is larger than {max_mib} MiB."
-                        )
-                    temporary_file.write(chunk)
-                temporary_file.flush()
-                os.fsync(temporary_file.fileno())
+            uploaded_temporary_path = getattr(
+                uploaded,
+                "temporary_file_path",
+                None,
+            )
+            if os.name == "posix" and callable(uploaded_temporary_path):
+                candidate = Path(uploaded_temporary_path())
+                if (
+                    candidate.is_file()
+                    and candidate.resolve().parent == staging_directory.resolve()
+                ):
+                    # Django has already streamed a large upload into our
+                    # staging directory. Flush and promote that same file
+                    # instead of copying another multi-gigabyte temporary file.
+                    uploaded.file.flush()
+                    os.fsync(uploaded.file.fileno())
+                    temporary_path = candidate
+                    bytes_written = uploaded.size
+
+            if temporary_path is None:
+                with tempfile.NamedTemporaryFile(
+                    mode="wb",
+                    prefix=".nvgs-web-upload-",
+                    suffix=".part",
+                    dir=staging_directory,
+                    delete=False,
+                ) as temporary_file:
+                    temporary_path = Path(temporary_file.name)
+                    bytes_written = 0
+                    for chunk in uploaded.chunks():
+                        bytes_written += len(chunk)
+                        if bytes_written > settings.DOWNLOAD_UPLOAD_MAX_BYTES:
+                            max_mib = (
+                                settings.DOWNLOAD_UPLOAD_MAX_BYTES // (1024 * 1024)
+                            )
+                            raise DownloadUploadError(
+                                f"{name} is larger than {max_mib} MiB."
+                            )
+                        temporary_file.write(chunk)
+                    temporary_file.flush()
+                    os.fsync(temporary_file.fileno())
 
             temporary_path.chmod(0o644)
             if conflict_policy == "replace":
