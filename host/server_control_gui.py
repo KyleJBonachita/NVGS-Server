@@ -79,11 +79,38 @@ def next_available_download_path(downloads_dir: Path, filename: str) -> Path:
         copy_number += 1
 
 
+def find_download_name_conflicts(
+    sources: list[Path],
+    downloads_dir: Path = DOWNLOADS_DIR,
+) -> tuple[str, ...]:
+    """List names that already exist or occur more than once in a batch."""
+    occupied_names: set[str] = set()
+    try:
+        occupied_names.update(
+            item.name for item in downloads_dir.iterdir() if item.exists()
+        )
+    except OSError:
+        pass
+
+    conflicts: list[str] = []
+    for source in sources:
+        name = Path(source).name
+        if not name or name.startswith("."):
+            continue
+        if name in occupied_names and name not in conflicts:
+            conflicts.append(name)
+        occupied_names.add(name)
+    return tuple(conflicts)
+
+
 def import_download_files(
     sources: list[Path],
     downloads_dir: Path = DOWNLOADS_DIR,
+    conflict_policy: str = "rename",
 ) -> DownloadImportResult:
     """Atomically copy local files into the download library."""
+    if conflict_policy not in {"rename", "replace"}:
+        raise ValueError("conflict_policy must be 'rename' or 'replace'")
     downloads_dir.mkdir(parents=True, exist_ok=True)
     library_path = downloads_dir.resolve()
     copied: list[Path] = []
@@ -128,20 +155,26 @@ def import_download_files(
                 os.fsync(temporary_file.fileno())
 
             temporary_path.chmod(0o644)
-            while True:
-                destination = next_available_download_path(
-                    downloads_dir,
-                    source.name,
-                )
-                try:
-                    # The hard link makes the completed file appear in the
-                    # library in one operation, so clients never download a
-                    # partially copied upload.
-                    os.link(temporary_path, destination)
-                    break
-                except FileExistsError:
-                    continue
-            temporary_path.unlink()
+            if conflict_policy == "replace":
+                destination = downloads_dir / source.name
+                # Replacement is atomic: clients see either the completed old
+                # file or the completed new file, never a partial copy.
+                os.replace(temporary_path, destination)
+            else:
+                while True:
+                    destination = next_available_download_path(
+                        downloads_dir,
+                        source.name,
+                    )
+                    try:
+                        # The hard link makes the completed file appear in the
+                        # library in one operation, so clients never download a
+                        # partially copied upload.
+                        os.link(temporary_path, destination)
+                        break
+                    except FileExistsError:
+                        continue
+                temporary_path.unlink()
             temporary_path = None
             copied.append(destination)
         except OSError as exc:
@@ -844,9 +877,52 @@ def run_gui() -> int:
             activity_label.set_text("No new files were selected.")
         return False
 
+    def confirm_conflict_policy(paths: list[Path]) -> str | None:
+        conflicts = find_download_name_conflicts(paths)
+        if not conflicts:
+            return "rename"
+
+        visible_names = "\n".join(f"• {name}" for name in conflicts[:6])
+        if len(conflicts) > 6:
+            visible_names += f"\n• and {len(conflicts) - 6} more"
+        dialog = Gtk.MessageDialog(
+            transient_for=window,
+            flags=Gtk.DialogFlags.MODAL,
+            message_type=Gtk.MessageType.QUESTION,
+            buttons=Gtk.ButtonsType.NONE,
+            text="Some filenames already exist",
+        )
+        dialog.format_secondary_text(
+            f"{visible_names}\n\n"
+            "Replace updates the existing files. Keep both creates numbered "
+            "copies such as guide (2).pdf. Your choice applies to every name "
+            "listed above."
+        )
+        dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        dialog.add_button("Keep both", Gtk.ResponseType.NO)
+        replace_button = dialog.add_button(
+            "Replace existing",
+            Gtk.ResponseType.YES,
+        )
+        replace_button.get_style_context().add_class("destructive-action")
+        dialog.set_default_response(Gtk.ResponseType.NO)
+        try:
+            response = dialog.run()
+        finally:
+            dialog.destroy()
+        if response == Gtk.ResponseType.YES:
+            return "replace"
+        if response == Gtk.ResponseType.NO:
+            return "rename"
+        return None
+
     def import_files(paths: list[Path]) -> None:
         nonlocal upload_in_progress
         if upload_in_progress or not paths:
+            return
+        conflict_policy = confirm_conflict_policy(paths)
+        if conflict_policy is None:
+            activity_label.set_text("File upload cancelled; nothing was changed.")
             return
         upload_in_progress = True
         add_files_button.set_sensitive(False)
@@ -854,7 +930,13 @@ def run_gui() -> int:
         activity_label.set_text(f"Adding {len(paths)} file(s) to the library...")
 
         def worker() -> None:
-            result = import_download_files(paths)
+            try:
+                result = import_download_files(
+                    paths,
+                    conflict_policy=conflict_policy,
+                )
+            except OSError as exc:
+                result = DownloadImportResult((), (str(exc),))
             GLib.idle_add(finish_file_import, result)
 
         threading.Thread(target=worker, daemon=True).start()

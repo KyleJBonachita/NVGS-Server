@@ -20,9 +20,10 @@ service and is independent from NVGS's `ticketing-system.local` name, so it adds
 negligible overhead. Download content is excluded from Git.
 
 The Server Hub is the only upload surface. Network users can download files but
-cannot upload, replace, or delete them. An existing filename is never
-overwritten; the Hub adds a number such as `guide (2).pdf`. Files appear on the
-download page immediately without restarting the server.
+cannot upload, replace, or delete them. When a selected filename already exists,
+the Hub asks whether to replace the old file, keep both by creating a numbered
+name such as `guide (2).pdf`, or cancel. Files appear on the download page
+immediately without restarting the server.
 
 The Windows launcher below remains useful for standalone testing.
 

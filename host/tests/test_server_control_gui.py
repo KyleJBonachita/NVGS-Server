@@ -6,6 +6,7 @@ from host.server_control_gui import (
     NetworkAddress,
     build_server_catalog,
     count_download_files,
+    find_download_name_conflicts,
     import_download_files,
     next_available_download_path,
     parse_lan_addresses,
@@ -164,6 +165,48 @@ class DownloadLibraryTests(unittest.TestCase):
                 next_available_download_path(downloads_dir, "photo.png").name,
                 "photo (3).png",
             )
+
+    def test_replace_policy_updates_the_existing_file(self):
+        with tempfile.TemporaryDirectory() as temporary_dir:
+            root = Path(temporary_dir)
+            source_dir = root / "source"
+            downloads_dir = root / "downloads"
+            source_dir.mkdir()
+            downloads_dir.mkdir()
+            source = source_dir / "guide.pdf"
+            source.write_bytes(b"new version")
+            (downloads_dir / "guide.pdf").write_bytes(b"old version")
+
+            result = import_download_files(
+                [source],
+                downloads_dir,
+                conflict_policy="replace",
+            )
+
+            self.assertEqual(result.errors, ())
+            self.assertEqual(
+                (downloads_dir / "guide.pdf").read_bytes(),
+                b"new version",
+            )
+            self.assertFalse((downloads_dir / "guide (2).pdf").exists())
+
+    def test_finds_existing_and_repeated_batch_names(self):
+        with tempfile.TemporaryDirectory() as temporary_dir:
+            root = Path(temporary_dir)
+            downloads_dir = root / "downloads"
+            downloads_dir.mkdir()
+            (downloads_dir / "existing.txt").touch()
+
+            conflicts = find_download_name_conflicts(
+                [
+                    root / "existing.txt",
+                    root / "first" / "repeated.png",
+                    root / "second" / "repeated.png",
+                ],
+                downloads_dir,
+            )
+
+            self.assertEqual(conflicts, ("existing.txt", "repeated.png"))
 
 
 if __name__ == "__main__":
