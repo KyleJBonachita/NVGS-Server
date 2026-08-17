@@ -50,8 +50,12 @@ This repository currently provides the backend/server foundation:
   login monitoring
 - Full-screen Ubuntu warning acknowledgements, recovery notifications, and an
   optional remote webhook
-- An extensible Ubuntu Server Hub that chooses between NVGS and DownloadServer,
-  with each service running only while its control terminal is open
+- An extensible Ubuntu Server Hub for NVGS, DownloadServer, and the optional
+  Gery Chatbot Server, with each service running only while its control
+  terminal is open
+- A health-gated floating Gery widget in the ticketing and download web apps
+- A persistent, uploadable Gery knowledge library whose normal answers use a
+  saved local index instead of calling an AI model
 - An optional permanent always-on Ubuntu mode
 - A safe Ubuntu update command that backs up before pulling
 
@@ -161,7 +165,7 @@ sudo reboot
 
 Open **NVGS Server Hub** from Ubuntu Applications after reboot. Its desktop ID
 is unchanged, so an existing pinned taskbar icon continues to work. Choose
-**NVGS Server** or **Download Server**; the selected service opens in its own
+**NVGS Server**, **Download Server**, or **Gery Chatbot Server**; the selected service opens in its own
 control terminal. The Hub shows live network/server status and provides copy,
 open, refresh, and conservative network-repair actions. Press Enter or close
 that terminal to stop only that service.
@@ -190,6 +194,28 @@ completed upload is moved into the visible library without a second full-size
 copy. Recognized incomplete staging files are removed safely the next time the
 application container starts.
 
+Gery runs as the independent `chatbot` Docker Compose profile on port `3000`.
+When its health check succeeds, a small floating logo appears at the lower
+right of both the signed-in ticketing dashboard and DownloadServer. When the
+Gery control terminal is closed, the container stops and the host pages do not
+create the widget.
+
+Approved `.md`, `.txt`, and `.pdf` files can be added through the Gery
+knowledge manager. Use `https://ticketing-system.local/gerry/admin/` while
+NVGS is running, or `http://localhost:3000/admin/` directly on Ubuntu. The
+manager requires the token stored in `secrets/gery_admin_token`; do not send
+that token over a plain remote HTTP connection. Uploaded source files and the
+generated index stay in `Chatbot_Gery_the_Robot_Assistant/data/` and are
+ignored by Git.
+
+By default, a chat searches the saved index and returns a stored answer without
+calling a model. `GERY_INGESTION_AI_ENABLED=true` optionally uses the configured
+OpenAI-compatible endpoint only when a changed document is uploaded or
+explicitly reprocessed. `GERY_ALLOW_LIVE_AI=false` remains the recommended
+strict no-token chat setting. See
+[`Chatbot_Gery_the_Robot_Assistant/README.md`](Chatbot_Gery_the_Robot_Assistant/README.md)
+for the data flow and configuration.
+
 The Server Hub also opens the password-protected Django database administration
 at `https://localhost:8443/admin/`. That listener is bound only to Ubuntu's
 loopback address, and `/admin/` is blocked on the normal LAN website. Use the
@@ -197,7 +223,7 @@ existing system-administrator/superuser login to manage users, roles, tickets,
 and audit records. Tech Team, TL, and Manager accounts share the editable
 database role `team`; do not commit real employee addresses to Git.
 
-Before either server starts, its controller checks for a usable LAN address.
+Before any optional server starts, its controller checks for a usable LAN address.
 It now tries usable Ethernet first, including reconnecting its existing saved
 NetworkManager profile, before accepting Wi-Fi as a fallback. The stricter
 **Repair / prefer Ethernet** action reports failure unless wired Ethernet is
@@ -331,6 +357,9 @@ subnets still requires an approved internal DNS record or network routing.
 | `GET` | `/login/` | Apps Script and local login choices |
 | `GET` | `/tickets/` | End-user ticketing dashboard |
 | `GET` | `/api/health/` | Health check |
+| `GET` | `/gerry/health` | Optional Gery health check through NVGS HTTPS |
+| `POST` | `/gerry/chat` | Token-free stored-knowledge chat by default |
+| `GET` | `/gerry/admin/` | Token-gated Gery knowledge manager |
 | `GET` | `/api/system-status/` | Safe Team-visible deployment status |
 | `GET` | `/api/auth/csrf/` | Obtain browser CSRF token |
 | `POST` | `/api/auth/login/` | Local account login |

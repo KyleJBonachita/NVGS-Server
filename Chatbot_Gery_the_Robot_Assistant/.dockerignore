@@ -1,0 +1,8 @@
+backend/node_modules
+backend/.env
+data/*
+!data/.gitkeep
+appscript
+Japan_selfie.png
+frontend-design-skill.md
+README.md

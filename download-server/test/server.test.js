@@ -5,6 +5,7 @@ const assert = require("node:assert/strict");
 const fsp = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
+const http = require("node:http");
 
 const {
   classifyFile,
@@ -111,4 +112,28 @@ test("lists files, attaches custom covers, and serves downloads", async (context
     `${baseUrl}/download?file=${encodeURIComponent("../server.js")}`,
   );
   assert.equal(traversalResponse.status, 400);
+});
+
+test("proxies Gery only while the chatbot upstream is reachable", async (context) => {
+  const gerry = http.createServer((request, response) => {
+    if (request.url === "/health") {
+      response.writeHead(200, { "Content-Type": "application/json" });
+      response.end(JSON.stringify({ ok: true, service: "gery-chatbot" }));
+      return;
+    }
+    response.writeHead(404);
+    response.end();
+  });
+  await new Promise((resolve) => gerry.listen(0, "127.0.0.1", resolve));
+  context.after(() => new Promise((resolve) => gerry.close(resolve)));
+
+  const app = createAppServer({
+    gerryUpstreamUrl: `http://127.0.0.1:${gerry.address().port}`,
+  });
+  await new Promise((resolve) => app.listen(0, "127.0.0.1", resolve));
+  context.after(() => new Promise((resolve) => app.close(resolve)));
+
+  const response = await fetch(`http://127.0.0.1:${app.address().port}/gerry/health`);
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).service, "gery-chatbot");
 });

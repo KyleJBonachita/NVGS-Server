@@ -25,10 +25,18 @@
 	tls internal
 	import nvgs_common
 
-	@database_admin path /admin /admin/*
-	respond @database_admin "Database administration is available only on the Ubuntu server." 403
+	route {
+		@database_admin path /admin /admin/*
+		respond @database_admin "Database administration is available only on the Ubuntu server." 403
 
-	reverse_proxy app:8000
+		handle_path /gerry/* {
+			reverse_proxy gerry:3000
+		}
+
+		handle {
+			reverse_proxy app:8000
+		}
+	}
 }
 
 https://localhost:8443 {

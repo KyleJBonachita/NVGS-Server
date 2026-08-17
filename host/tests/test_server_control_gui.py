@@ -42,10 +42,25 @@ class ServerControlNetworkTests(unittest.TestCase):
 
 
 class ServerCatalogTests(unittest.TestCase):
-    def test_catalog_contains_nvgs_and_download_server(self):
+    def test_catalog_contains_nvgs_downloads_and_gerry(self):
         catalog = build_server_catalog({"DOWNLOAD_SERVER_PORT": "9090"})
-        self.assertEqual([server.key for server in catalog], ["nvgs", "downloads"])
+        self.assertEqual([server.key for server in catalog], ["nvgs", "downloads", "gerry"])
         self.assertEqual(catalog[1].port, 9090)
+        self.assertEqual(catalog[2].port, 3000)
+
+    def test_gerry_urls_include_every_detected_lan_address(self):
+        server = build_server_catalog({"GERY_SERVER_PORT": "3030"})[2]
+        addresses = [
+            NetworkAddress("enp3s0", "192.168.1.20", True),
+            NetworkAddress("wlp2s0", "192.168.1.30", False),
+        ]
+        self.assertEqual(
+            server_urls(server, addresses, {}),
+            [
+                "http://192.168.1.20:3030/",
+                "http://192.168.1.30:3030/",
+            ],
+        )
 
     def test_download_urls_include_every_detected_lan_address(self):
         server = build_server_catalog({})[1]

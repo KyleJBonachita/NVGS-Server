@@ -1,0 +1,222 @@
+.gery-launcher,
+.gery-launcher * {
+  box-sizing: border-box;
+}
+
+.gery-launcher {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 2147483000;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.gery-button {
+  position: relative;
+  width: 66px;
+  height: 66px;
+  padding: 0;
+  border: 2px solid rgba(137, 230, 67, 0.8);
+  border-radius: 999px;
+  cursor: pointer;
+  overflow: visible;
+  background: #f3f6f2;
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.35), 0 0 0 5px rgba(118, 185, 0, 0.14);
+  transition: transform 0.18s ease;
+}
+
+.gery-button:hover {
+  transform: translateY(-3px) scale(1.02);
+}
+
+.gery-button img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+  display: block;
+}
+
+.gery-online {
+  position: absolute;
+  right: -1px;
+  bottom: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 3px solid #0b1418;
+  background: #75e497;
+  box-shadow: 0 0 0 2px rgba(117, 228, 151, 0.24);
+}
+
+.gery-panel {
+  display: none;
+  position: absolute;
+  right: 0;
+  bottom: 80px;
+  width: 380px;
+  max-width: calc(100vw - 24px);
+  height: min(590px, calc(100vh - 120px));
+  min-height: 420px;
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid rgba(118, 185, 0, 0.4);
+  color: #edf5ef;
+  background: linear-gradient(165deg, #122028, #0b1318);
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.48);
+}
+
+.gery-panel.is-open {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+}
+
+.gery-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: linear-gradient(120deg, #19291e, #10252b);
+  border-bottom: 1px solid rgba(118, 185, 0, 0.28);
+}
+
+.gery-header img {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid rgba(137, 230, 67, 0.65);
+}
+
+.gery-heading {
+  min-width: 0;
+  flex: 1;
+}
+
+.gery-title {
+  display: block;
+  font-size: 14px;
+  font-weight: 800;
+  color: #e7f7df;
+}
+
+.gery-subtitle {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  color: #a8c4b4;
+}
+
+.gery-close {
+  border: 0;
+  border-radius: 9px;
+  padding: 7px 9px;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.08);
+  color: #d9e9df;
+}
+
+.gery-log {
+  min-height: 0;
+  overflow: auto;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.gery-message {
+  max-width: 88%;
+  border-radius: 13px;
+  padding: 9px 11px;
+  line-height: 1.45;
+  font-size: 13px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.gery-message.user {
+  align-self: flex-end;
+  background: linear-gradient(135deg, rgba(0, 177, 125, 0.3), rgba(118, 185, 0, 0.22));
+  border: 1px solid rgba(115, 218, 166, 0.3);
+  color: #e6fff3;
+}
+
+.gery-message.bot {
+  align-self: flex-start;
+  background: rgba(255, 255, 255, 0.075);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  color: #e8f2ed;
+}
+
+.gery-meta {
+  align-self: flex-start;
+  margin: -5px 0 1px 3px;
+  color: #87a696;
+  font-size: 10px;
+}
+
+.gery-form {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  padding: 11px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(5, 11, 14, 0.48);
+}
+
+.gery-input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 11px;
+  background: rgba(0, 0, 0, 0.22);
+  color: #fff;
+  padding: 10px;
+  font: inherit;
+}
+
+.gery-input:focus,
+.gery-close:focus-visible,
+.gery-button:focus-visible,
+.gery-send:focus-visible {
+  outline: 2px solid #8ed636;
+  outline-offset: 2px;
+}
+
+.gery-send {
+  border: 0;
+  border-radius: 11px;
+  padding: 0 14px;
+  cursor: pointer;
+  font-weight: 800;
+  background: linear-gradient(140deg, #76b900, #a3ec45);
+  color: #0b1508;
+}
+
+.gery-send:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+@media (max-width: 520px) {
+  .gery-launcher {
+    right: 12px;
+    bottom: 12px;
+  }
+
+  .gery-panel {
+    position: fixed;
+    inset: 12px;
+    width: auto;
+    height: auto;
+    max-width: none;
+    min-height: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gery-button {
+    transition: none;
+  }
+}

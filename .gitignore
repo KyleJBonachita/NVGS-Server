@@ -1,5 +1,6 @@
 .env
 .venv/
+node_modules/
 __pycache__/
 *.py[cod]
 *.sqlite3
@@ -20,6 +21,8 @@ nvgs-local-ca.crt
 /client-setup-output/
 /download-server/downloads/*
 !/download-server/downloads/.gitkeep
+/Chatbot_Gery_the_Robot_Assistant/data/*
+!/Chatbot_Gery_the_Robot_Assistant/data/.gitkeep
 /appscript-bridge/.clasp.json
 /appscript-notification-bridge/.clasp.json
 /.playwright-cli/

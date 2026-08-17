@@ -1,6 +1,7 @@
 "use strict";
 
 const http = require("node:http");
+const https = require("node:https");
 const fs = require("node:fs");
 const fsp = require("node:fs/promises");
 const path = require("node:path");
@@ -290,6 +291,48 @@ function sendText(response, statusCode, message) {
   response.end(payload);
 }
 
+function proxyGerryRequest(request, response, upstreamValue) {
+  let upstream;
+  try {
+    upstream = new URL(upstreamValue);
+  } catch (_error) {
+    sendJson(response, 502, { error: "Gery Chatbot Server is unavailable." });
+    return;
+  }
+
+  const incoming = new URL(request.url, "http://localhost");
+  const strippedPath = incoming.pathname.replace(/^\/gerry(?=\/|$)/, "") || "/";
+  const client = upstream.protocol === "https:" ? https : http;
+  const headers = { ...request.headers };
+  delete headers.host;
+  headers["x-forwarded-host"] = request.headers.host || "";
+  headers["x-forwarded-proto"] = "http";
+
+  const proxyRequest = client.request(
+    {
+      protocol: upstream.protocol,
+      hostname: upstream.hostname,
+      port: upstream.port,
+      method: request.method,
+      path: `${strippedPath}${incoming.search}`,
+      headers,
+    },
+    (proxyResponse) => {
+      response.writeHead(proxyResponse.statusCode || 502, proxyResponse.headers);
+      proxyResponse.pipe(response);
+    },
+  );
+
+  proxyRequest.on("error", () => {
+    if (!response.headersSent) {
+      sendJson(response, 502, { error: "Gery Chatbot Server is unavailable." });
+    } else {
+      response.destroy();
+    }
+  });
+  request.pipe(proxyRequest);
+}
+
 function safeContentDisposition(filename) {
   const fallback = filename
     .normalize("NFKD")
@@ -399,11 +442,13 @@ function createAppServer(options = {}) {
   const downloadsDir = path.resolve(options.downloadsDir || DEFAULT_DOWNLOADS_DIR);
   const publicDir = path.resolve(options.publicDir || DEFAULT_PUBLIC_DIR);
   const configPath = path.resolve(options.configPath || path.join(ROOT_DIR, "config.json"));
+  const gerryUpstreamUrl = options.gerryUpstreamUrl || process.env.GERRY_UPSTREAM_URL || "http://127.0.0.1:3000";
   const staticRoutes = new Map([
     ["/", "index.html"],
     ["/index.html", "index.html"],
     ["/styles.css", "styles.css"],
     ["/app.js", "app.js"],
+    ["/gerry-loader.js", "gerry-loader.js"],
   ]);
 
   return http.createServer(async (request, response) => {
@@ -411,6 +456,18 @@ function createAppServer(options = {}) {
 
     try {
       const url = new URL(request.url, "http://localhost");
+
+      if (url.pathname === "/gerry" || url.pathname.startsWith("/gerry/")) {
+        const allowedMethods = new Set(["GET", "HEAD", "POST", "DELETE"]);
+        if (!allowedMethods.has(request.method)) {
+          response.setHeader("Allow", [...allowedMethods].join(", "));
+          sendText(response, 405, "Method not allowed.");
+          return;
+        }
+        proxyGerryRequest(request, response, gerryUpstreamUrl);
+        return;
+      }
+
       const methodAllowed = request.method === "GET" || request.method === "HEAD";
 
       if (!methodAllowed) {

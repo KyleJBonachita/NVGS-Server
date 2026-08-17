@@ -60,6 +60,14 @@ if [[ ! -e secrets/smtp_password ]]; then
     : > secrets/smtp_password
     echo "Created the disabled SMTP-password file."
 fi
+if [[ ! -s secrets/gery_admin_token ]]; then
+    openssl rand -base64 48 > secrets/gery_admin_token
+    echo "Created secrets/gery_admin_token."
+fi
+if [[ ! -e secrets/gery_ai_api_key ]]; then
+    : > secrets/gery_ai_api_key
+    echo "Created the disabled Gery AI API-key file."
+fi
 
 chmod 600 .env
 chmod 700 secrets backups
@@ -74,7 +82,9 @@ chmod 644 \
     secrets/appscript_bridge_secret \
     secrets/appscript_notification_secret \
     secrets/ticket_notification_webhook \
-    secrets/smtp_password
+    secrets/smtp_password \
+    secrets/gery_admin_token \
+    secrets/gery_ai_api_key
 
 echo
 echo "Secrets are ready. Review .env before starting the server."

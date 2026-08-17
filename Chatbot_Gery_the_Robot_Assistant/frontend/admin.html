@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gery Knowledge Manager</title>
+    <meta name="description" content="Upload and process approved knowledge for Gery." />
+    <link rel="stylesheet" href="../styles.css" />
+    <link rel="stylesheet" href="../admin.css" />
+    <script src="../admin.js" defer></script>
+  </head>
+  <body>
+    <main class="admin-layout">
+      <header class="admin-header panel">
+        <div class="admin-brand">
+          <img src="../assets/gerry-logo.jpg" alt="Gery Robot Assistant logo" />
+          <div>
+            <p class="eyebrow">Gery Chatbot Server</p>
+            <h1>Knowledge manager</h1>
+            <p class="hero-text">Upload approved Markdown, text, or PDF documents. Processing happens once; normal matching uses the saved index.</p>
+          </div>
+        </div>
+        <a class="back-link" href="../">Back to chat</a>
+      </header>
+
+      <section class="admin-grid">
+        <form id="admin-auth" class="panel admin-card" autocomplete="off">
+          <p class="eyebrow">Administrator access</p>
+          <h2>Unlock knowledge controls</h2>
+          <label for="admin-token">Administrator token</label>
+          <div class="inline-form">
+            <input id="admin-token" type="password" required autocomplete="current-password" />
+            <button type="submit">Unlock</button>
+          </div>
+          <p class="admin-hint">The token stays in this browser tab and is never stored in the knowledge index.</p>
+        </form>
+
+        <section class="panel admin-card" aria-labelledby="upload-heading">
+          <p class="eyebrow">Add knowledge</p>
+          <h2 id="upload-heading">Upload and process</h2>
+          <form id="upload-form">
+            <label class="drop-zone" for="knowledge-files">
+              <strong>Choose files or drop them here</strong>
+              <span>.md, .txt, or .pdf</span>
+              <input id="knowledge-files" type="file" accept=".md,.txt,.pdf" multiple required />
+            </label>
+            <label class="checkbox-row"><input id="replace-existing" type="checkbox" /> Replace files with the same name</label>
+            <button id="upload-button" type="submit" disabled>Upload knowledge</button>
+          </form>
+        </section>
+      </section>
+
+      <section class="panel library-panel" aria-labelledby="library-heading">
+        <div class="library-heading">
+          <div>
+            <p class="eyebrow">Stored knowledge</p>
+            <h2 id="library-heading">Knowledge library</h2>
+          </div>
+          <button id="reprocess-button" class="secondary-button" type="button" disabled>Reprocess all</button>
+        </div>
+        <p id="knowledge-status" class="admin-hint" aria-live="polite">Enter the administrator token to view the library.</p>
+        <div id="knowledge-list" class="knowledge-list"></div>
+      </section>
+    </main>
+  </body>
+</html>

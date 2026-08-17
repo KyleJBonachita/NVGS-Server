@@ -561,6 +561,7 @@ class TicketDashboardTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Report a production issue")
         self.assertContains(response, "tickets/dashboard.js")
+        self.assertContains(response, "tickets/gerry-loader.js")
         self.assertIn("csrftoken", response.cookies)
         self.assertEqual(response["Referrer-Policy"], "same-origin")
         self.assertIn("default-src 'self'", response["Content-Security-Policy"])

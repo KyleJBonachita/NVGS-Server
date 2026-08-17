@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gery - The Gr00t Robot Assistant</title>
+    <meta
+      name="description"
+      content="Internal AI assistant for setup, troubleshooting, onboarding, and workflows."
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="page-bg" aria-hidden="true"></div>
+
+    <main class="layout">
+      <section class="hero panel reveal">
+        <img class="hero-logo" src="./assets/gerry-logo.jpg" alt="Gery Robot Assistant logo" />
+        <p class="eyebrow">Internal AI Operations Console</p>
+        <h1>
+          Gery
+          <span class="display-accent">The Gr00t Robot Assistant</span>
+        </h1>
+        <p class="hero-text">
+          Fast internal help for setup, troubleshooting, onboarding, and workflow guidance.
+          Grounded in your company docs only.
+        </p>
+
+        <div class="status-grid">
+          <div class="status-card">
+            <h3>Built By</h3>
+            <p>Tech Team: Kyle Josef Bonachita & Rafael Sarmiento</p>
+          </div>
+          <div class="status-card">
+            <h3>Purpose</h3>
+            <p>Internal setup, troubleshooting, onboarding, and workflow guidance</p>
+          </div>
+          <div class="status-card">
+            <h3>Mode</h3>
+            <p>Local network internal assistant</p>
+          </div>
+        </div>
+
+        <div class="chip-row">
+          <button class="chip" data-prompt="How do I set up Gr00t for first-time use?">Setup guide</button>
+          <button class="chip" data-prompt="Fix this error: VIVE tracker still shows 0 after setup.">Fix this error</button>
+          <button class="chip" data-prompt="Explain this tool workflow step-by-step.">Explain workflow</button>
+        </div>
+        <a class="knowledge-link" href="./admin/">Manage the knowledge library</a>
+      </section>
+
+      <section class="chat panel reveal-delay">
+        <header class="chat-header">
+          <div>
+            <h2>Chat with Gery</h2>
+            <p>Internal use only</p>
+          </div>
+          <span class="pill" id="connectionPill">Checking connection...</span>
+        </header>
+
+        <div class="message-list" id="messageList" aria-live="polite"></div>
+
+        <form id="chatForm" class="input-wrap" autocomplete="off">
+          <textarea
+            id="messageInput"
+            rows="2"
+            placeholder="Ask Gery... (example: Generate setup guide for tool onboarding)"
+            required
+          ></textarea>
+          <button type="submit" id="sendBtn">Send</button>
+        </form>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

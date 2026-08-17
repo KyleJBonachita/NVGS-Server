@@ -167,6 +167,7 @@ systemctl daemon-reload
 chmod 0755 \
     scripts/nvgs-session-control.sh \
     scripts/download-session-control.sh \
+    scripts/gerry-session-control.sh \
     scripts/ensure-lan-ready.sh \
     scripts/ethernet-watchdog.sh \
     scripts/install-ethernet-watchdog.sh \
@@ -254,7 +255,7 @@ echo "Reboot once so Ubuntu returns to its normal lid and sleep behavior."
 echo
 echo "After reboot:"
 echo "  1. Open 'NVGS Server Hub' from Ubuntu Applications."
-echo "  2. Choose NVGS Server or Download Server."
+echo "  2. Choose NVGS Server, Download Server, or Gery Chatbot Server."
 echo "  3. Enter your Ubuntu password when asked."
 echo "  4. Keep the selected server's control terminal open while it is needed."
 echo "  5. Press Enter or close that terminal to stop the selected server."

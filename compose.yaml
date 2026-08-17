@@ -152,6 +152,7 @@ services:
     environment:
       HOST: 0.0.0.0
       PORT: "8080"
+      GERRY_UPSTREAM_URL: http://gerry:3000
     ports:
       - "${DOWNLOAD_SERVER_BIND_IP:-0.0.0.0}:${DOWNLOAD_SERVER_PORT:-8080}:8080"
     volumes:
@@ -175,6 +176,58 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    networks:
+      - web
+
+  gerry:
+    build:
+      context: ./Chatbot_Gery_the_Robot_Assistant
+    profiles:
+      - chatbot
+    restart: "no"
+    environment:
+      HOST: 0.0.0.0
+      PORT: "3000"
+      GERY_DATA_DIR: /app/data
+      GERY_MAX_UPLOAD_BYTES: ${GERY_MAX_UPLOAD_BYTES:-26214400}
+      GERY_INGESTION_AI_ENABLED: ${GERY_INGESTION_AI_ENABLED:-false}
+      GERY_ALLOW_LIVE_AI: ${GERY_ALLOW_LIVE_AI:-false}
+      GERY_AI_BASE_URL: ${GERY_AI_BASE_URL:-http://host.docker.internal:1234}
+      GERY_AI_MODEL: ${GERY_AI_MODEL:-meta-llama-3.1-8b-instruct}
+      GERY_ALLOWED_ORIGINS: ${GERY_ALLOWED_ORIGINS:-}
+      GERY_ALLOW_INSECURE_ADMIN: ${GERY_ALLOW_INSECURE_ADMIN:-false}
+      GERY_ADMIN_TOKEN_FILE: /run/secrets/gery_admin_token
+      GERY_AI_API_KEY_FILE: /run/secrets/gery_ai_api_key
+    secrets:
+      - gery_admin_token
+      - gery_ai_api_key
+    ports:
+      - "${GERY_SERVER_BIND_IP:-0.0.0.0}:${GERY_SERVER_PORT:-3000}:3000"
+    volumes:
+      - ./Chatbot_Gery_the_Robot_Assistant/data:/app/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - web
 
 secrets:
   postgres_password:
@@ -189,6 +242,10 @@ secrets:
     file: ./secrets/appscript_notification_secret
   smtp_password:
     file: ./secrets/smtp_password
+  gery_admin_token:
+    file: ./secrets/gery_admin_token
+  gery_ai_api_key:
+    file: ./secrets/gery_ai_api_key
 
 volumes:
   postgres_data:

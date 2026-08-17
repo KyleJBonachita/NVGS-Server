@@ -357,6 +357,16 @@ def build_server_catalog(env: dict[str, str]) -> tuple[ServerDefinition, ...]:
             port=valid_port(env.get("DOWNLOAD_SERVER_PORT", ""), 8080),
             path="/",
         ),
+        ServerDefinition(
+            key="gerry",
+            name="Gery Chatbot Server",
+            category="ROBOT KNOWLEDGE ASSISTANT",
+            description="Token-free saved answers with optional AI processing at upload time.",
+            script="gerry-session-control.sh",
+            scheme="http",
+            port=valid_port(env.get("GERY_SERVER_PORT", ""), 3000),
+            path="/",
+        ),
     )
 
 
@@ -383,7 +393,7 @@ def server_urls(
     if server.key == "nvgs":
         hosts = [preferred_nvgs_host(env, addresses)]
         hosts.extend(item.address for item in addresses)
-    else:
+    elif server.key == "downloads":
         hosts = []
         stable_name = env.get(
             "DOWNLOAD_SERVER_NAME",
@@ -392,6 +402,10 @@ def server_urls(
         if stable_name:
             hosts.append(stable_name)
         hosts.extend(item.address for item in addresses)
+        if not hosts:
+            hosts.append("localhost")
+    else:
+        hosts = [item.address for item in addresses]
         if not hosts:
             hosts.append("localhost")
 

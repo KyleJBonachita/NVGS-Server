@@ -141,11 +141,17 @@ reachable laptop. Files are stored under `download-server/downloads`. Share
 and Wi-Fi IP links as fallbacks. Press Enter or close that terminal to stop
 DownloadServer without affecting NVGS.
 
+For the optional robot-knowledge assistant, choose **Gery Chatbot Server**.
+While its control terminal is open, the Gery logo appears at the lower right
+of the ticketing dashboard and DownloadServer. Ordinary answers come from a
+saved local knowledge index and do not call AI. Close the Gery terminal and
+refresh either page to remove the widget.
+
 For server maintenance, select **Open database admin** in the Ubuntu Server Hub.
 Enter the Django system-administrator password. This administration listener is
 available only on the Ubuntu laptop, not through the LAN website.
 
-The Hub checks Ethernet before starting either service. It can turn
+The Hub checks Ethernet before starting any service. It can turn
 NetworkManager networking back on and reconnect a saved profile. **Repair /
 prefer Ethernet** runs a strict wired check and says whether Ethernet was
 actually restored instead of treating an existing Wi-Fi address as success.

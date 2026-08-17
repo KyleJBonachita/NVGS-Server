@@ -144,14 +144,15 @@ sudo reboot
 
 After logging in again, open Ubuntu Applications and select **NVGS Server
 Hub**. Choose **NVGS Server** for ticketing and alerts, or **Download Server**
-for local file sharing, then enter your Ubuntu password.
+for local file sharing, or **Gery Chatbot Server** for the optional floating
+knowledge assistant, then enter your Ubuntu password.
 
 - The Download Server's stable link is
   `http://download-system.local:8080/`; its IP-address fallbacks are also shown.
 - The Hub shows network health and live service status. **Copy link** copies the
   preferred address, while **Open site** becomes available when a service is
   running.
-- Starting either service checks Ethernet first and safely reconnects its
+- Starting any service checks Ethernet first and safely reconnects its
   existing NetworkManager profile if necessary. Use **Repair / prefer
   Ethernet** for a strict wired recovery check. It performs a privileged,
   rate-limited `r8169` hardware reset if ordinary recovery fails; Wi-Fi remains
