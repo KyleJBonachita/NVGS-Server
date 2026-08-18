@@ -9,6 +9,19 @@ const connectionPill = document.getElementById("connectionPill");
 const chips = document.querySelectorAll(".chip");
 let contextEntryId = null;
 let troubleshootingState = null;
+const minimumTypingDelayMs = 650;
+
+async function withTypingDelay(action) {
+  const startedAt = Date.now();
+  try {
+    return await action();
+  } finally {
+    const remaining = minimumTypingDelayMs - (Date.now() - startedAt);
+    if (remaining > 0) {
+      await new Promise((resolve) => window.setTimeout(resolve, remaining));
+    }
+  }
+}
 
 function renderMessage(text, role, meta = "") {
   const item = document.createElement("article");
@@ -64,25 +77,30 @@ async function sendMessage(message) {
   sendBtn.disabled = true;
   clearQuickReplies();
   renderMessage(message, "user");
-  const pending = renderMessage("Searching saved knowledge…", "bot");
+  const pending = renderMessage("Gery is typing…", "bot");
+  pending.classList.add("is-typing");
   try {
-    const response = await fetch(config.endpoint, {
+    const response = await withTypingDelay(() => fetch(config.endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message, contextEntryId, troubleshootingState }),
-    });
+    }));
     if (!response.ok) throw new Error("chat failed");
     const data = await response.json();
     if (Object.hasOwn(data, "contextEntryId")) contextEntryId = data.contextEntryId;
     if (Object.hasOwn(data, "troubleshootingState")) troubleshootingState = data.troubleshootingState;
+    pending.classList.remove("is-typing");
     pending.textContent = data.reply || "No response received.";
-    const detail = document.createElement("p");
-    detail.className = "message-meta";
-    const sourceText = data.sources?.length ? ` • ${data.sources.join(", ")}` : "";
-    detail.textContent = `${data.usedAI ? "AI fallback used" : "No AI tokens used"}${sourceText}`;
-    pending.after(detail);
+    const sources = Array.isArray(data.sources) ? data.sources.filter(Boolean) : [];
+    if (sources.length) {
+      const detail = document.createElement("p");
+      detail.className = "message-meta";
+      detail.textContent = `Source: ${sources.join(", ")}`;
+      pending.after(detail);
+    }
     renderQuickReplies(data.quickReplies);
   } catch (_error) {
+    pending.classList.remove("is-typing");
     pending.textContent = "I could not reach the local Chatbot Server.";
   } finally {
     sendBtn.disabled = false;

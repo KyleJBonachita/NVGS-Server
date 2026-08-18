@@ -25,6 +25,8 @@ const OTHER_LABELS = new Set([
   "issue",
   "notes",
   "prerequisites",
+  "success criteria",
+  "system context",
   "symptoms",
   "validation",
   "warnings",

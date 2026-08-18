@@ -149,6 +149,20 @@
   color: #e8f2ed;
 }
 
+.gery-message.is-typing {
+  color: #87a696;
+  animation: gery-widget-typing-pulse 900ms ease-in-out infinite alternate;
+}
+
+@keyframes gery-widget-typing-pulse {
+  from {
+    opacity: 0.55;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 .gery-meta {
   align-self: flex-start;
   margin: -5px 0 1px 3px;

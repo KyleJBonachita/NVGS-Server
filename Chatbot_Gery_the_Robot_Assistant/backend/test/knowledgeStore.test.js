@@ -3,8 +3,31 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { KnowledgeStore } from "../src/services/knowledgeStore.js";
 import { findStoredAnswer } from "../src/services/retrievalLite.js";
+
+const projectKnowledgeDir = fileURLToPath(new URL("../../knowledge", import.meta.url));
+
+test("bundled VIVE knowledge stays together as an eight-check guided SOP", async (context) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "gery-bundled-vive-"));
+  const dataDir = path.join(root, "data");
+  context.after(() => fs.rm(root, { recursive: true, force: true }));
+
+  const store = new KnowledgeStore({ bundledDir: projectKnowledgeDir, dataDir });
+  const result = await store.initialize();
+  const vive = store.getEntries().find((entry) => /VIVE trackers are detected as 0/i.test(entry.title));
+
+  assert.ok(vive);
+  assert.equal(vive.troubleshootingSteps.length, 8);
+  assert.match(vive.canonicalAnswer, /conda activate dexcap/);
+  assert.match(vive.canonicalAnswer, /ipconfig \/flushdns/);
+  assert.doesNotMatch(vive.canonicalAnswer, /tracker ID/i);
+  assert.ok(result.guidedTroubleshootingSections >= 2);
+
+  const answer = findStoredAnswer("VIVE trackers not working", store.getEntries());
+  assert.equal(answer?.entryId, vive.id);
+});
 
 test("indexes bundled and uploaded knowledge and persists reusable answers", async (context) => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "gery-store-"));

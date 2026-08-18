@@ -25,6 +25,10 @@ nvgs-local-ca.crt
 !/Chatbot_Gery_the_Robot_Assistant/data/.gitkeep
 /Chatbot_Gery_the_Robot_Assistant/knowledge/*
 !/Chatbot_Gery_the_Robot_Assistant/knowledge/.gitkeep
+!/Chatbot_Gery_the_Robot_Assistant/knowledge/onboarding.md
+!/Chatbot_Gery_the_Robot_Assistant/knowledge/setup.md
+!/Chatbot_Gery_the_Robot_Assistant/knowledge/tools.md
+!/Chatbot_Gery_the_Robot_Assistant/knowledge/troubleshooting.md
 /appscript-bridge/.clasp.json
 /appscript-notification-bridge/.clasp.json
 /.playwright-cli/

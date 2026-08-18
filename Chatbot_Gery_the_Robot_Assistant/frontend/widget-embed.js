@@ -18,7 +18,7 @@
     const stylesheet = document.createElement("link");
     stylesheet.id = stylesheetId;
     stylesheet.rel = "stylesheet";
-    stylesheet.href = `${apiBase}/widget.css?v=3`;
+    stylesheet.href = `${apiBase}/widget.css?v=4`;
     document.head.appendChild(stylesheet);
   }
 
@@ -33,7 +33,7 @@
     <section class="gery-panel" role="dialog" aria-label="Gery Robot Assistant">
       <header class="gery-header">
         <img alt="" src="${apiBase}/assets/gerry-logo.jpg">
-        <span class="gery-heading"><span class="gery-title"></span><span class="gery-subtitle">Saved knowledge • token-free answers</span></span>
+        <span class="gery-heading"><span class="gery-title"></span><span class="gery-subtitle">Guided robotics support</span></span>
         <button class="gery-close" type="button" aria-label="Close Gery">Close</button>
       </header>
       <div class="gery-log" aria-live="polite"></div>
@@ -54,7 +54,20 @@
   const sendButton = root.querySelector(".gery-send");
   let contextEntryId = null;
   let troubleshootingState = null;
+  const minimumTypingDelayMs = 650;
   root.querySelector(".gery-title").textContent = cfg.title;
+
+  async function withTypingDelay(action) {
+    const startedAt = Date.now();
+    try {
+      return await action();
+    } finally {
+      const remaining = minimumTypingDelayMs - (Date.now() - startedAt);
+      if (remaining > 0) {
+        await new Promise((resolve) => window.setTimeout(resolve, remaining));
+      }
+    }
+  }
 
   function addMessage(text, role, meta = "") {
     const element = document.createElement("div");
@@ -96,28 +109,31 @@
   async function ask(message) {
     clearQuickReplies();
     addMessage(message, "user");
-    const pending = addMessage("Searching saved knowledge…", "bot");
+    const pending = addMessage("Gery is typing…", "bot");
+    pending.classList.add("is-typing");
     sendButton.disabled = true;
     try {
-      const response = await fetch(`${apiBase}/chat`, {
+      const response = await withTypingDelay(() => fetch(`${apiBase}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message, contextEntryId, troubleshootingState }),
-      });
+      }));
       if (!response.ok) throw new Error("Chat request failed");
       const data = await response.json();
       if (Object.hasOwn(data, "contextEntryId")) contextEntryId = data.contextEntryId;
       if (Object.hasOwn(data, "troubleshootingState")) troubleshootingState = data.troubleshootingState;
+      pending.classList.remove("is-typing");
       pending.textContent = data.reply || "No response received.";
       const sources = Array.isArray(data.sources) ? data.sources.filter(Boolean) : [];
-      const label = data.usedAI ? "AI fallback used" : "No AI tokens used";
-      const meta = sources.length ? `${label} • Source: ${sources.join(", ")}` : label;
-      const metaElement = document.createElement("div");
-      metaElement.className = "gery-meta";
-      metaElement.textContent = meta;
-      pending.after(metaElement);
+      if (sources.length) {
+        const metaElement = document.createElement("div");
+        metaElement.className = "gery-meta";
+        metaElement.textContent = `Source: ${sources.join(", ")}`;
+        pending.after(metaElement);
+      }
       addQuickReplies(data.quickReplies);
     } catch (_error) {
+      pending.classList.remove("is-typing");
       pending.textContent = "Gery became unavailable. Please try again after the Chatbot Server is restarted.";
     } finally {
       sendButton.disabled = false;
