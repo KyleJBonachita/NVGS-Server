@@ -12,9 +12,9 @@ function cleanText(value) {
     .trim();
 }
 
-function splitLongSection(title, text, maxChars = 2600) {
+function splitLongSection(title, text, maxChars = 8000) {
   if (text.length <= maxChars) {
-    return [{ title, text }];
+    return [{ title, sectionTitle: title, sectionText: text, partIndex: 1, partCount: 1, text }];
   }
 
   const paragraphs = text.split(/\n\s*\n/).filter(Boolean);
@@ -46,7 +46,11 @@ function splitLongSection(title, text, maxChars = 2600) {
   }
 
   return chunks.map((chunk, index) => ({
-    title: chunks.length > 1 ? `${title} (${index + 1})` : title,
+    title: chunks.length > 1 ? `${title} (part ${index + 1} of ${chunks.length})` : title,
+    sectionTitle: title,
+    sectionText: text,
+    partIndex: index + 1,
+    partCount: chunks.length,
     text: chunk,
   }));
 }

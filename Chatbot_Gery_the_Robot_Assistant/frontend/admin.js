@@ -38,6 +38,26 @@ function formatBytes(bytes) {
   return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
 }
 
+function formatProcessedAt(value) {
+  const timestamp = new Date(value);
+  return Number.isNaN(timestamp.getTime()) ? "unknown time" : timestamp.toLocaleString();
+}
+
+function processingLabel(document) {
+  const enriched = Number(document.aiEnrichedSections || 0);
+  const fallback = Number(document.aiFallbackSections || 0);
+  if (document.processingMode === "ai-search-enriched") {
+    return `AI search-enriched (${enriched}/${document.sectionCount}); source SOP preserved`;
+  }
+  if (document.processingMode === "partial-ai-search-enrichment") {
+    return `Partial AI search enrichment (${enriched}/${document.sectionCount}); ${fallback} AI failures; source SOP preserved`;
+  }
+  if (document.processingMode === "ai-unavailable-source-preserved") {
+    return `AI unavailable for ${fallback} sections; source SOP preserved`;
+  }
+  return "Source SOP preserved; AI not used";
+}
+
 function renderDocuments(data) {
   listElement.replaceChildren();
   for (const knowledgeDocument of data.documents) {
@@ -47,7 +67,13 @@ function renderDocuments(data) {
     const heading = document.createElement("h3");
     heading.textContent = knowledgeDocument.name;
     const meta = document.createElement("p");
-    meta.textContent = `${knowledgeDocument.origin} • ${knowledgeDocument.sectionCount} saved answers • ${formatBytes(knowledgeDocument.size)} • ${knowledgeDocument.processingMode}`;
+    meta.textContent = [
+      knowledgeDocument.origin,
+      `${knowledgeDocument.sectionCount} preserved SOP sections`,
+      formatBytes(knowledgeDocument.size),
+      processingLabel(knowledgeDocument),
+      `processed ${formatProcessedAt(knowledgeDocument.processedAt)}`,
+    ].join(" | ");
     copy.append(heading, meta);
     const remove = document.createElement("button");
     remove.type = "button";
@@ -57,7 +83,7 @@ function renderDocuments(data) {
     item.append(copy, remove);
     listElement.appendChild(item);
   }
-  statusElement.textContent = `${data.documents.length} documents • ${data.entryCount} reusable answers • Upload-time AI ${data.ingestionAiEnabled ? "enabled" : "disabled"}`;
+  statusElement.textContent = `${data.documents.length} documents | ${data.entryCount} preserved SOP sections | Upload-time AI ${data.ingestionAiEnabled ? "enabled" : "disabled"}`;
 }
 
 async function loadLibrary() {
@@ -143,12 +169,16 @@ uploadForm.addEventListener("submit", async (event) => {
 
 reprocessButton.addEventListener("click", async () => {
   reprocessButton.disabled = true;
-  statusElement.textContent = "Reprocessing all knowledge…";
+  statusElement.textContent = "Reprocessing all knowledge. Source procedures will be preserved exactly...";
   try {
-    await adminFetch("/admin/knowledge/reprocess", { method: "POST" });
+    const result = await adminFetch("/admin/knowledge/reprocess", { method: "POST" });
     await loadLibrary();
+    const aiResult = result.aiFallbackSections
+      ? `${result.aiEnrichedSections} AI-enriched and ${result.aiFallbackSections} AI failures`
+      : `${result.aiEnrichedSections} AI-enriched`;
+    statusElement.textContent = `Reprocessing completed ${formatProcessedAt(result.generatedAt)}: ${result.documents} documents, ${result.entries} preserved SOP sections, ${aiResult}.`;
   } catch (error) {
-    statusElement.textContent = error.message;
+    statusElement.textContent = `Reprocessing failed: ${error.message}`;
   } finally {
     reprocessButton.disabled = !adminToken;
   }

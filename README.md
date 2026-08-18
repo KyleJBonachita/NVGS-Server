@@ -223,6 +223,10 @@ strict no-token chat setting. See
 [`Chatbot_Gery_the_Robot_Assistant/README.md`](Chatbot_Gery_the_Robot_Assistant/README.md)
 for the data flow and configuration.
 
+AI ingestion enriches only search questions and keywords. It never replaces the
+approved source procedure in the generated index. Reprocessing reports whether
+each SOP section was AI search-enriched or fell back to the preserved source.
+
 The Server Hub also opens the password-protected Django database administration
 at `https://localhost:8443/admin/`. That listener is bound only to Ubuntu's
 loopback address, and `/admin/` is blocked on the normal LAN website. Use the

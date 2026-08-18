@@ -71,6 +71,14 @@ test("asks for the affected topic instead of guessing from generic words", () =>
   assert.equal(result?.entryId, null);
 });
 
+test("an ambiguous question presents matching SOP choices instead of a vague prompt", () => {
+  const result = findStoredAnswer("tracker camera not working", troubleshootingEntries);
+  assert.equal(result?.answerMode, "clarification");
+  assert.match(result?.reply, /VIVE tracker still detected as 0/);
+  assert.match(result?.reply, /Teleop not working and camera is black/);
+  assert.match(result?.reply, /exact error or observed symptom/i);
+});
+
 test("keeps a vague follow-up on the previous knowledge topic", () => {
   const result = findStoredAnswer("That still did not work", troubleshootingEntries, {
     contextEntryId: "vive-zero",

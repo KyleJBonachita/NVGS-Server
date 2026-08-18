@@ -7,7 +7,10 @@ import {
 } from "./docsLoader.js";
 import { tokenize } from "./retrievalLite.js";
 
-const INDEX_VERSION = 2;
+// Version 3 guarantees that the displayed answer is copied verbatim from the
+// approved source section. AI may enrich search metadata, but it may never
+// replace or shorten the canonical procedure.
+const INDEX_VERSION = 3;
 
 function unique(values) {
   return [...new Set(values.filter(Boolean))];
@@ -38,7 +41,11 @@ function deterministicEntry(section, source, sourceId, index) {
     sourceId,
     source,
     title,
+    sectionTitle: section.sectionTitle || title,
+    partIndex: section.partIndex || 1,
+    partCount: section.partCount || 1,
     answer: section.text,
+    canonicalAnswer: section.sectionText || section.text,
     questions: [
       `What is ${title}?`,
       `How do I fix ${title}?`,
@@ -47,7 +54,7 @@ function deterministicEntry(section, source, sourceId, index) {
       ...(issue ? [`How do I fix ${issue}?`, issue] : []),
     ],
     keywords,
-    processingMode: "deterministic",
+    processingMode: "source-preserved",
   };
 }
 
@@ -67,7 +74,6 @@ async function aiEnhancedEntry(section, baseEntry, preprocessSection) {
 
   try {
     const enhanced = parseAiJson(await preprocessSection(section));
-    const answer = String(enhanced.answer || "").trim();
     const questions = Array.isArray(enhanced.questions)
       ? enhanced.questions.map((value) => String(value).trim()).filter(Boolean).slice(0, 8)
       : [];
@@ -75,21 +81,46 @@ async function aiEnhancedEntry(section, baseEntry, preprocessSection) {
       ? enhanced.keywords.map((value) => String(value).trim().toLowerCase()).filter(Boolean).slice(0, 40)
       : [];
 
-    if (!answer || !questions.length) {
-      return baseEntry;
+    if (!questions.length) {
+      throw new Error("The preprocessing model did not return representative questions.");
     }
 
     return {
       ...baseEntry,
-      answer,
       questions: unique([...questions, ...baseEntry.questions]),
       keywords: unique([...keywords, ...baseEntry.keywords]).slice(0, 50),
-      processingMode: "ai-preprocessed",
+      processingMode: "ai-search-enriched",
     };
   } catch (error) {
     console.warn(`AI preprocessing skipped for ${baseEntry.source} / ${baseEntry.title}: ${error.message}`);
-    return baseEntry;
+    return { ...baseEntry, processingMode: "ai-fallback-source-preserved" };
   }
+}
+
+function processingSummary(entries, aiConfigured) {
+  const aiEnrichedSections = entries.filter(
+    (entry) => entry.processingMode === "ai-search-enriched",
+  ).length;
+  const aiFallbackSections = entries.filter(
+    (entry) => entry.processingMode === "ai-fallback-source-preserved",
+  ).length;
+  const sourceOnlySections = entries.length - aiEnrichedSections - aiFallbackSections;
+
+  let processingMode = "source-preserved";
+  if (aiConfigured && aiEnrichedSections === entries.length && entries.length) {
+    processingMode = "ai-search-enriched";
+  } else if (aiConfigured && aiEnrichedSections > 0) {
+    processingMode = "partial-ai-search-enrichment";
+  } else if (aiConfigured && entries.length) {
+    processingMode = "ai-unavailable-source-preserved";
+  }
+
+  return {
+    processingMode,
+    aiEnrichedSections,
+    aiFallbackSections,
+    sourceOnlySections,
+  };
 }
 
 async function hashFile(filePath) {
@@ -178,6 +209,7 @@ export class KnowledgeStore {
           documentEntries.push(await aiEnhancedEntry(sections[index], baseEntry, this.preprocessSection));
         }
 
+        const summary = processingSummary(documentEntries, Boolean(this.preprocessSection));
         documents.push({
           sourceId: file.sourceId,
           name: file.name,
@@ -187,9 +219,7 @@ export class KnowledgeStore {
           modifiedAt: stat.mtime.toISOString(),
           processedAt: new Date().toISOString(),
           sectionCount: documentEntries.length,
-          processingMode: documentEntries.some((entry) => entry.processingMode === "ai-preprocessed")
-            ? "ai-preprocessed"
-            : "deterministic",
+          ...summary,
         });
         entries.push(...documentEntries);
         processed += 1;
@@ -202,7 +232,16 @@ export class KnowledgeStore {
         generatedAt: new Date().toISOString(),
       };
       await this.save();
-      return { processed, documents: documents.length, entries: entries.length };
+      const summary = processingSummary(entries, Boolean(this.preprocessSection));
+      return {
+        processed,
+        documents: documents.length,
+        entries: entries.length,
+        generatedAt: this.index.generatedAt,
+        aiEnrichedSections: summary.aiEnrichedSections,
+        aiFallbackSections: summary.aiFallbackSections,
+        sourceOnlySections: summary.sourceOnlySections,
+      };
     });
   }
 

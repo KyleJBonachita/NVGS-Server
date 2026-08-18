@@ -93,8 +93,9 @@ remain hidden until the administrator token is accepted.
 
 ## Knowledge storage
 
-Bundled starter documents live in `knowledge/` and are included in the image.
-Documents uploaded through the manager live in:
+Only approved operational documents should be used as knowledge. Generic sample
+procedures are deliberately not bundled because Gery must not present placeholder
+steps as authoritative instructions. Documents uploaded through the manager live in:
 
 ```text
 data/uploads/
@@ -141,12 +142,18 @@ For a model running on the Ubuntu host, it must listen on an address reachable
 from Docker. Keep access limited to the server/private network and follow the
 model server's security guidance.
 
-When upload-time AI is enabled, Gery asks the model to create a concise reusable
-answer, likely user questions, and keywords for each section. Those results are
-saved. Normal matched chats still do not call the model.
+When upload-time AI is enabled, Gery asks the model only for representative user
+questions and search keywords. The model is not allowed to rewrite the answer.
+Every displayed stored answer remains the complete text copied from the approved
+source section, including its prerequisites, numbered steps, commands, validation,
+warnings, and escalation instructions. Normal matched chats still do not call the
+model.
 
 Use **Reprocess all** in the manager after changing the AI-processing setting.
-If the model is unavailable, Gery safely falls back to deterministic indexing.
+The manager reports the completion time, preserved SOP count, AI-enriched section
+count, and AI failures. If the model is unavailable, the source procedure remains
+usable and the failure is reported instead of silently replacing it with a vague
+answer.
 
 Restart Gery after changing `.env`:
 
@@ -161,7 +168,9 @@ cost control. An unknown question returns a standard “not in current internal
 documentation” response.
 
 Setting it to `true` permits only unmatched questions to call the configured
-model with the nearest stored context. Responses report whether AI was used.
+model with the nearest stored context. The live prompt requires a complete
+operational SOP that preserves documented sequence and details; it may not invent
+missing steps. Responses report whether AI was used.
 
 ## Widget availability behavior
 

@@ -141,9 +141,25 @@ export function rankKnowledge(question, entries, limit = 5) {
     .slice(0, limit);
 }
 
-function contextAnswer(contextEntry) {
+function completeSectionAnswer(entry, entries) {
+  if (entry?.canonicalAnswer) return entry.canonicalAnswer;
+  if (!entry || Number(entry.partCount || 1) <= 1) return entry?.answer || "";
+  const parts = entries
+    .filter((candidate) => (
+      candidate.sourceId === entry.sourceId &&
+      candidate.sectionTitle === entry.sectionTitle
+    ))
+    .sort((left, right) => Number(left.partIndex || 1) - Number(right.partIndex || 1));
+  return parts.length ? parts.map((part) => part.answer).join("\n\n") : entry.answer;
+}
+
+function logicalSectionKey(entry) {
+  return `${entry?.sourceId || entry?.source || "unknown"}:${entry?.sectionTitle || entry?.title || "untitled"}`;
+}
+
+function contextAnswer(contextEntry, entries) {
   return {
-    reply: `Staying with “${contextEntry.title}”:\n\n${contextEntry.answer}`,
+    reply: `Staying with “${contextEntry.sectionTitle || contextEntry.title}”:\n\n${completeSectionAnswer(contextEntry, entries)}`,
     sources: [contextEntry.source],
     score: 0,
     entryId: contextEntry.id,
@@ -151,9 +167,14 @@ function contextAnswer(contextEntry) {
   };
 }
 
-function clarificationAnswer() {
+function clarificationAnswer(candidates = []) {
+  const titles = [...new Set(candidates.map((entry) => entry.sectionTitle || entry.title).filter(Boolean))]
+    .slice(0, 3);
+  const choices = titles.length
+    ? ` I found these possible SOPs: ${titles.map((title, index) => `${index + 1}. ${title}`).join("; ")}.`
+    : "";
   return {
-    reply: "Which device, system, or workflow is having the problem? For example, say ‘VIVE tracker’, ‘teleop camera’, or the exact error shown. I will only choose an answer when the topic is clear.",
+    reply: `Which device, system, symptom, or workflow is involved?${choices} Reply with the matching SOP name and the exact error or observed symptom. I will not guess and give you the wrong procedure.`,
     sources: [],
     score: 0,
     entryId: null,
@@ -170,13 +191,13 @@ export function findStoredAnswer(question, entries, { contextEntryId = null } = 
     : null;
 
   if (!specificTokens.length) {
-    if (contextEntry) return contextAnswer(contextEntry);
+    if (contextEntry) return contextAnswer(contextEntry, safeEntries);
     return safeEntries.length ? clarificationAnswer() : null;
   }
 
   const ranked = rankKnowledge(question, safeEntries, 3);
   const best = ranked[0];
-  const second = ranked[1];
+  const second = ranked.find((entry) => logicalSectionKey(entry) !== logicalSectionKey(best));
   const requiredScore = specificTokens.length === 1 ? 24 : 28;
   const ambiguous = Boolean(
     second &&
@@ -192,11 +213,11 @@ export function findStoredAnswer(question, entries, { contextEntryId = null } = 
     (specificTokens.length > 1 && best.specificCoverage < 0.5) ||
     ambiguous
   ) {
-    return ambiguous ? clarificationAnswer() : null;
+    return ambiguous ? clarificationAnswer(ranked) : null;
   }
 
   return {
-    reply: best.answer,
+    reply: completeSectionAnswer(best, safeEntries),
     sources: [best.source],
     score: best.score,
     entryId: best.id,

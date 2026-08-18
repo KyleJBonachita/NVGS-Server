@@ -215,6 +215,7 @@ app.post("/chat", async (request, response) => {
         apiKey: config.aiApiKey,
         systemPrompt: buildSystemPrompt(),
         userPrompt: buildUserPrompt(message, matches),
+        maxTokens: 1200,
       });
       return response.json({
         reply: reply || "I am not sure based on current internal documentation. Please file an NVGS ticket or contact the Tech Team or your Team Lead.",
