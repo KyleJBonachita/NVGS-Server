@@ -156,6 +156,30 @@
   font-size: 10px;
 }
 
+.gery-quick-replies {
+  align-self: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-width: 94%;
+}
+
+.gery-quick-replies button {
+  border: 1px solid rgba(142, 214, 54, 0.4);
+  border-radius: 999px;
+  padding: 6px 9px;
+  background: rgba(118, 185, 0, 0.12);
+  color: #dfffc2;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.gery-quick-replies button:hover {
+  background: rgba(118, 185, 0, 0.25);
+}
+
 .gery-form {
   display: grid;
   grid-template-columns: 1fr auto;

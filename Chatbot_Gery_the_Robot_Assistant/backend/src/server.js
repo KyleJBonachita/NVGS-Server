@@ -8,6 +8,11 @@ import express from "express";
 import { KnowledgeStore } from "./services/knowledgeStore.js";
 import { askLmStudio } from "./services/lmStudioClient.js";
 import {
+  continueGuidedTroubleshooting,
+  isTroubleshootingRequest,
+  startGuidedTroubleshooting,
+} from "./services/guidedTroubleshooting.js";
+import {
   findRelevantSections,
   findStoredAnswer,
   normalizeText,
@@ -168,11 +173,16 @@ function builtInAnswer(message) {
 }
 
 app.get("/health", (_request, response) => {
+  const documents = knowledgeStore.listDocuments();
   response.json({
     ok: true,
     service: "gery-chatbot",
-    knowledgeDocuments: knowledgeStore.listDocuments().length,
+    knowledgeDocuments: documents.length,
     knowledgeEntries: knowledgeStore.getEntries().length,
+    guidedTroubleshootingSections: documents.reduce(
+      (total, document) => total + Number(document.guidedTroubleshootingSections || 0),
+      0,
+    ),
     ingestionAiEnabled: config.ingestionAiEnabled,
     liveAiEnabled: config.allowLiveAi,
   });
@@ -184,27 +194,48 @@ app.post("/chat", async (request, response) => {
     return response.status(400).json({ reply: "Please enter a question between 1 and 1,200 characters." });
   }
 
+  const entries = knowledgeStore.getEntries();
+  const guidedContinuation = continueGuidedTroubleshooting(
+    message,
+    request.body?.troubleshootingState,
+    entries,
+  );
+  if (guidedContinuation) {
+    return response.json(guidedContinuation);
+  }
+
   const builtIn = builtInAnswer(message);
   if (builtIn) {
     return response.json({ reply: builtIn, sources: [], answerMode: "built-in", usedAI: false });
   }
 
   const contextEntryId = String(request.body?.contextEntryId || "").trim().slice(0, 100) || null;
-  const stored = findStoredAnswer(message, knowledgeStore.getEntries(), { contextEntryId });
+  const stored = findStoredAnswer(message, entries, { contextEntryId });
   if (stored) {
+    const matchedEntry = stored.entryId
+      ? entries.find((entry) => entry.id === stored.entryId)
+      : null;
+    const guidedStart = isTroubleshootingRequest(message)
+      ? startGuidedTroubleshooting(matchedEntry)
+      : null;
+    if (guidedStart) {
+      return response.json(guidedStart);
+    }
     return response.json({
       reply: stored.reply,
       sources: stored.sources,
       answerMode: stored.answerMode,
       usedAI: false,
       contextEntryId: stored.entryId,
+      troubleshootingState: null,
+      quickReplies: [],
     });
   }
 
   if (config.allowLiveAi) {
     const matches = findRelevantSections(
       message,
-      knowledgeStore.getEntries(),
+      entries,
       config.maxSections,
       config.maxChars
     );
@@ -222,6 +253,8 @@ app.post("/chat", async (request, response) => {
         sources: [...new Set(matches.map((item) => item.source))],
         answerMode: "live-ai-fallback",
         usedAI: true,
+        troubleshootingState: null,
+        quickReplies: [],
       });
     } catch (error) {
       console.error(`Live AI fallback failed: ${error.message}`);
@@ -234,6 +267,8 @@ app.post("/chat", async (request, response) => {
     answerMode: "no-match",
     usedAI: false,
     contextEntryId: null,
+    troubleshootingState: null,
+    quickReplies: [],
   });
 });
 

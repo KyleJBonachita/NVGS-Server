@@ -18,7 +18,7 @@
         title: "Gery Robot Assistant",
       };
       const script = document.createElement("script");
-      script.src = "/gerry/widget-embed.js?v=2";
+      script.src = "/gerry/widget-embed.js?v=3";
       script.async = true;
       document.head.appendChild(script);
     })

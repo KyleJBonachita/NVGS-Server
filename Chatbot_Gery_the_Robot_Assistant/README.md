@@ -110,6 +110,48 @@ data/knowledge-index.json
 The entire `data/` content except `.gitkeep` is ignored by Git. Rebuilding or
 stopping the container does not remove it.
 
+Approved local Markdown documents may also be placed in `knowledge/` before
+building Gery. These files are ignored by Git so internal SOPs are not pushed to
+the source repository, but Docker includes them in the Gery image. Rebuild Gery
+after adding or changing a file in this folder. Uploading through the manager is
+usually simpler because uploaded files do not require an image rebuild.
+
+## Guided troubleshooting SOP format
+
+Gery can turn a troubleshooting section into a stateful, one-check-at-a-time
+conversation without calling AI. Use an issue description, an ordered
+`Troubleshooting:` or `Fix:` list, optional `Confirm:` questions, and an
+`Escalation:` section:
+
+```markdown
+## VIVE trackers are not detected
+
+Issue:
+- One or more expected VIVE trackers are missing.
+
+Troubleshooting:
+1. Completely close VIVE Server, then start it again. When many trackers are connected, a full restart may be required to detect new trackers.
+   Confirm: Are all expected trackers detected after restarting VIVE Server?
+2. Restart the tracker laptop.
+   Confirm: Are all expected trackers detected after the laptop restarts?
+3. Verify that the configured IP address matches the approved VIVE setup.
+   Confirm: Is the configured IP address correct and are the trackers detected?
+
+Escalation:
+- Send the VIVE Server log and configured IP address to the Tech Team.
+```
+
+When an agent asks that an item is “not working,” Gery starts the matching flow,
+asks whether the first check was already completed, confirms whether it solved
+the problem, and advances only after a negative result. The browser retains the
+current SOP and step for that tab. Agents can choose **Show full SOP** or
+**Cancel troubleshooting** at any point.
+
+The knowledge manager reports how many guided troubleshooting flows were
+extracted. A document showing `0 guided troubleshooting flows` needs an ordered
+procedure in the structure above. Gery never invents a missing check, IP address,
+command, or escalation rule.
+
 ## Optional upload-time AI processing
 
 Gery accepts any OpenAI-compatible chat-completions endpoint. LM Studio is the
@@ -150,10 +192,10 @@ warnings, and escalation instructions. Normal matched chats still do not call th
 model.
 
 Use **Reprocess all** in the manager after changing the AI-processing setting.
-The manager reports the completion time, preserved SOP count, AI-enriched section
-count, and AI failures. If the model is unavailable, the source procedure remains
-usable and the failure is reported instead of silently replacing it with a vague
-answer.
+The manager reports the completion time, preserved SOP count, guided
+troubleshooting flow count, AI-enriched section count, and AI failures. If the
+model is unavailable, the source procedure remains usable and the failure is
+reported instead of silently replacing it with a vague answer.
 
 Restart Gery after changing `.env`:
 

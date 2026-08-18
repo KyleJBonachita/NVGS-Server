@@ -70,6 +70,7 @@ function renderDocuments(data) {
     meta.textContent = [
       knowledgeDocument.origin,
       `${knowledgeDocument.sectionCount} preserved SOP sections`,
+      `${Number(knowledgeDocument.guidedTroubleshootingSections || 0)} guided troubleshooting flows`,
       formatBytes(knowledgeDocument.size),
       processingLabel(knowledgeDocument),
       `processed ${formatProcessedAt(knowledgeDocument.processedAt)}`,
@@ -83,7 +84,11 @@ function renderDocuments(data) {
     item.append(copy, remove);
     listElement.appendChild(item);
   }
-  statusElement.textContent = `${data.documents.length} documents | ${data.entryCount} preserved SOP sections | Upload-time AI ${data.ingestionAiEnabled ? "enabled" : "disabled"}`;
+  const guidedFlows = data.documents.reduce(
+    (total, document) => total + Number(document.guidedTroubleshootingSections || 0),
+    0,
+  );
+  statusElement.textContent = `${data.documents.length} documents | ${data.entryCount} preserved SOP sections | ${guidedFlows} guided troubleshooting flows | Upload-time AI ${data.ingestionAiEnabled ? "enabled" : "disabled"}`;
 }
 
 async function loadLibrary() {
@@ -98,7 +103,7 @@ async function loadPublicStatus() {
     const response = await fetch(`${apiBase}/health`, { headers: { Accept: "application/json" } });
     if (!response.ok) throw new Error("Health check failed");
     const health = await response.json();
-    lockedStatusElement.textContent = `Gery has ${health.knowledgeDocuments} documents and ${health.knowledgeEntries} reusable answers. Enter the administrator token above to display and manage them.`;
+    lockedStatusElement.textContent = `Gery has ${health.knowledgeDocuments} documents, ${health.knowledgeEntries} preserved SOP sections, and ${health.guidedTroubleshootingSections || 0} guided troubleshooting flows. Enter the administrator token above to display and manage them.`;
   } catch (_error) {
     lockedStatusElement.textContent = "Gery is not reachable. Start the Chatbot Server, then reload this page.";
   }
@@ -176,7 +181,7 @@ reprocessButton.addEventListener("click", async () => {
     const aiResult = result.aiFallbackSections
       ? `${result.aiEnrichedSections} AI-enriched and ${result.aiFallbackSections} AI failures`
       : `${result.aiEnrichedSections} AI-enriched`;
-    statusElement.textContent = `Reprocessing completed ${formatProcessedAt(result.generatedAt)}: ${result.documents} documents, ${result.entries} preserved SOP sections, ${aiResult}.`;
+    statusElement.textContent = `Reprocessing completed ${formatProcessedAt(result.generatedAt)}: ${result.documents} documents, ${result.entries} preserved SOP sections, ${result.guidedTroubleshootingSections || 0} guided troubleshooting flows, ${aiResult}.`;
   } catch (error) {
     statusElement.textContent = `Reprocessing failed: ${error.message}`;
   } finally {

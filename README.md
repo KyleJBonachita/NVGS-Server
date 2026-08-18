@@ -226,6 +226,10 @@ for the data flow and configuration.
 AI ingestion enriches only search questions and keywords. It never replaces the
 approved source procedure in the generated index. Reprocessing reports whether
 each SOP section was AI search-enriched or fell back to the preserved source.
+Numbered `Troubleshooting:` or `Fix:` sections are also converted into local,
+stateful guided flows that ask and confirm one documented check at a time without
+AI. Local files placed in `Chatbot_Gery_the_Robot_Assistant/knowledge/` are
+included during image builds and ignored by Git.
 
 The Server Hub also opens the password-protected Django database administration
 at `https://localhost:8443/admin/`. That listener is bound only to Ubuntu's

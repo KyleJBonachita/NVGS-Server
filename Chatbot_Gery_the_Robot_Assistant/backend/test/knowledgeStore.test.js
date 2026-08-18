@@ -118,7 +118,9 @@ test("AI enrichment can never replace or shorten the canonical SOP", async (cont
   assert.doesNotMatch(entry.answer, /Restart it and try again/);
   assert.equal(entry.processingMode, "ai-search-enriched");
   assert.equal(result.aiEnrichedSections, 1);
+  assert.equal(result.guidedTroubleshootingSections, 1);
   assert.equal(store.listDocuments()[0].processingMode, "ai-search-enriched");
+  assert.equal(store.listDocuments()[0].guidedTroubleshootingSections, 1);
 });
 
 test("AI preprocessing failure is visible while the source SOP remains usable", async (context) => {

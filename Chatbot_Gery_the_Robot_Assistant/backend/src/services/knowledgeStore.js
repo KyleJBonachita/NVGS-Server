@@ -5,12 +5,12 @@ import {
   loadKnowledgeDocument,
   SUPPORTED_KNOWLEDGE_EXTENSIONS,
 } from "./docsLoader.js";
+import { extractTroubleshootingFlow } from "./guidedTroubleshooting.js";
 import { tokenize } from "./retrievalLite.js";
 
-// Version 3 guarantees that the displayed answer is copied verbatim from the
-// approved source section. AI may enrich search metadata, but it may never
-// replace or shorten the canonical procedure.
-const INDEX_VERSION = 3;
+// Version 4 guarantees source-preserved answers and adds deterministic guided
+// troubleshooting metadata extracted from approved SOP steps.
+const INDEX_VERSION = 4;
 
 function unique(values) {
   return [...new Set(values.filter(Boolean))];
@@ -34,6 +34,8 @@ function safeFileName(value) {
 
 function deterministicEntry(section, source, sourceId, index) {
   const title = section.title || path.basename(source, path.extname(source));
+  const canonicalAnswer = section.sectionText || section.text;
+  const troubleshooting = extractTroubleshootingFlow(canonicalAnswer);
   const issue = String(section.text || "").match(/(?:^|\n)Issue:\s*(?:\n\s*[-*]\s*)?([^\n]+)/i)?.[1]?.trim();
   const keywords = unique([...tokenize(title), ...tokenize(issue), ...tokenize(section.text)]).slice(0, 50);
   return {
@@ -45,7 +47,9 @@ function deterministicEntry(section, source, sourceId, index) {
     partIndex: section.partIndex || 1,
     partCount: section.partCount || 1,
     answer: section.text,
-    canonicalAnswer: section.sectionText || section.text,
+    canonicalAnswer,
+    troubleshootingSteps: troubleshooting.steps,
+    troubleshootingEscalation: troubleshooting.escalation,
     questions: [
       `What is ${title}?`,
       `How do I fix ${title}?`,
@@ -105,6 +109,11 @@ function processingSummary(entries, aiConfigured) {
     (entry) => entry.processingMode === "ai-fallback-source-preserved",
   ).length;
   const sourceOnlySections = entries.length - aiEnrichedSections - aiFallbackSections;
+  const guidedTroubleshootingSections = new Set(
+    entries
+      .filter((entry) => Array.isArray(entry.troubleshootingSteps) && entry.troubleshootingSteps.length)
+      .map((entry) => `${entry.sourceId}:${entry.sectionTitle || entry.title}`),
+  ).size;
 
   let processingMode = "source-preserved";
   if (aiConfigured && aiEnrichedSections === entries.length && entries.length) {
@@ -120,6 +129,7 @@ function processingSummary(entries, aiConfigured) {
     aiEnrichedSections,
     aiFallbackSections,
     sourceOnlySections,
+    guidedTroubleshootingSections,
   };
 }
 
@@ -241,6 +251,7 @@ export class KnowledgeStore {
         aiEnrichedSections: summary.aiEnrichedSections,
         aiFallbackSections: summary.aiFallbackSections,
         sourceOnlySections: summary.sourceOnlySections,
+        guidedTroubleshootingSections: summary.guidedTroubleshootingSections,
       };
     });
   }

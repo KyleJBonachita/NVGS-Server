@@ -8,6 +8,7 @@ const sendBtn = document.getElementById("sendBtn");
 const connectionPill = document.getElementById("connectionPill");
 const chips = document.querySelectorAll(".chip");
 let contextEntryId = null;
+let troubleshootingState = null;
 
 function renderMessage(text, role, meta = "") {
   const item = document.createElement("article");
@@ -22,6 +23,28 @@ function renderMessage(text, role, meta = "") {
   }
   messageList.scrollTop = messageList.scrollHeight;
   return item;
+}
+
+function clearQuickReplies() {
+  messageList.querySelectorAll(".quick-replies").forEach((element) => element.remove());
+}
+
+function renderQuickReplies(replies) {
+  if (!Array.isArray(replies) || !replies.length) return;
+  const container = document.createElement("div");
+  container.className = "quick-replies";
+  for (const reply of replies) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = reply;
+    button.addEventListener("click", () => {
+      clearQuickReplies();
+      sendMessage(reply);
+    });
+    container.appendChild(button);
+  }
+  messageList.appendChild(container);
+  messageList.scrollTop = messageList.scrollHeight;
 }
 
 async function checkBackendConnection() {
@@ -39,23 +62,26 @@ async function checkBackendConnection() {
 
 async function sendMessage(message) {
   sendBtn.disabled = true;
+  clearQuickReplies();
   renderMessage(message, "user");
   const pending = renderMessage("Searching saved knowledge…", "bot");
   try {
     const response = await fetch(config.endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message, contextEntryId }),
+      body: JSON.stringify({ message, contextEntryId, troubleshootingState }),
     });
     if (!response.ok) throw new Error("chat failed");
     const data = await response.json();
     if (Object.hasOwn(data, "contextEntryId")) contextEntryId = data.contextEntryId;
+    if (Object.hasOwn(data, "troubleshootingState")) troubleshootingState = data.troubleshootingState;
     pending.textContent = data.reply || "No response received.";
     const detail = document.createElement("p");
     detail.className = "message-meta";
     const sourceText = data.sources?.length ? ` • ${data.sources.join(", ")}` : "";
     detail.textContent = `${data.usedAI ? "AI fallback used" : "No AI tokens used"}${sourceText}`;
     pending.after(detail);
+    renderQuickReplies(data.quickReplies);
   } catch (_error) {
     pending.textContent = "I could not reach the local Chatbot Server.";
   } finally {

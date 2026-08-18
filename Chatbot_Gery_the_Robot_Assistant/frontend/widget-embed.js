@@ -18,7 +18,7 @@
     const stylesheet = document.createElement("link");
     stylesheet.id = stylesheetId;
     stylesheet.rel = "stylesheet";
-    stylesheet.href = `${apiBase}/widget.css?v=2`;
+    stylesheet.href = `${apiBase}/widget.css?v=3`;
     document.head.appendChild(stylesheet);
   }
 
@@ -53,6 +53,7 @@
   const input = root.querySelector(".gery-input");
   const sendButton = root.querySelector(".gery-send");
   let contextEntryId = null;
+  let troubleshootingState = null;
   root.querySelector(".gery-title").textContent = cfg.title;
 
   function addMessage(text, role, meta = "") {
@@ -70,7 +71,30 @@
     return element;
   }
 
+  function clearQuickReplies() {
+    log.querySelectorAll(".gery-quick-replies").forEach((element) => element.remove());
+  }
+
+  function addQuickReplies(replies) {
+    if (!Array.isArray(replies) || !replies.length) return;
+    const container = document.createElement("div");
+    container.className = "gery-quick-replies";
+    for (const reply of replies) {
+      const replyButton = document.createElement("button");
+      replyButton.type = "button";
+      replyButton.textContent = reply;
+      replyButton.addEventListener("click", () => {
+        clearQuickReplies();
+        ask(reply);
+      });
+      container.appendChild(replyButton);
+    }
+    log.appendChild(container);
+    log.scrollTop = log.scrollHeight;
+  }
+
   async function ask(message) {
+    clearQuickReplies();
     addMessage(message, "user");
     const pending = addMessage("Searching saved knowledge…", "bot");
     sendButton.disabled = true;
@@ -78,11 +102,12 @@
       const response = await fetch(`${apiBase}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message, contextEntryId }),
+        body: JSON.stringify({ message, contextEntryId, troubleshootingState }),
       });
       if (!response.ok) throw new Error("Chat request failed");
       const data = await response.json();
       if (Object.hasOwn(data, "contextEntryId")) contextEntryId = data.contextEntryId;
+      if (Object.hasOwn(data, "troubleshootingState")) troubleshootingState = data.troubleshootingState;
       pending.textContent = data.reply || "No response received.";
       const sources = Array.isArray(data.sources) ? data.sources.filter(Boolean) : [];
       const label = data.usedAI ? "AI fallback used" : "No AI tokens used";
@@ -91,6 +116,7 @@
       metaElement.className = "gery-meta";
       metaElement.textContent = meta;
       pending.after(metaElement);
+      addQuickReplies(data.quickReplies);
     } catch (_error) {
       pending.textContent = "Gery became unavailable. Please try again after the Chatbot Server is restarted.";
     } finally {
