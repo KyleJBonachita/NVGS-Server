@@ -122,11 +122,20 @@ GERY_AI_MODEL=meta-llama-3.1-8b-instruct
 GERY_ALLOW_LIVE_AI=false
 ```
 
+The simpler option on Ubuntu is **NVGS Server Hub → Gery Chatbot Server →
+Settings**. Enter the administrator token when prompted, then configure the
+base URL, model, optional API key/token, and AI switches. A base URL with or
+without a trailing `/v1` is accepted.
+
 If the endpoint requires a key, place only the key in:
 
 ```text
 secrets/gery_ai_api_key
 ```
+
+The Hub writes the key to this file for you. It shows only whether a key exists
+and never reads the saved value back into a visible field. Leaving the key box
+blank preserves the existing key; the explicit clear option removes it.
 
 For a model running on the Ubuntu host, it must listen on an address reachable
 from Docker. Keep access limited to the server/private network and follow the

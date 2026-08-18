@@ -152,6 +152,9 @@ knowledge assistant, then enter your Ubuntu password.
 - The Hub shows network health and live service status. **Copy link** copies the
   preferred address, while **Open site** becomes available when a service is
   running.
+- The Gery card includes **Settings**. Enter the Gery administrator token to
+  configure its AI endpoint, model, optional API token, and AI usage switches.
+  Restart Gery from the Hub after saving.
 - Starting any service checks Ethernet first and safely reconnects its
   existing NetworkManager profile if necessary. Use **Repair / prefer
   Ethernet** for a strict wired recovery check. It performs a privileged,

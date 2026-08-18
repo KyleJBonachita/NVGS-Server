@@ -1,3 +1,9 @@
+export function chatCompletionsUrl(baseUrl) {
+  const trimmed = String(baseUrl || "").replace(/\/+$/, "");
+  const apiRoot = /\/v1$/i.test(trimmed) ? trimmed : `${trimmed}/v1`;
+  return `${apiRoot}/chat/completions`;
+}
+
 export async function askLmStudio({
   baseUrl,
   model,
@@ -7,7 +13,7 @@ export async function askLmStudio({
   maxTokens = 450,
   temperature = 0.2,
 }) {
-  const url = `${baseUrl.replace(/\/$/, "")}/v1/chat/completions`;
+  const url = chatCompletionsUrl(baseUrl);
   const headers = { "Content-Type": "application/json" };
   if (apiKey) {
     headers.Authorization = `Bearer ${apiKey}`;

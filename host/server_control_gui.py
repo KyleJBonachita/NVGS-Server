@@ -16,9 +16,28 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+try:
+    from host.gery_settings import (
+        GeryAISettings,
+        load_gery_ai_settings,
+        save_gery_ai_settings,
+        verify_gery_admin_token,
+    )
+except ModuleNotFoundError as exc:
+    if exc.name != "host":
+        raise
+    from gery_settings import (  # type: ignore[no-redef]
+        GeryAISettings,
+        load_gery_ai_settings,
+        save_gery_ai_settings,
+        verify_gery_admin_token,
+    )
+
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 DOWNLOADS_DIR = PROJECT_DIR / "download-server" / "downloads"
 LOCAL_DATABASE_ADMIN_URL = "https://localhost:8443/admin/"
+GERY_ADMIN_TOKEN_PATH = PROJECT_DIR / "secrets" / "gery_admin_token"
+GERY_AI_API_KEY_PATH = PROJECT_DIR / "secrets" / "gery_ai_api_key"
 VIRTUAL_INTERFACE_PREFIXES = (
     "br-",
     "docker",
@@ -574,6 +593,9 @@ def run_gui() -> int:
         }
         .primary-button:hover { background-color: #d9f593; }
         .warning-button { border-color: #9b7145; }
+        .settings-help { color: #aab2a5; font-size: 12px; }
+        .settings-error { color: #ff9f91; font-size: 12px; }
+        .key-configured { color: #cbed6e; font-size: 12px; font-weight: 800; }
         #activity-bar {
             background-color: #121511;
             border-top: 1px solid #272e25;
@@ -743,6 +765,217 @@ def run_gui() -> int:
         dialog.run()
         dialog.destroy()
 
+    def unlock_gery_settings() -> bool:
+        if not GERY_ADMIN_TOKEN_PATH.is_file():
+            show_error(
+                "Gery administrator token is missing",
+                "Run ./scripts/bootstrap-secrets.sh from the NVGS Server folder, then try again.",
+            )
+            return False
+
+        dialog = Gtk.Dialog(
+            title="Unlock Gery settings",
+            transient_for=window,
+            flags=Gtk.DialogFlags.MODAL | Gtk.DialogFlags.DESTROY_WITH_PARENT,
+        )
+        dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        unlock_button = dialog.add_button("Unlock", Gtk.ResponseType.OK)
+        unlock_button.get_style_context().add_class("primary-button")
+        dialog.set_default_response(Gtk.ResponseType.OK)
+        content = dialog.get_content_area()
+        content.set_border_width(18)
+        content.set_spacing(10)
+        prompt = Gtk.Label(
+            label="Enter the administrator token stored in secrets/gery_admin_token."
+        )
+        prompt.set_xalign(0)
+        prompt.set_line_wrap(True)
+        content.pack_start(prompt, False, False, 0)
+        token_entry = Gtk.Entry()
+        token_entry.set_visibility(False)
+        token_entry.set_invisible_char("•")
+        token_entry.set_placeholder_text("Administrator token")
+        token_entry.set_activates_default(True)
+        content.pack_start(token_entry, False, False, 0)
+        error_label = Gtk.Label()
+        error_label.get_style_context().add_class("settings-error")
+        error_label.set_xalign(0)
+        content.pack_start(error_label, False, False, 0)
+        dialog.show_all()
+        token_entry.grab_focus()
+
+        unlocked = False
+        try:
+            while dialog.run() == Gtk.ResponseType.OK:
+                supplied = token_entry.get_text()
+                if verify_gery_admin_token(supplied, GERY_ADMIN_TOKEN_PATH):
+                    unlocked = True
+                    break
+                token_entry.set_text("")
+                error_label.set_text("That administrator token is not valid.")
+                token_entry.grab_focus()
+        finally:
+            token_entry.set_text("")
+            dialog.destroy()
+        return unlocked
+
+    def edit_gery_settings() -> bool:
+        current = load_gery_ai_settings(
+            read_env_values(PROJECT_DIR / ".env"),
+            GERY_AI_API_KEY_PATH,
+        )
+        dialog = Gtk.Dialog(
+            title="Gery AI settings",
+            transient_for=window,
+            flags=Gtk.DialogFlags.MODAL | Gtk.DialogFlags.DESTROY_WITH_PARENT,
+        )
+        dialog.set_default_size(600, 420)
+        dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        save_button = dialog.add_button("Save settings", Gtk.ResponseType.OK)
+        save_button.get_style_context().add_class("primary-button")
+        dialog.set_default_response(Gtk.ResponseType.OK)
+
+        content = dialog.get_content_area()
+        content.set_border_width(18)
+        content.set_spacing(12)
+        intro = Gtk.Label(
+            label=(
+                "Configure an OpenAI-compatible AI endpoint. Everyday matched answers "
+                "remain token-free unless live fallback is enabled."
+            )
+        )
+        intro.get_style_context().add_class("settings-help")
+        intro.set_xalign(0)
+        intro.set_line_wrap(True)
+        content.pack_start(intro, False, False, 0)
+
+        grid = Gtk.Grid(column_spacing=12, row_spacing=12)
+        content.pack_start(grid, False, False, 0)
+
+        base_url_label = Gtk.Label(label="AI base URL")
+        base_url_label.set_xalign(0)
+        grid.attach(base_url_label, 0, 0, 1, 1)
+        base_url_entry = Gtk.Entry()
+        base_url_entry.set_text(current.base_url)
+        base_url_entry.set_hexpand(True)
+        grid.attach(base_url_entry, 1, 0, 1, 1)
+
+        model_label = Gtk.Label(label="Model name")
+        model_label.set_xalign(0)
+        grid.attach(model_label, 0, 1, 1, 1)
+        model_entry = Gtk.Entry()
+        model_entry.set_text(current.model)
+        model_entry.set_hexpand(True)
+        grid.attach(model_entry, 1, 1, 1, 1)
+
+        key_label = Gtk.Label(label="AI API key/token")
+        key_label.set_xalign(0)
+        grid.attach(key_label, 0, 2, 1, 1)
+        key_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+        key_entry = Gtk.Entry()
+        key_entry.set_visibility(False)
+        key_entry.set_invisible_char("•")
+        key_entry.set_placeholder_text(
+            "Enter a new key, or leave blank to keep the saved key"
+            if current.api_key_configured
+            else "Optional for local endpoints that do not require a key"
+        )
+        key_box.pack_start(key_entry, False, False, 0)
+        key_status = Gtk.Label(
+            label=(
+                "API key is configured and hidden"
+                if current.api_key_configured
+                else "No API key is currently configured"
+            )
+        )
+        key_status.get_style_context().add_class(
+            "key-configured" if current.api_key_configured else "settings-help"
+        )
+        key_status.set_xalign(0)
+        key_box.pack_start(key_status, False, False, 0)
+        clear_key = Gtk.CheckButton(label="Clear the saved API key")
+        clear_key.set_sensitive(current.api_key_configured)
+        key_box.pack_start(clear_key, False, False, 0)
+        grid.attach(key_box, 1, 2, 1, 1)
+
+        ingestion_toggle = Gtk.CheckButton(
+            label="Use AI when documents are uploaded or reprocessed"
+        )
+        ingestion_toggle.set_active(current.ingestion_ai_enabled)
+        grid.attach(ingestion_toggle, 1, 3, 1, 1)
+
+        live_toggle = Gtk.CheckButton(
+            label="Allow AI fallback when saved knowledge has no confident answer"
+        )
+        live_toggle.set_active(current.live_ai_enabled)
+        grid.attach(live_toggle, 1, 4, 1, 1)
+
+        warning = Gtk.Label(
+            label=(
+                "Live fallback may use API tokens during ordinary chat. Leave it off "
+                "for strict token-free daily use."
+            )
+        )
+        warning.get_style_context().add_class("settings-help")
+        warning.set_xalign(0)
+        warning.set_line_wrap(True)
+        grid.attach(warning, 1, 5, 1, 1)
+
+        error_label = Gtk.Label()
+        error_label.get_style_context().add_class("settings-error")
+        error_label.set_xalign(0)
+        error_label.set_line_wrap(True)
+        content.pack_start(error_label, False, False, 0)
+        dialog.show_all()
+
+        saved = False
+        try:
+            while dialog.run() == Gtk.ResponseType.OK:
+                entered_key = key_entry.get_text()
+                if entered_key and clear_key.get_active():
+                    error_label.set_text(
+                        "Choose either a new API key or Clear saved API key, not both."
+                    )
+                    continue
+                api_key_update: str | None
+                if clear_key.get_active():
+                    api_key_update = ""
+                elif entered_key:
+                    api_key_update = entered_key
+                else:
+                    api_key_update = None
+                try:
+                    save_gery_ai_settings(
+                        GeryAISettings(
+                            base_url=base_url_entry.get_text(),
+                            model=model_entry.get_text(),
+                            ingestion_ai_enabled=ingestion_toggle.get_active(),
+                            live_ai_enabled=live_toggle.get_active(),
+                            api_key_configured=current.api_key_configured,
+                        ),
+                        PROJECT_DIR / ".env",
+                        GERY_AI_API_KEY_PATH,
+                        api_key_update=api_key_update,
+                    )
+                except ValueError as exc:
+                    error_label.set_text(str(exc))
+                    continue
+                saved = True
+                break
+        finally:
+            key_entry.set_text("")
+            dialog.destroy()
+        return saved
+
+    def gery_settings_clicked(_button: object) -> None:
+        if not unlock_gery_settings():
+            activity_label.set_text("Gery settings remained locked.")
+            return
+        if edit_gery_settings():
+            activity_label.set_text(
+                "Gery AI settings saved. Restart Gery from the Hub to apply them."
+            )
+
     def launch_clicked(_button: object, server: ServerDefinition) -> None:
         try:
             launch_server_control(server)
@@ -805,6 +1038,19 @@ def run_gui() -> int:
         status = Gtk.Label(label="CHECKING")
         status.get_style_context().add_class("status-stopped")
         card_heading.pack_end(status, False, False, 0)
+        if server.key == "gerry":
+            settings_button = Gtk.Button()
+            settings_button.set_image(
+                Gtk.Image.new_from_icon_name(
+                    "preferences-system-symbolic",
+                    Gtk.IconSize.BUTTON,
+                )
+            )
+            settings_button.set_relief(Gtk.ReliefStyle.NONE)
+            settings_button.set_tooltip_text("Configure Gery AI settings")
+            settings_button.get_accessible().set_name("Gery settings")
+            settings_button.connect("clicked", gery_settings_clicked)
+            card_heading.pack_end(settings_button, False, False, 0)
 
         name = Gtk.Label(label=server.name)
         name.get_style_context().add_class("server-name")

@@ -208,6 +208,13 @@ that token over a plain remote HTTP connection. Uploaded source files and the
 generated index stay in `Chatbot_Gery_the_Robot_Assistant/data/` and are
 ignored by Git.
 
+The Gery card in **NVGS Server Hub** also has a **Settings** button. It asks for
+the same Gery administrator token, then lets the local Ubuntu administrator set
+the OpenAI-compatible base URL, model name, optional API key/token, upload-time
+AI switch, and live-fallback switch. The API key is written only to
+`secrets/gery_ai_api_key`, is never displayed again, and is not stored in
+`.env`. Restart Gery from the Hub after saving settings.
+
 By default, a chat searches the saved index and returns a stored answer without
 calling a model. `GERY_INGESTION_AI_ENABLED=true` optionally uses the configured
 OpenAI-compatible endpoint only when a changed document is uploaded or
