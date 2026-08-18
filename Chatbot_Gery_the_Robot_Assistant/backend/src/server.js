@@ -147,7 +147,7 @@ function requireAdmin(request, response, next) {
     ["localhost", "127.0.0.1", "[::1]"].includes(hostName);
   if (!config.allowInsecureAdmin && forwardedProto !== "https" && !localRequest) {
     return response.status(403).json({
-      error: "Knowledge administration requires NVGS HTTPS or the Ubuntu server's local browser.",
+      error: "Knowledge administration requires NVGS HTTPS. On the Ubuntu server itself, open http://localhost:3000/admin/ — a 192.168.x.x address is treated as a LAN connection, even from that computer.",
     });
   }
   return next();

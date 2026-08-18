@@ -9,7 +9,19 @@ const replaceInput = document.getElementById("replace-existing");
 const uploadButton = document.getElementById("upload-button");
 const reprocessButton = document.getElementById("reprocess-button");
 const statusElement = document.getElementById("knowledge-status");
+const lockedStatusElement = document.getElementById("locked-knowledge-status");
 const listElement = document.getElementById("knowledge-list");
+const protectedSections = document.querySelectorAll("[data-admin-protected]");
+
+function setAdminUnlocked(unlocked) {
+  for (const section of protectedSections) {
+    section.classList.toggle("is-locked", !unlocked);
+    const content = section.querySelector(".protected-content");
+    if (content) content.inert = !unlocked;
+  }
+  uploadButton.disabled = !unlocked;
+  reprocessButton.disabled = !unlocked;
+}
 
 async function adminFetch(path, options = {}) {
   const headers = new Headers(options.headers || {});
@@ -60,9 +72,9 @@ async function loadPublicStatus() {
     const response = await fetch(`${apiBase}/health`, { headers: { Accept: "application/json" } });
     if (!response.ok) throw new Error("Health check failed");
     const health = await response.json();
-    statusElement.textContent = `Gery has ${health.knowledgeDocuments} documents and ${health.knowledgeEntries} reusable answers. Enter the administrator token to display and manage them.`;
+    lockedStatusElement.textContent = `Gery has ${health.knowledgeDocuments} documents and ${health.knowledgeEntries} reusable answers. Enter the administrator token above to display and manage them.`;
   } catch (_error) {
-    statusElement.textContent = "Gery is not reachable. Start the Chatbot Server, then reload this page.";
+    lockedStatusElement.textContent = "Gery is not reachable. Start the Chatbot Server, then reload this page.";
   }
 }
 
@@ -92,10 +104,12 @@ authForm.addEventListener("submit", async (event) => {
   statusElement.textContent = "Checking administrator access…";
   try {
     await loadLibrary();
+    setAdminUnlocked(true);
     tokenInput.value = "";
   } catch (error) {
     adminToken = "";
-    statusElement.textContent = error.message;
+    setAdminUnlocked(false);
+    lockedStatusElement.textContent = error.message;
   }
 });
 

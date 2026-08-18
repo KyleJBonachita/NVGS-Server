@@ -51,7 +51,14 @@ Then open **NVGS Server Hub** and choose **Gery Chatbot Server**. Keep its
 control terminal open. Closing the terminal stops only Gery and removes the
 floating widget after a page refresh.
 
-Direct Compose commands are also available:
+The Hub builds the current Gery code whenever it starts the service. After a
+`git pull`, close any existing Gery control window and start Gery again from the
+Hub. You do not also need to run a Compose command.
+
+Direct Compose commands are available as an alternative when the Hub is not
+being used. `gerry` is the existing internal Compose service identifier; the
+product name shown to users remains **Gery**. The legacy identifier is retained
+to avoid orphaning deployed containers during an update:
 
 ```bash
 docker compose --profile chatbot up -d --build gerry
@@ -64,6 +71,10 @@ Addresses:
 - Standalone chat on the LAN: `http://UBUNTU_IP:3000/`
 - Secure manager through NVGS: `https://NVGS_ADDRESS/gerry/admin/`
 - Local Ubuntu manager: `http://localhost:3000/admin/`
+
+For local HTTP administration, use the exact `localhost` address above. An
+address such as `http://192.168.x.x:3000/admin/` is a LAN connection and is
+therefore rejected. Use the NVGS HTTPS address for administration over the LAN.
 
 The manager asks for the value in `secrets/gery_admin_token`. From the NVGS
 Server folder on Ubuntu, display it with:

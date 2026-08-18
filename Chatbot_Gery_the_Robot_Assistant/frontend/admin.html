@@ -38,43 +38,62 @@
             <p>On Ubuntu, open a terminal in the NVGS Server folder and run:</p>
             <code>sudo cat secrets/gery_admin_token</code>
             <p>If that file is missing, run <code>./scripts/bootstrap-secrets.sh</code> once, then use the generated value above.</p>
+            <p>For local HTTP access, this page must be opened as <code>http://localhost:3000/admin/</code>, not with the server's <code>192.168.x.x</code> address.</p>
           </details>
         </form>
 
-        <section class="panel admin-card" aria-labelledby="upload-heading">
-          <p class="eyebrow">Add knowledge</p>
-          <h2 id="upload-heading">Upload and process</h2>
-          <form id="upload-form">
-            <label class="drop-zone" for="knowledge-files">
-              <strong>Choose files or drop them here</strong>
-              <span>.md, .txt, or .pdf</span>
-              <input id="knowledge-files" type="file" accept=".md,.txt,.pdf" multiple required />
-            </label>
-            <label class="checkbox-row"><input id="replace-existing" type="checkbox" /> Replace files with the same name</label>
-            <button id="upload-button" type="submit" disabled>Upload knowledge</button>
-          </form>
-          <details class="setup-details">
-            <summary>Where to configure optional AI</summary>
-            <p>Put the endpoint, model, and switches in the NVGS Server root <code>.env</code> file:</p>
-            <code class="code-block">GERY_INGESTION_AI_ENABLED=true
+        <section class="panel admin-card protected-section is-locked" data-admin-protected aria-labelledby="upload-heading">
+          <div class="lock-placeholder">
+            <span class="lock-symbol" aria-hidden="true">🔒</span>
+            <div>
+              <h2>Upload controls locked</h2>
+              <p>Enter the administrator token above to upload and process knowledge.</p>
+            </div>
+          </div>
+          <div class="protected-content" inert>
+            <p class="eyebrow">Add knowledge</p>
+            <h2 id="upload-heading">Upload and process</h2>
+            <form id="upload-form">
+              <label class="drop-zone" for="knowledge-files">
+                <strong>Choose files or drop them here</strong>
+                <span>.md, .txt, or .pdf</span>
+                <input id="knowledge-files" type="file" accept=".md,.txt,.pdf" multiple required />
+              </label>
+              <label class="checkbox-row"><input id="replace-existing" type="checkbox" /> Replace files with the same name</label>
+              <button id="upload-button" type="submit" disabled>Upload knowledge</button>
+            </form>
+            <details class="setup-details">
+              <summary>Where to configure optional AI</summary>
+              <p>Put the endpoint, model, and switches in the NVGS Server root <code>.env</code> file:</p>
+              <code class="code-block">GERY_INGESTION_AI_ENABLED=true
 GERY_AI_BASE_URL=http://host.docker.internal:1234
 GERY_AI_MODEL=your-model-name
 GERY_ALLOW_LIVE_AI=false</code>
-            <p>Put only the API key in <code>secrets/gery_ai_api_key</code>. Restart Gery, then click <strong>Reprocess all</strong>.</p>
-          </details>
+              <p>Put only the API key in <code>secrets/gery_ai_api_key</code>. Restart Gery, then click <strong>Reprocess all</strong>.</p>
+            </details>
+          </div>
         </section>
       </section>
 
-      <section class="panel library-panel" aria-labelledby="library-heading">
-        <div class="library-heading">
+      <section class="panel library-panel protected-section is-locked" data-admin-protected aria-labelledby="library-heading">
+        <div class="lock-placeholder">
+          <span class="lock-symbol" aria-hidden="true">🔒</span>
           <div>
-            <p class="eyebrow">Stored knowledge</p>
-            <h2 id="library-heading">Knowledge library</h2>
+            <h2>Knowledge library locked</h2>
+            <p id="locked-knowledge-status" class="admin-hint" aria-live="polite">Checking Gery's public document count…</p>
           </div>
-          <button id="reprocess-button" class="secondary-button" type="button" disabled>Reprocess all</button>
         </div>
-        <p id="knowledge-status" class="admin-hint" aria-live="polite">Checking Gery's public document count…</p>
-        <div id="knowledge-list" class="knowledge-list"></div>
+        <div class="protected-content" inert>
+          <div class="library-heading">
+            <div>
+              <p class="eyebrow">Stored knowledge</p>
+              <h2 id="library-heading">Knowledge library</h2>
+            </div>
+            <button id="reprocess-button" class="secondary-button" type="button" disabled>Reprocess all</button>
+          </div>
+          <p id="knowledge-status" class="admin-hint" aria-live="polite"></p>
+          <div id="knowledge-list" class="knowledge-list"></div>
+        </div>
       </section>
     </main>
   </body>

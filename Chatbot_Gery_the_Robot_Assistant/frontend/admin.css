@@ -13,6 +13,12 @@
 .admin-card button, .library-panel button { border: 0; border-radius: 10px; padding: .72rem .95rem; font-weight: 800; cursor: pointer; background: linear-gradient(135deg, var(--accent), #8cd900); color: #0d1408; }
 .admin-card button:disabled, .library-panel button:disabled { opacity: .45; cursor: not-allowed; }
 .admin-hint { color: var(--muted); line-height: 1.45; }
+.protected-section .lock-placeholder { display: none; }
+.protected-section.is-locked .lock-placeholder { display: flex; align-items: center; justify-content: center; gap: 1rem; min-height: 220px; padding: 1rem; text-align: left; }
+.protected-section.is-locked .protected-content { display: none; }
+.lock-placeholder h2 { margin-bottom: .35rem; }
+.lock-placeholder p { margin: 0; color: var(--muted); line-height: 1.45; }
+.lock-symbol { display: grid; place-items: center; width: 3.5rem; height: 3.5rem; flex: 0 0 auto; border: 1px solid rgba(137,230,67,.35); border-radius: 50%; background: rgba(118,185,0,.08); font-size: 1.55rem; }
 .setup-details { margin-top: 1rem; padding-top: .85rem; border-top: 1px solid rgba(158,198,176,.18); color: var(--muted); }
 .setup-details summary { color: #d9f7b2; font-weight: 800; cursor: pointer; }
 .setup-details p { line-height: 1.45; }
