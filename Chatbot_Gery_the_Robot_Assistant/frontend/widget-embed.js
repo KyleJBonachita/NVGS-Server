@@ -52,6 +52,7 @@
   const form = root.querySelector(".gery-form");
   const input = root.querySelector(".gery-input");
   const sendButton = root.querySelector(".gery-send");
+  let contextEntryId = null;
   root.querySelector(".gery-title").textContent = cfg.title;
 
   function addMessage(text, role, meta = "") {
@@ -77,10 +78,11 @@
       const response = await fetch(`${apiBase}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ message, contextEntryId }),
       });
       if (!response.ok) throw new Error("Chat request failed");
       const data = await response.json();
+      if (Object.hasOwn(data, "contextEntryId")) contextEntryId = data.contextEntryId;
       pending.textContent = data.reply || "No response received.";
       const sources = Array.isArray(data.sources) ? data.sources.filter(Boolean) : [];
       const label = data.usedAI ? "AI fallback used" : "No AI tokens used";

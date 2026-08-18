@@ -33,6 +33,12 @@
             <button type="submit">Unlock</button>
           </div>
           <p class="admin-hint">The token stays in this browser tab and is never stored in the knowledge index.</p>
+          <details class="setup-details" open>
+            <summary>Where to get the token</summary>
+            <p>On Ubuntu, open a terminal in the NVGS Server folder and run:</p>
+            <code>sudo cat secrets/gery_admin_token</code>
+            <p>If that file is missing, run <code>./scripts/bootstrap-secrets.sh</code> once, then use the generated value above.</p>
+          </details>
         </form>
 
         <section class="panel admin-card" aria-labelledby="upload-heading">
@@ -47,6 +53,15 @@
             <label class="checkbox-row"><input id="replace-existing" type="checkbox" /> Replace files with the same name</label>
             <button id="upload-button" type="submit" disabled>Upload knowledge</button>
           </form>
+          <details class="setup-details">
+            <summary>Where to configure optional AI</summary>
+            <p>Put the endpoint, model, and switches in the NVGS Server root <code>.env</code> file:</p>
+            <code class="code-block">GERY_INGESTION_AI_ENABLED=true
+GERY_AI_BASE_URL=http://host.docker.internal:1234
+GERY_AI_MODEL=your-model-name
+GERY_ALLOW_LIVE_AI=false</code>
+            <p>Put only the API key in <code>secrets/gery_ai_api_key</code>. Restart Gery, then click <strong>Reprocess all</strong>.</p>
+          </details>
         </section>
       </section>
 
@@ -58,7 +73,7 @@
           </div>
           <button id="reprocess-button" class="secondary-button" type="button" disabled>Reprocess all</button>
         </div>
-        <p id="knowledge-status" class="admin-hint" aria-live="polite">Enter the administrator token to view the library.</p>
+        <p id="knowledge-status" class="admin-hint" aria-live="polite">Checking Gery's public document count…</p>
         <div id="knowledge-list" class="knowledge-list"></div>
       </section>
     </main>

@@ -55,6 +55,17 @@ async function loadLibrary() {
   reprocessButton.disabled = false;
 }
 
+async function loadPublicStatus() {
+  try {
+    const response = await fetch(`${apiBase}/health`, { headers: { Accept: "application/json" } });
+    if (!response.ok) throw new Error("Health check failed");
+    const health = await response.json();
+    statusElement.textContent = `Gery has ${health.knowledgeDocuments} documents and ${health.knowledgeEntries} reusable answers. Enter the administrator token to display and manage them.`;
+  } catch (_error) {
+    statusElement.textContent = "Gery is not reachable. Start the Chatbot Server, then reload this page.";
+  }
+}
+
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -128,3 +139,5 @@ reprocessButton.addEventListener("click", async () => {
     reprocessButton.disabled = !adminToken;
   }
 });
+
+loadPublicStatus();

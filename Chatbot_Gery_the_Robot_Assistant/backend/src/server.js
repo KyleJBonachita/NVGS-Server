@@ -189,13 +189,15 @@ app.post("/chat", async (request, response) => {
     return response.json({ reply: builtIn, sources: [], answerMode: "built-in", usedAI: false });
   }
 
-  const stored = findStoredAnswer(message, knowledgeStore.getEntries());
+  const contextEntryId = String(request.body?.contextEntryId || "").trim().slice(0, 100) || null;
+  const stored = findStoredAnswer(message, knowledgeStore.getEntries(), { contextEntryId });
   if (stored) {
     return response.json({
       reply: stored.reply,
       sources: stored.sources,
-      answerMode: "stored-knowledge",
+      answerMode: stored.answerMode,
       usedAI: false,
+      contextEntryId: stored.entryId,
     });
   }
 
@@ -230,6 +232,7 @@ app.post("/chat", async (request, response) => {
     sources: [],
     answerMode: "no-match",
     usedAI: false,
+    contextEntryId: null,
   });
 });
 

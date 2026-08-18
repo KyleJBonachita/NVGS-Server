@@ -13,6 +13,11 @@
 .admin-card button, .library-panel button { border: 0; border-radius: 10px; padding: .72rem .95rem; font-weight: 800; cursor: pointer; background: linear-gradient(135deg, var(--accent), #8cd900); color: #0d1408; }
 .admin-card button:disabled, .library-panel button:disabled { opacity: .45; cursor: not-allowed; }
 .admin-hint { color: var(--muted); line-height: 1.45; }
+.setup-details { margin-top: 1rem; padding-top: .85rem; border-top: 1px solid rgba(158,198,176,.18); color: var(--muted); }
+.setup-details summary { color: #d9f7b2; font-weight: 800; cursor: pointer; }
+.setup-details p { line-height: 1.45; }
+.setup-details code { color: #baf28f; background: rgba(0,0,0,.28); border-radius: 6px; padding: .14rem .35rem; overflow-wrap: anywhere; }
+.setup-details .code-block { display: block; padding: .7rem; white-space: pre-wrap; line-height: 1.55; }
 .drop-zone { display: grid; place-items: center; min-height: 130px; margin: 1rem 0; padding: 1rem; text-align: center; border: 1px dashed rgba(137,230,67,.65); border-radius: 14px; background: rgba(118,185,0,.06); cursor: pointer; }
 .drop-zone span { color: var(--muted); font-size: .85rem; }
 .drop-zone input { margin-top: .7rem; max-width: 100%; }

@@ -7,6 +7,7 @@ const messageInput = document.getElementById("messageInput");
 const sendBtn = document.getElementById("sendBtn");
 const connectionPill = document.getElementById("connectionPill");
 const chips = document.querySelectorAll(".chip");
+let contextEntryId = null;
 
 function renderMessage(text, role, meta = "") {
   const item = document.createElement("article");
@@ -44,10 +45,11 @@ async function sendMessage(message) {
     const response = await fetch(config.endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({ message, contextEntryId }),
     });
     if (!response.ok) throw new Error("chat failed");
     const data = await response.json();
+    if (Object.hasOwn(data, "contextEntryId")) contextEntryId = data.contextEntryId;
     pending.textContent = data.reply || "No response received.";
     const detail = document.createElement("p");
     detail.className = "message-meta";

@@ -65,9 +65,20 @@ Addresses:
 - Secure manager through NVGS: `https://NVGS_ADDRESS/gerry/admin/`
 - Local Ubuntu manager: `http://localhost:3000/admin/`
 
-The manager asks for the value in `secrets/gery_admin_token`. Remote knowledge
-administration is rejected over plain HTTP by default. Ordinary chat does not
-need the administrator token.
+The manager asks for the value in `secrets/gery_admin_token`. From the NVGS
+Server folder on Ubuntu, display it with:
+
+```bash
+sudo cat secrets/gery_admin_token
+```
+
+If the file is missing, run `./scripts/bootstrap-secrets.sh` once. Remote
+knowledge administration is rejected over plain HTTP by default. Ordinary chat
+does not need the administrator token.
+
+The public health indicator can report (for example) `4 docs` before the
+manager is unlocked. This means the files are indexed; their names and controls
+remain hidden until the administrator token is accepted.
 
 ## Knowledge storage
 
@@ -90,7 +101,8 @@ stopping the container does not remove it.
 ## Optional upload-time AI processing
 
 Gery accepts any OpenAI-compatible chat-completions endpoint. LM Studio is the
-default local option. Configure `.env`:
+default local option. Configure the `.env` file in the NVGS Server root (beside
+`compose.yaml`):
 
 ```dotenv
 GERY_INGESTION_AI_ENABLED=true
@@ -115,6 +127,12 @@ saved. Normal matched chats still do not call the model.
 
 Use **Reprocess all** in the manager after changing the AI-processing setting.
 If the model is unavailable, Gery safely falls back to deterministic indexing.
+
+Restart Gery after changing `.env`:
+
+```bash
+docker compose --profile chatbot up -d --build gerry
+```
 
 ## Optional live-AI fallback
 

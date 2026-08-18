@@ -7,7 +7,7 @@ import {
 } from "./docsLoader.js";
 import { tokenize } from "./retrievalLite.js";
 
-const INDEX_VERSION = 1;
+const INDEX_VERSION = 2;
 
 function unique(values) {
   return [...new Set(values.filter(Boolean))];
@@ -31,7 +31,8 @@ function safeFileName(value) {
 
 function deterministicEntry(section, source, sourceId, index) {
   const title = section.title || path.basename(source, path.extname(source));
-  const keywords = unique([...tokenize(title), ...tokenize(section.text)]).slice(0, 40);
+  const issue = String(section.text || "").match(/(?:^|\n)Issue:\s*(?:\n\s*[-*]\s*)?([^\n]+)/i)?.[1]?.trim();
+  const keywords = unique([...tokenize(title), ...tokenize(issue), ...tokenize(section.text)]).slice(0, 50);
   return {
     id: crypto.createHash("sha256").update(`${sourceId}:${index}:${title}`).digest("hex").slice(0, 20),
     sourceId,
@@ -40,8 +41,10 @@ function deterministicEntry(section, source, sourceId, index) {
     answer: section.text,
     questions: [
       `What is ${title}?`,
-      `How do I handle ${title}?`,
+      `How do I fix ${title}?`,
+      `${title} is not working`,
       `Explain ${title}`,
+      ...(issue ? [`How do I fix ${issue}?`, issue] : []),
     ],
     keywords,
     processingMode: "deterministic",

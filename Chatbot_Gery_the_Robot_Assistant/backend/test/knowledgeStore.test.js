@@ -3,7 +3,11 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { KnowledgeStore } from "../src/services/knowledgeStore.js";
+import { findStoredAnswer } from "../src/services/retrievalLite.js";
+
+const testDir = path.dirname(fileURLToPath(import.meta.url));
 
 test("indexes bundled and uploaded knowledge and persists reusable answers", async (context) => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "gery-store-"));
@@ -17,6 +21,7 @@ test("indexes bundled and uploaded knowledge and persists reusable answers", asy
   const initial = await store.initialize();
   assert.equal(initial.documents, 1);
   assert.equal(store.getEntries()[0].processingMode, "deterministic");
+  assert.ok(store.getEntries()[0].questions.some((question) => /not working/i.test(question)));
 
   await store.upload({
     name: "recovery.txt",
@@ -49,4 +54,20 @@ test("rejects unsupported and duplicate knowledge uploads", async (context) => {
     store.upload({ name: "guide.txt", contentBase64: Buffer.from("second").toString("base64") }),
     /already exists/,
   );
+});
+
+test("bundled troubleshooting routes VIVE and camera questions correctly", async (context) => {
+  const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), "gery-bundled-"));
+  const bundledDir = path.resolve(testDir, "..", "..", "knowledge");
+  context.after(() => fs.rm(dataDir, { recursive: true, force: true }));
+
+  const store = new KnowledgeStore({ bundledDir, dataDir });
+  await store.initialize();
+
+  const vive = findStoredAnswer("VIVE is not working", store.getEntries());
+  const camera = findStoredAnswer("My camera feed is black", store.getEntries());
+  assert.match(vive?.reply, /restart tracker service/i);
+  assert.match(vive?.reply, /re-pair tracker/i);
+  assert.match(camera?.reply, /camera device permissions/i);
+  assert.doesNotMatch(vive?.reply, /relaunch teleop stack/i);
 });
