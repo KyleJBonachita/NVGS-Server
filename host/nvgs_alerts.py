@@ -116,9 +116,14 @@ def send_desktop_notification(
         return False
 
     is_warning = level.lower() == "warning"
-    urgency = "critical" if is_warning else "normal"
+    # GNOME keeps critical notifications resident and may queue several of
+    # them. The full-screen overlay is the primary warning UI; this fallback is
+    # deliberately transient and replaceable so the notification shade cannot
+    # become flooded or leave an undismissable banner behind.
+    urgency = "normal"
     icon = "dialog-warning" if is_warning else "dialog-information"
     sound = "dialog-warning" if is_warning else "complete"
+    expire_milliseconds = "15000" if is_warning else "8000"
 
     command = [
         runuser,
@@ -131,8 +136,12 @@ def send_desktop_notification(
         notify_send,
         "--app-name=NVGS Server",
         f"--urgency={urgency}",
+        f"--expire-time={expire_milliseconds}",
+        "--category=device.error" if is_warning else "--category=device.added",
         f"--icon={icon}",
         f"--hint=string:sound-name:{sound}",
+        "--hint=boolean:transient:true",
+        "--hint=string:x-canonical-private-synchronous:nvgs-server-alert",
         escape(f"NVGS {title}"),
         escape(detail),
     ]
@@ -158,8 +167,12 @@ def send_alert(title: str, detail: str, level: str = "warning") -> bool:
     """Log every alert, notify the desktop, and optionally send a webhook."""
     message = f"[{level.upper()}] {server_name()}: {title} - {detail}"
     log(message)
-    send_fullscreen_alert(title, detail, level)
-    send_desktop_notification(title, detail, level)
+    fullscreen_delivered = send_fullscreen_alert(title, detail, level)
+    # One warning should create one visible UI. When the focused overlay is
+    # available, do not also create an unrelated Ubuntu banner. Recoveries,
+    # security events, and overlay failures retain a desktop notification.
+    if level.lower() != "warning" or not fullscreen_delivered:
+        send_desktop_notification(title, detail, level)
 
     webhook_url = os.getenv("NVGS_ALERT_WEBHOOK_URL", "").strip()
     if not webhook_url:

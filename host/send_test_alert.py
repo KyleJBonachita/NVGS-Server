@@ -16,7 +16,9 @@ if __name__ == "__main__":
     level = "warning"
 
     fullscreen_delivered = send_fullscreen_alert(title, detail, level)
-    desktop_delivered = send_desktop_notification(title, detail, level)
+    desktop_delivered = False
+    if not fullscreen_delivered:
+        desktop_delivered = send_desktop_notification(title, detail, level)
 
     # Record and optionally forward the same test without creating a duplicate
     # desktop or full-screen popup.
@@ -41,7 +43,7 @@ if __name__ == "__main__":
     webhook_configured = bool(os.getenv("NVGS_ALERT_WEBHOOK_URL", "").strip())
     fullscreen_required = setting_enabled("NVGS_FULLSCREEN_ALERTS", default=True)
     failed = (
-        not desktop_delivered
+        not (fullscreen_delivered or desktop_delivered)
         or (fullscreen_required and not fullscreen_delivered)
         or (webhook_configured and not delivered)
     )

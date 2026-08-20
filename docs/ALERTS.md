@@ -13,10 +13,23 @@ sudo ./scripts/install-app-controlled-mode.sh
 For a permanent server, `sudo ./scripts/install-ubuntu-host.sh
 --force-always-on` starts the alerts at boot.
 
-Warnings take over the Ubuntu display with a red full-screen acknowledgement
-screen while the NVGS control terminal launched from **NVGS Server Hub** is open. A normal desktop notification and
-the journal remain as fallbacks. Recovery events use a normal desktop
-notification instead of interrupting the whole screen.
+Warnings use one coordinated full-screen acknowledgement screen while the NVGS
+control terminal launched from **NVGS Server Hub** is open. The redesigned
+screen requests keyboard focus when it maps, focuses the dismissal button, and
+retries that focus request briefly to handle GTK/Wayland timing. Press
+`Enter`/`Escape` or click the button to dismiss it.
+
+The overlay is the primary warning UI. Ubuntu's top notification is created
+only when the overlay is unavailable, so a single event no longer leaves two
+independent things to close. That fallback is transient, expires, and uses a
+synchronous replacement tag so new events replace its banner instead of
+flooding the notification center. Recovery and rejected-login events remain
+brief desktop notifications. Every event is still written to the journal.
+
+Warnings arriving together are grouped into the same screen. One dismissal
+clears that group, and duplicate reminders for dismissed conditions pause for
+five minutes. A physical link outage also groups/suppresses its dependent
+Internet and application warnings until the link returns.
 
 The monitor checks every five seconds. Charger, battery, cable, and lid results
 are handled before slower Internet/application requests, so those slow checks
@@ -32,7 +45,14 @@ Send one harmless local test while the controller is open:
 sudo ./scripts/test-alert.sh
 ```
 
-Dismiss the full-screen warning with its button, `Enter`, or `Escape`.
+After installing this update, clear any old Ubuntu notifications once. Old
+critical banners were created by the previous version and cannot be assigned
+the new replacement behavior retroactively.
+
+Dismiss the warning with its button, `Enter`, or `Escape`. Ubuntu/GNOME may
+refuse focus stealing while its secure lock screen or another protected system
+surface is active; after unlocking, click the warning once if keyboard focus
+was intentionally withheld by the desktop.
 
 If the controller says full-screen alerts could not start, verify that
 PyGObject can load matching GDK 3 and GTK 3 namespaces:

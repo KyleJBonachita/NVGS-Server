@@ -105,9 +105,9 @@ journalctl -u nvgs-monitor.service -f
 journalctl -u nvgs-auth-monitor.service -f
 ```
 
-Alerts appear as Ubuntu desktop notifications and are recorded in the local
-journal. With an approved webhook in `/etc/nvgs-monitor.env`, the monitor also
-attempts to send them remotely.
+Warnings appear in one focused, dismissible NVGS screen and are recorded in the
+local journal. With an approved webhook in `/etc/nvgs-monitor.env`, the monitor
+also attempts to send them remotely.
 
 See [`ALERTS.md`](ALERTS.md) for the short webhook setup and test commands.
 

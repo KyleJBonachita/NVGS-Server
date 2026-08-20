@@ -58,6 +58,20 @@ class ConditionMonitorTests(unittest.TestCase):
         self.assertTrue(result.healthy)
         self.assertIn("port is open", result.detail)
 
+    def test_link_outage_suppresses_dependent_warning_cascade(self):
+        self.assertTrue(
+            nvgs_monitor.suppress_during_link_outage("Internet", True)
+        )
+        self.assertTrue(
+            nvgs_monitor.suppress_during_link_outage("Application", True)
+        )
+        self.assertFalse(
+            nvgs_monitor.suppress_during_link_outage("AC power", True)
+        )
+        self.assertFalse(
+            nvgs_monitor.suppress_during_link_outage("Internet", False)
+        )
+
 
 class AuthenticationMonitorTests(unittest.TestCase):
     def test_failed_ssh_password_is_detected_and_summarized(self):
@@ -76,6 +90,14 @@ class AuthenticationMonitorTests(unittest.TestCase):
             nvgs_auth_monitor.is_authentication_failure(
                 "Accepted publickey for administrator from 10.20.30.40"
             )
+        )
+
+    def test_auth_retries_with_changing_ports_share_one_dedupe_key(self):
+        first = "Failed password for user agent from 10.20.30.40 port 50100 ssh2"
+        second = "Failed password for user agent from 10.20.30.40 port 50199 ssh2"
+        self.assertEqual(
+            nvgs_auth_monitor.authentication_event_key(first),
+            nvgs_auth_monitor.authentication_event_key(second),
         )
 
 
@@ -132,8 +154,30 @@ class AlertHelperTests(unittest.TestCase):
             f"DBUS_SESSION_BUS_ADDRESS=unix:path={session_bus}",
             command,
         )
-        self.assertIn("--urgency=critical", command)
+        self.assertIn("--urgency=normal", command)
+        self.assertIn("--hint=boolean:transient:true", command)
+        self.assertIn(
+            "--hint=string:x-canonical-private-synchronous:nvgs-server-alert",
+            command,
+        )
         self.assertIn("charger unplugged", command)
+
+    @patch("nvgs_alerts.send_desktop_notification")
+    @patch("nvgs_alerts.send_fullscreen_alert", return_value=True)
+    def test_warning_uses_one_local_ui_when_overlay_is_available(
+        self,
+        fullscreen_alert,
+        desktop_notification,
+    ):
+        with patch.dict(
+            os.environ,
+            {"NVGS_ALERT_WEBHOOK_URL": ""},
+            clear=False,
+        ):
+            send_alert("Network link", "Ethernet disconnected")
+
+        fullscreen_alert.assert_called_once()
+        desktop_notification.assert_not_called()
 
     @patch("nvgs_alerts.shutil.which")
     def test_desktop_alert_is_disabled_without_configuration(self, which):
@@ -231,6 +275,51 @@ class FullscreenOverlayTests(unittest.TestCase):
         )
 
         self.assertIsNone(alert)
+
+    def test_alert_burst_is_presented_as_one_dismissible_group(self):
+        title, detail, count = nvgs_alert_overlay.format_alert_batch(
+            [
+                {
+                    "title": "Network link",
+                    "detail": "Ethernet disconnected",
+                    "server": "NVGS",
+                },
+                {
+                    "title": "Application",
+                    "detail": "Health check unavailable",
+                    "server": "NVGS",
+                },
+            ]
+        )
+
+        self.assertEqual(title, "Multiple server warnings")
+        self.assertIn("Network link", detail)
+        self.assertIn("Application", detail)
+        self.assertIn("one dismissal", count)
+
+    def test_same_warning_title_has_one_overlay_identity(self):
+        first = {
+            "title": "Network link",
+            "detail": "Ethernet disconnected",
+        }
+        reminder = {
+            "title": "network LINK",
+            "detail": "Ethernet remains disconnected",
+        }
+        self.assertEqual(
+            nvgs_alert_overlay.alert_identity(first),
+            nvgs_alert_overlay.alert_identity(reminder),
+        )
+
+    def test_overlay_uses_bounded_focus_retries_and_keyboard_dismissal(self):
+        source = (HOST_DIR / "nvgs_alert_overlay.py").read_text(encoding="utf-8")
+        self.assertIn("window.set_accept_focus(True)", source)
+        self.assertIn("window.set_focus_on_map(True)", source)
+        self.assertIn("window.present_with_time(Gdk.CURRENT_TIME)", source)
+        self.assertIn("gdk_window.focus(Gdk.CURRENT_TIME)", source)
+        self.assertIn('GLib.timeout_add(300, focus_window)', source)
+        self.assertIn("Gdk.KEY_Escape", source)
+        self.assertIn("Gdk.KEY_KP_Enter", source)
 
 
 if __name__ == "__main__":

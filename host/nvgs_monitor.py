@@ -17,11 +17,18 @@ from pathlib import Path
 
 from nvgs_alerts import log, send_alert
 
+NETWORK_DEPENDENT_CHECKS = frozenset({"Internet", "Application"})
+
 
 @dataclass(frozen=True)
 class CheckResult:
     healthy: bool | None
     detail: str
+
+
+def suppress_during_link_outage(name: str, network_link_down: bool) -> bool:
+    """Avoid cascading banners for failures caused by one disconnected link."""
+    return network_link_down and name in NETWORK_DEPENDENT_CHECKS
 
 
 def read_text(path: str | Path) -> str | None:
@@ -189,6 +196,7 @@ def run() -> None:
     interface = find_default_interface()
     previous: dict[str, bool | None] = {}
     last_alert: dict[str, float] = {}
+    suppressed_checks: set[str] = set()
 
     log(
         "NVGS condition monitor started "
@@ -206,13 +214,25 @@ def run() -> None:
             ("Application", check_application),
         )
 
-        # Handle each result immediately. Slow Internet/application timeouts no
-        # longer delay an already-detected charger, cable, or lid warning.
+        # Handle each result immediately. A physical link failure is the useful
+        # root cause, so its dependent Internet/application failures are not
+        # allowed to create a cascade of additional UI warnings.
+        network_link_down = False
         for name, check in checks:
+            if suppress_during_link_outage(name, network_link_down):
+                if name not in suppressed_checks:
+                    log(f"INFO: {name} alert grouped under Network link outage.")
+                    suppressed_checks.add(name)
+                continue
+
             result = check()
             now = time.monotonic()
             old_state = previous.get(name)
             previous[name] = result.healthy
+            if name == "Network link":
+                network_link_down = result.healthy is False
+            else:
+                suppressed_checks.discard(name)
 
             if result.healthy is None:
                 if name not in last_alert:

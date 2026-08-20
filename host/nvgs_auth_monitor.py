@@ -43,6 +43,12 @@ def summarize(message: str) -> str:
     return ", ".join(parts) if parts else "local or unidentified source"
 
 
+def authentication_event_key(message: str) -> str:
+    """Group retries from the same user/source even when journal text varies."""
+    summary = summarize(message).casefold()
+    return hashlib.sha256(summary.encode("utf-8", errors="replace")).hexdigest()
+
+
 def run() -> None:
     log("NVGS authentication monitor started.")
     process = subprocess.Popen(
@@ -68,7 +74,7 @@ def run() -> None:
         if not is_authentication_failure(message):
             continue
 
-        event_key = hashlib.sha256(message.encode("utf-8", errors="replace")).hexdigest()
+        event_key = authentication_event_key(message)
         now = time.monotonic()
         if now - recent.get(event_key, 0) < dedupe_seconds:
             continue
