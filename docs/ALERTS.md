@@ -48,9 +48,12 @@ place these machine-specific files there:
 - `nvgs-alert-background.gif`
 - one of `nvgs-alert-sound.oga`, `.ogg`, `.wav`, or `.mp3`
 
-The GIF is looped, scaled, and center-cropped to fill the display. A 1920x1080
-GIF is a good choice for a 1920x1080 screen. These media files are ignored by
-Git, so `git pull` will not overwrite them. Full details are in
+The GIF is looped, scaled, and center-cropped to fill the display. It completely
+replaces the built-in red background and effects. A 1920x1080 GIF is a good
+choice for a 1920x1080 screen. The recommended filenames take priority, but a
+single differently named GIF/audio file is detected automatically. OGG audio
+uses multiple installed-player fallbacks. These media files are ignored by Git,
+so `git pull` will not overwrite them. Full details are in
 `host/assets/README.md`.
 
 Ubuntu does not allow an application to cover its secure lock screen; an alert

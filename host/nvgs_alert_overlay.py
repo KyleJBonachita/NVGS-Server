@@ -44,6 +44,7 @@ def resolve_optional_asset(
     explicit_path: Path | None,
     environment_name: str,
     default_names: Iterable[str],
+    fallback_suffixes: Iterable[str] = (),
 ) -> Path | None:
     """Resolve an optional user-owned alert asset without invoking a shell."""
     candidates: list[Path] = []
@@ -53,39 +54,74 @@ def resolve_optional_asset(
     if configured:
         candidates.append(Path(configured).expanduser())
     candidates.extend(ASSET_DIRECTORY / name for name in default_names)
+    suffixes = {suffix.casefold() for suffix in fallback_suffixes}
+    if suffixes and ASSET_DIRECTORY.is_dir():
+        candidates.extend(
+            sorted(
+                (
+                    path
+                    for path in ASSET_DIRECTORY.iterdir()
+                    if path.is_file() and path.suffix.casefold() in suffixes
+                ),
+                key=lambda path: path.name.casefold(),
+            )
+        )
     return next((path.resolve() for path in candidates if path.is_file()), None)
 
 
-def alert_sound_command(sound_path: Path | None) -> tuple[list[str] | None, bool]:
-    """Return a safe argv-only sound command and whether it plays custom media."""
+def alert_sound_commands(sound_path: Path | None) -> tuple[list[list[str]], bool]:
+    """Return safe audio-player fallbacks and whether they play custom media."""
+    commands: list[list[str]] = []
     if sound_path is not None:
+        canberra = shutil.which("canberra-gtk-play")
+        if canberra:
+            commands.append(
+                [
+                    canberra,
+                    f"--file={sound_path}",
+                    "--description=NVGS server warning",
+                ]
+            )
+        gsound = shutil.which("gsound-play")
+        if gsound:
+            commands.append([gsound, f"--file={sound_path}"])
+        gst_launch = shutil.which("gst-launch-1.0")
+        if gst_launch:
+            commands.append(
+                [gst_launch, "-q", "playbin", f"uri={sound_path.as_uri()}"]
+            )
         paplay = shutil.which("paplay")
         if paplay:
-            return [paplay, str(sound_path)], True
+            commands.append([paplay, str(sound_path)])
         ffplay = shutil.which("ffplay")
         if ffplay:
-            return [
-                ffplay,
-                "-nodisp",
-                "-autoexit",
-                "-loglevel",
-                "quiet",
-                str(sound_path),
-            ], True
+            commands.append(
+                [
+                    ffplay,
+                    "-nodisp",
+                    "-autoexit",
+                    "-loglevel",
+                    "quiet",
+                    str(sound_path),
+                ]
+            )
+        return commands, True
 
     canberra = shutil.which("canberra-gtk-play")
     if canberra:
-        return [
-            canberra,
-            "--id=dialog-warning",
-            "--description=NVGS server warning",
-        ], False
+        commands.append(
+            [
+                canberra,
+                "--id=dialog-warning",
+                "--description=NVGS server warning",
+            ]
+        )
 
     default_sound = Path("/usr/share/sounds/freedesktop/stereo/dialog-warning.oga")
     paplay = shutil.which("paplay")
     if paplay and default_sound.is_file():
-        return [paplay, str(default_sound)], False
-    return None, False
+        commands.append([paplay, str(default_sound)])
+    return commands, False
 
 
 def primary_monitor_size(gdk: Any) -> tuple[int, int] | None:
@@ -212,6 +248,11 @@ def run_overlay(
         #nvgs-alert-card {
             background: rgba(8, 11, 16, 0.90);
             border: 2px solid rgba(254, 202, 202, 0.72);
+            border-radius: 18px;
+        }
+        #nvgs-alert-card-media {
+            background: rgba(8, 11, 16, 0.76);
+            border: 2px solid rgba(255, 255, 255, 0.72);
             border-radius: 18px;
         }
         #nvgs-alert-accent {
@@ -390,6 +431,7 @@ def run_overlay(
         background_path,
         "NVGS_ALERT_BACKGROUND_GIF",
         ("nvgs-alert-background.gif",),
+        (".gif",),
     )
     resolved_sound = resolve_optional_asset(
         sound_path,
@@ -400,10 +442,12 @@ def run_overlay(
             "nvgs-alert-sound.wav",
             "nvgs-alert-sound.mp3",
         ),
+        (".oga", ".ogg", ".wav", ".mp3"),
     )
     media_animation: Any | None = None
     media_iterator: Any | None = None
     if resolved_background is not None:
+        shell.set_name("nvgs-alert-card-media")
         try:
             media_animation = GdkPixbuf.PixbufAnimation.new_from_file(
                 str(resolved_background)
@@ -426,6 +470,8 @@ def run_overlay(
         elapsed = time.monotonic() - animation_started
 
         if media_iterator is not None:
+            context.set_source_rgb(0.0, 0.0, 0.0)
+            context.paint()
             media_iterator.advance(None)
             frame = media_iterator.get_pixbuf()
             frame_width = max(1, frame.get_width())
@@ -442,12 +488,11 @@ def run_overlay(
             y_offset = (height - scaled_height) / 2
             Gdk.cairo_set_source_pixbuf(context, scaled, x_offset, y_offset)
             context.paint()
-            context.set_source_rgba(0.32, 0.01, 0.03, 0.28)
-            context.paint()
-        else:
-            pulse = (math.sin(elapsed * 2.2) + 1.0) / 2.0
-            context.set_source_rgb(0.25 + pulse * 0.10, 0.015, 0.03)
-            context.paint()
+            return False
+
+        pulse = (math.sin(elapsed * 2.2) + 1.0) / 2.0
+        context.set_source_rgb(0.25 + pulse * 0.10, 0.015, 0.03)
+        context.paint()
 
         band_spacing = 260
         band_width = 86
@@ -487,12 +532,36 @@ def run_overlay(
     sound_process: subprocess.Popen[bytes] | None = None
     sound_enabled = True
     last_system_sound_started = 0.0
-    sound_command, custom_sound = alert_sound_command(resolved_sound)
+    sound_commands, custom_sound = alert_sound_commands(resolved_sound)
+    sound_command_index = 0
+    consecutive_sound_failures = 0
+    sound_failed = False
+    if resolved_background is not None:
+        print(
+            f"Custom alert GIF: {resolved_background}",
+            flush=True,
+        )
+    if resolved_sound is not None:
+        print(
+            f"Custom alert sound: {resolved_sound} "
+            f"({len(sound_commands)} installed player option(s))",
+            flush=True,
+        )
+        if not sound_commands:
+            print(
+                "No supported command-line audio player was found; "
+                "the custom sound cannot play.",
+                file=sys.stderr,
+                flush=True,
+            )
 
     def update_sound_button() -> None:
-        if sound_command is None:
+        if not sound_commands:
             sound_button.set_label("SOUND UNAVAILABLE")
             sound_button.set_sensitive(False)
+        elif sound_failed:
+            sound_button.set_label("SOUND FAILED - RETRY")
+            sound_button.set_sensitive(True)
         elif sound_enabled:
             sound_button.set_label("MUTE SOUND")
             sound_button.set_sensitive(True)
@@ -510,11 +579,32 @@ def run_overlay(
         sound_process = None
 
     def play_sound_once() -> None:
-        nonlocal last_system_sound_started, sound_process
-        if not sound_enabled or sound_command is None:
+        nonlocal consecutive_sound_failures, last_system_sound_started
+        nonlocal sound_command_index, sound_enabled, sound_failed, sound_process
+        if not sound_enabled or not sound_commands:
             return
-        if sound_process is not None and sound_process.poll() is None:
-            return
+        if sound_process is not None:
+            return_code = sound_process.poll()
+            if return_code is None:
+                return
+            failed_command = sound_commands[sound_command_index]
+            sound_process = None
+            if return_code != 0:
+                consecutive_sound_failures += 1
+                print(
+                    f"Alert audio player {Path(failed_command[0]).name} failed "
+                    f"with status {return_code}; trying another player.",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                if consecutive_sound_failures >= len(sound_commands):
+                    sound_failed = True
+                    sound_enabled = False
+                    update_sound_button()
+                    return
+                sound_command_index = (sound_command_index + 1) % len(sound_commands)
+            else:
+                consecutive_sound_failures = 0
         now = time.monotonic()
         if (
             not custom_sound
@@ -523,7 +613,7 @@ def run_overlay(
             return
         try:
             sound_process = subprocess.Popen(
-                sound_command,
+                sound_commands[sound_command_index],
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
@@ -533,21 +623,32 @@ def run_overlay(
             print(f"Could not play the alert sound: {exc}", file=sys.stderr, flush=True)
 
     def sound_loop_tick() -> bool:
+        nonlocal sound_timer_id
         play_sound_once()
+        if sound_failed:
+            sound_timer_id = None
+            return False
         return True
 
     def start_sound_loop() -> None:
         nonlocal sound_timer_id
         stop_sound_loop()
-        if sound_enabled and sound_command is not None:
+        if sound_enabled and sound_commands:
             play_sound_once()
             sound_timer_id = GLib.timeout_add(500, sound_loop_tick)
 
     def toggle_sound(*_args: object) -> bool:
-        nonlocal sound_enabled
-        if sound_command is None:
+        nonlocal consecutive_sound_failures, sound_command_index
+        nonlocal sound_enabled, sound_failed
+        if not sound_commands:
             return True
-        sound_enabled = not sound_enabled
+        if sound_failed:
+            sound_command_index = 0
+            consecutive_sound_failures = 0
+            sound_failed = False
+            sound_enabled = True
+        else:
+            sound_enabled = not sound_enabled
         if sound_enabled:
             start_sound_loop()
         else:

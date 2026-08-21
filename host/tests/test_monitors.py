@@ -3,6 +3,7 @@ import sys
 import types
 import unittest
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock, patch
 
 HOST_DIR = Path(__file__).resolve().parents[1]
@@ -342,6 +343,39 @@ class FullscreenOverlayTests(unittest.TestCase):
         self.assertIn("background.queue_draw()", source)
         self.assertIn('sound_button = Gtk.Button(label="MUTE SOUND")', source)
         self.assertIn("Gdk.KEY_m", source)
+
+    def test_custom_sound_has_ogg_capable_player_fallbacks(self):
+        sound_path = (HOST_DIR / "assets" / "custom.ogg").resolve()
+
+        with patch(
+            "nvgs_alert_overlay.shutil.which",
+            side_effect=lambda name: f"/usr/bin/{name}",
+        ):
+            commands, custom = nvgs_alert_overlay.alert_sound_commands(sound_path)
+
+        self.assertTrue(custom)
+        self.assertIn(f"--file={sound_path}", commands[0])
+        self.assertTrue(any("gst-launch-1.0" in command[0] for command in commands))
+        self.assertTrue(any("paplay" in command[0] for command in commands))
+
+    def test_custom_media_is_found_even_without_the_recommended_filename(self):
+        with TemporaryDirectory() as directory:
+            asset_directory = Path(directory)
+            custom_sound = asset_directory / "my-own-warning.ogg"
+            custom_sound.touch()
+            with patch.object(
+                nvgs_alert_overlay,
+                "ASSET_DIRECTORY",
+                asset_directory,
+            ):
+                resolved = nvgs_alert_overlay.resolve_optional_asset(
+                    None,
+                    "NVGS_TEST_UNUSED_ASSET",
+                    ("nvgs-alert-sound.ogg",),
+                    (".ogg",),
+                )
+
+        self.assertEqual(resolved, custom_sound.resolve())
 
 
 if __name__ == "__main__":
