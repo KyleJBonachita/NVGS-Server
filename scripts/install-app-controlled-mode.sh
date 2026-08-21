@@ -116,7 +116,7 @@ if ! command -v notify-send >/dev/null 2>&1; then
     echo "Install it with: sudo apt install libnotify-bin" >&2
 fi
 if ! python3 -c \
-    'import gi; gi.require_version("Gdk", "3.0"); gi.require_version("Gtk", "3.0"); from gi.repository import Gdk, Gtk' \
+    'import gi; gi.require_version("Gdk", "3.0"); gi.require_version("GdkPixbuf", "2.0"); gi.require_version("Gtk", "3.0"); from gi.repository import Gdk, GdkPixbuf, Gtk' \
     >/dev/null 2>&1; then
     echo "WARNING: Matching GDK/GTK 3 Python support is unavailable." >&2
     echo "Full-screen alerts cannot appear." >&2

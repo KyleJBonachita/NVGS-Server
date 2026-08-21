@@ -5,9 +5,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
+import shutil
 import signal
 import socket
+import subprocess
 import sys
 import time
 from collections.abc import Iterable
@@ -20,17 +23,69 @@ MAX_DETAIL_LENGTH = 700
 MAX_VISIBLE_ALERTS = 5
 BURST_DELAY_MILLISECONDS = 350
 DEFAULT_DISMISS_COOLDOWN_SECONDS = 300
+ANIMATION_INTERVAL_MILLISECONDS = 80
+SYSTEM_SOUND_REPEAT_SECONDS = 4.0
+ASSET_DIRECTORY = Path(__file__).resolve().parent / "assets"
 
 
-def load_gtk3_modules() -> tuple[Any, Any, Any]:
+def load_gtk3_modules() -> tuple[Any, Any, Any, Any]:
     """Select matching GTK 3 namespaces before PyGObject imports either one."""
     import gi
 
     gi.require_version("Gdk", "3.0")
+    gi.require_version("GdkPixbuf", "2.0")
     gi.require_version("Gtk", "3.0")
-    from gi.repository import Gdk, GLib, Gtk
+    from gi.repository import Gdk, GdkPixbuf, GLib, Gtk
 
-    return Gdk, GLib, Gtk
+    return Gdk, GdkPixbuf, GLib, Gtk
+
+
+def resolve_optional_asset(
+    explicit_path: Path | None,
+    environment_name: str,
+    default_names: Iterable[str],
+) -> Path | None:
+    """Resolve an optional user-owned alert asset without invoking a shell."""
+    candidates: list[Path] = []
+    if explicit_path is not None:
+        candidates.append(explicit_path.expanduser())
+    configured = os.getenv(environment_name, "").strip()
+    if configured:
+        candidates.append(Path(configured).expanduser())
+    candidates.extend(ASSET_DIRECTORY / name for name in default_names)
+    return next((path.resolve() for path in candidates if path.is_file()), None)
+
+
+def alert_sound_command(sound_path: Path | None) -> tuple[list[str] | None, bool]:
+    """Return a safe argv-only sound command and whether it plays custom media."""
+    if sound_path is not None:
+        paplay = shutil.which("paplay")
+        if paplay:
+            return [paplay, str(sound_path)], True
+        ffplay = shutil.which("ffplay")
+        if ffplay:
+            return [
+                ffplay,
+                "-nodisp",
+                "-autoexit",
+                "-loglevel",
+                "quiet",
+                str(sound_path),
+            ], True
+
+    canberra = shutil.which("canberra-gtk-play")
+    if canberra:
+        return [
+            canberra,
+            "--id=dialog-warning",
+            "--description=NVGS server warning",
+        ], False
+
+    default_sound = Path("/usr/share/sounds/freedesktop/stereo/dialog-warning.oga")
+    paplay = shutil.which("paplay")
+    if paplay and default_sound.is_file():
+        return [paplay, str(default_sound)], False
+    return None, False
 
 
 def parse_alert(raw: bytes) -> dict[str, str] | None:
@@ -101,9 +156,13 @@ def open_alert_socket(socket_path: Path) -> socket.socket:
     return listener
 
 
-def run_overlay(socket_path: Path) -> int:
+def run_overlay(
+    socket_path: Path,
+    background_path: Path | None = None,
+    sound_path: Path | None = None,
+) -> int:
     try:
-        Gdk, GLib, Gtk = load_gtk3_modules()
+        Gdk, GdkPixbuf, GLib, Gtk = load_gtk3_modules()
     except (ImportError, ValueError) as exc:
         print(
             "Full-screen alerts require matching GDK 3 and GTK 3 libraries "
@@ -133,8 +192,13 @@ def run_overlay(socket_path: Path) -> int:
 
     css = b"""
         #nvgs-alert-window {
-            background: #0b0f14;
+            background: #52070c;
             color: #f8fafc;
+        }
+        #nvgs-alert-card {
+            background: rgba(8, 11, 16, 0.90);
+            border: 2px solid rgba(254, 202, 202, 0.72);
+            border-radius: 18px;
         }
         #nvgs-alert-accent {
             background: #dc2626;
@@ -182,8 +246,20 @@ def run_overlay(socket_path: Path) -> int:
             border-color: #ffffff;
             box-shadow: 0 0 0 3px #fca5a5;
         }
+        #nvgs-sound-button {
+            background: rgba(30, 41, 59, 0.92);
+            color: #f8fafc;
+            border: 1px solid #94a3b8;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 700;
+            padding: 9px 18px;
+        }
+        #nvgs-sound-button:focus {
+            border-color: #ffffff;
+        }
         #nvgs-alert-instruction {
-            color: #94a3b8;
+            color: #cbd5e1;
             font-size: 16px;
         }
     """
@@ -200,21 +276,44 @@ def run_overlay(socket_path: Path) -> int:
     window = Gtk.Window(title="NVGS Server Warning")
     window.set_name("nvgs-alert-window")
     window.set_decorated(False)
+    window.set_resizable(True)
     window.set_keep_above(True)
-    window.set_modal(True)
     window.set_skip_taskbar_hint(True)
+    window.set_skip_pager_hint(True)
     window.set_urgency_hint(True)
     window.set_accept_focus(True)
     window.set_focus_on_map(True)
-    window.set_type_hint(Gdk.WindowTypeHint.DIALOG)
+    window.stick()
+    if screen is not None:
+        window.set_default_size(screen.get_width(), screen.get_height())
+
+    stage = Gtk.Overlay()
+    stage.set_hexpand(True)
+    stage.set_vexpand(True)
+
+    background = Gtk.DrawingArea()
+    background.set_hexpand(True)
+    background.set_vexpand(True)
+    stage.add(background)
 
     shell = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+    shell.set_name("nvgs-alert-card")
+    shell.set_halign(Gtk.Align.CENTER)
+    shell.set_valign(Gtk.Align.CENTER)
+    shell.set_margin_start(32)
+    shell.set_margin_end(32)
+    shell.set_margin_top(32)
+    shell.set_margin_bottom(32)
+    card_width = 940
+    if screen is not None:
+        card_width = min(card_width, max(420, screen.get_width() - 96))
+    shell.set_size_request(card_width, -1)
     accent = Gtk.Box()
     accent.set_name("nvgs-alert-accent")
     shell.pack_start(accent, False, False, 0)
 
     content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=22)
-    content.set_border_width(72)
+    content.set_border_width(48)
     content.set_halign(Gtk.Align.FILL)
     content.set_valign(Gtk.Align.CENTER)
 
@@ -255,20 +354,193 @@ def run_overlay(socket_path: Path) -> int:
     dismiss_button.set_halign(Gtk.Align.CENTER)
     content.pack_start(dismiss_button, False, False, 14)
 
+    sound_button = Gtk.Button(label="MUTE SOUND")
+    sound_button.set_name("nvgs-sound-button")
+    sound_button.set_halign(Gtk.Align.CENTER)
+    content.pack_start(sound_button, False, False, 0)
+
     instruction = Gtk.Label(
         label=(
-            "Press Enter or Escape · duplicate reminders pause for "
+            "Enter/Escape: dismiss  |  M: mute sound  |  reminders pause for "
             f"{cooldown_description}"
         )
     )
     instruction.set_name("nvgs-alert-instruction")
     content.pack_start(instruction, False, False, 0)
     shell.pack_start(content, True, True, 0)
-    window.add(shell)
+    stage.add_overlay(shell)
+    window.add(stage)
+
+    resolved_background = resolve_optional_asset(
+        background_path,
+        "NVGS_ALERT_BACKGROUND_GIF",
+        ("nvgs-alert-background.gif",),
+    )
+    resolved_sound = resolve_optional_asset(
+        sound_path,
+        "NVGS_ALERT_SOUND_FILE",
+        (
+            "nvgs-alert-sound.oga",
+            "nvgs-alert-sound.ogg",
+            "nvgs-alert-sound.wav",
+            "nvgs-alert-sound.mp3",
+        ),
+    )
+    media_animation: Any | None = None
+    media_iterator: Any | None = None
+    if resolved_background is not None:
+        try:
+            media_animation = GdkPixbuf.PixbufAnimation.new_from_file(
+                str(resolved_background)
+            )
+            media_iterator = media_animation.get_iter(None)
+        except Exception as exc:  # GTK reports malformed local media at runtime.
+            print(
+                f"Could not load alert GIF {resolved_background}: {exc}",
+                file=sys.stderr,
+                flush=True,
+            )
+            media_animation = None
+            media_iterator = None
+
+    animation_started = time.monotonic()
+
+    def draw_background(area: object, context: object) -> bool:
+        width = max(1, area.get_allocated_width())
+        height = max(1, area.get_allocated_height())
+        elapsed = time.monotonic() - animation_started
+
+        if media_iterator is not None:
+            media_iterator.advance(None)
+            frame = media_iterator.get_pixbuf()
+            frame_width = max(1, frame.get_width())
+            frame_height = max(1, frame.get_height())
+            scale = max(width / frame_width, height / frame_height)
+            scaled_width = max(1, math.ceil(frame_width * scale))
+            scaled_height = max(1, math.ceil(frame_height * scale))
+            scaled = frame.scale_simple(
+                scaled_width,
+                scaled_height,
+                GdkPixbuf.InterpType.BILINEAR,
+            )
+            x_offset = (width - scaled_width) / 2
+            y_offset = (height - scaled_height) / 2
+            Gdk.cairo_set_source_pixbuf(context, scaled, x_offset, y_offset)
+            context.paint()
+            context.set_source_rgba(0.32, 0.01, 0.03, 0.28)
+            context.paint()
+        else:
+            pulse = (math.sin(elapsed * 2.2) + 1.0) / 2.0
+            context.set_source_rgb(0.25 + pulse * 0.10, 0.015, 0.03)
+            context.paint()
+
+        band_spacing = 260
+        band_width = 86
+        offset = (elapsed * 72) % band_spacing
+        context.set_source_rgba(1.0, 0.18, 0.14, 0.11)
+        band_x = -height - band_spacing + offset
+        while band_x < width + band_spacing:
+            context.move_to(band_x, 0)
+            context.line_to(band_x + band_width, 0)
+            context.line_to(band_x + height + band_width, height)
+            context.line_to(band_x + height, height)
+            context.close_path()
+            context.fill()
+            band_x += band_spacing
+
+        ring_pulse = (math.sin(elapsed * 2.6) + 1.0) / 2.0
+        context.set_line_width(3.0)
+        for index in range(4):
+            radius = 150 + index * 110 + ring_pulse * 34
+            context.set_source_rgba(1.0, 0.55, 0.50, 0.16 - index * 0.025)
+            context.arc(width / 2, height / 2, radius, 0, math.tau)
+            context.stroke()
+        return False
+
+    def animate_background() -> bool:
+        if window.get_visible():
+            background.queue_draw()
+        return True
+
+    background.connect("draw", draw_background)
+    GLib.timeout_add(ANIMATION_INTERVAL_MILLISECONDS, animate_background)
 
     active_alerts: dict[str, dict[str, str]] = {}
     dismissed_until: dict[str, float] = {}
     show_timer_id: int | None = None
+    sound_timer_id: int | None = None
+    sound_process: subprocess.Popen[bytes] | None = None
+    sound_enabled = True
+    last_system_sound_started = 0.0
+    sound_command, custom_sound = alert_sound_command(resolved_sound)
+
+    def update_sound_button() -> None:
+        if sound_command is None:
+            sound_button.set_label("SOUND UNAVAILABLE")
+            sound_button.set_sensitive(False)
+        elif sound_enabled:
+            sound_button.set_label("MUTE SOUND")
+            sound_button.set_sensitive(True)
+        else:
+            sound_button.set_label("SOUND MUTED - ENABLE")
+            sound_button.set_sensitive(True)
+
+    def stop_sound_loop() -> None:
+        nonlocal sound_timer_id, sound_process
+        if sound_timer_id is not None:
+            GLib.source_remove(sound_timer_id)
+            sound_timer_id = None
+        if sound_process is not None and sound_process.poll() is None:
+            sound_process.terminate()
+        sound_process = None
+
+    def play_sound_once() -> None:
+        nonlocal last_system_sound_started, sound_process
+        if not sound_enabled or sound_command is None:
+            return
+        if sound_process is not None and sound_process.poll() is None:
+            return
+        now = time.monotonic()
+        if (
+            not custom_sound
+            and now - last_system_sound_started < SYSTEM_SOUND_REPEAT_SECONDS
+        ):
+            return
+        try:
+            sound_process = subprocess.Popen(
+                sound_command,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            last_system_sound_started = now
+        except OSError as exc:
+            print(f"Could not play the alert sound: {exc}", file=sys.stderr, flush=True)
+
+    def sound_loop_tick() -> bool:
+        play_sound_once()
+        return True
+
+    def start_sound_loop() -> None:
+        nonlocal sound_timer_id
+        stop_sound_loop()
+        if sound_enabled and sound_command is not None:
+            play_sound_once()
+            sound_timer_id = GLib.timeout_add(500, sound_loop_tick)
+
+    def toggle_sound(*_args: object) -> bool:
+        nonlocal sound_enabled
+        if sound_command is None:
+            return True
+        sound_enabled = not sound_enabled
+        if sound_enabled:
+            start_sound_loop()
+        else:
+            stop_sound_loop()
+        update_sound_button()
+        return True
+
+    update_sound_button()
 
     def render_alerts() -> None:
         title, detail, count = format_alert_batch(active_alerts.values())
@@ -295,14 +567,23 @@ def run_overlay(socket_path: Path) -> int:
             gdk_window.focus(Gdk.CURRENT_TIME)
         return False
 
+    def mapped_fullscreen(_widget: object, _event: object) -> bool:
+        # Reassert after mapping for compositors that ignored the pre-map call.
+        window.fullscreen()
+        GLib.idle_add(focus_window)
+        return False
+
     def show_pending() -> bool:
         nonlocal show_timer_id
         show_timer_id = None
         if not active_alerts:
             return False
         render_alerts()
-        window.show_all()
+        if screen is not None:
+            window.resize(screen.get_width(), screen.get_height())
         window.fullscreen()
+        window.show_all()
+        start_sound_loop()
         focus_window()
         # GTK/Wayland can map the surface after present() returns. Two short,
         # bounded retries make keyboard dismissal reliable without repeatedly
@@ -320,12 +601,16 @@ def run_overlay(socket_path: Path) -> int:
         if show_timer_id is not None:
             GLib.source_remove(show_timer_id)
             show_timer_id = None
+        stop_sound_loop()
         window.hide()
         return True
 
     def key_pressed(_widget: object, event: object) -> bool:
         if event.keyval in {Gdk.KEY_Escape, Gdk.KEY_Return, Gdk.KEY_KP_Enter}:
             dismiss_alerts()
+            return True
+        if event.keyval in {Gdk.KEY_m, Gdk.KEY_M}:
+            toggle_sound()
             return True
         return False
 
@@ -365,7 +650,10 @@ def run_overlay(socket_path: Path) -> int:
 
     dismiss_button.connect("clicked", dismiss_alerts)
     dismiss_button.connect("key-press-event", key_pressed)
+    sound_button.connect("clicked", toggle_sound)
+    sound_button.connect("key-press-event", key_pressed)
     window.connect("delete-event", dismiss_alerts)
+    window.connect("map-event", mapped_fullscreen)
     window.connect("key-press-event", key_pressed)
     GLib.io_add_watch(
         listener.fileno(),
@@ -373,12 +661,17 @@ def run_overlay(socket_path: Path) -> int:
         socket_ready,
     )
 
-    signal.signal(signal.SIGINT, lambda *_args: Gtk.main_quit())
-    signal.signal(signal.SIGTERM, lambda *_args: Gtk.main_quit())
+    def quit_overlay(*_args: object) -> None:
+        stop_sound_loop()
+        Gtk.main_quit()
+
+    signal.signal(signal.SIGINT, quit_overlay)
+    signal.signal(signal.SIGTERM, quit_overlay)
 
     try:
         Gtk.main()
     finally:
+        stop_sound_loop()
         listener.close()
         try:
             socket_path.unlink()
@@ -390,8 +683,10 @@ def run_overlay(socket_path: Path) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--socket", required=True, type=Path)
+    parser.add_argument("--background", type=Path)
+    parser.add_argument("--sound-file", type=Path)
     args = parser.parse_args()
-    return run_overlay(args.socket)
+    return run_overlay(args.socket, args.background, args.sound_file)
 
 
 if __name__ == "__main__":

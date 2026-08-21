@@ -14,10 +14,12 @@ For a permanent server, `sudo ./scripts/install-ubuntu-host.sh
 --force-always-on` starts the alerts at boot.
 
 Warnings use one coordinated full-screen acknowledgement screen while the NVGS
-control terminal launched from **NVGS Server Hub** is open. The redesigned
-screen requests keyboard focus when it maps, focuses the dismissal button, and
-retries that focus request briefly to handle GTK/Wayland timing. Press
-`Enter`/`Escape` or click the button to dismiss it.
+control terminal launched from **NVGS Server Hub** is open. It is a normal
+borderless full-screen surface rather than a dialog, so Ubuntu does not reduce
+it to a small centered window. Its default background is an animated red
+warning field. The screen requests keyboard focus when it maps, focuses the
+dismissal button, and retries that focus request briefly to handle GTK/Wayland
+timing. Press `Enter`/`Escape` or click the button to dismiss it.
 
 The overlay is the primary warning UI. Ubuntu's top notification is created
 only when the overlay is unavailable, so a single event no longer leaves two
@@ -35,7 +37,22 @@ The monitor checks every five seconds. Charger, battery, cable, and lid results
 are handled before slower Internet/application requests, so those slow checks
 do not hold up an already-detected hardware warning.
 
-The warning requests a sound, but Ubuntu's notification settings may mute it.
+The overlay loops Ubuntu's warning sound while it is open. Click **Mute sound**
+or press `M` to stop it without dismissing the warning. If the system has no
+supported sound player, the button says **Sound unavailable** and the visual
+alert continues normally.
+
+For a custom background and sound, create `host/assets` on the Ubuntu copy and
+place these machine-specific files there:
+
+- `nvgs-alert-background.gif`
+- one of `nvgs-alert-sound.oga`, `.ogg`, `.wav`, or `.mp3`
+
+The GIF is looped, scaled, and center-cropped to fill the display. A 1920x1080
+GIF is a good choice for a 1920x1080 screen. These media files are ignored by
+Git, so `git pull` will not overwrite them. Full details are in
+`host/assets/README.md`.
+
 Ubuntu does not allow an application to cover its secure lock screen; an alert
 raised while locked remains recorded and can appear after unlocking.
 
@@ -58,11 +75,12 @@ If the controller says full-screen alerts could not start, verify that
 PyGObject can load matching GDK 3 and GTK 3 namespaces:
 
 ```bash
-python3 -c 'import gi; gi.require_version("Gdk", "3.0"); gi.require_version("Gtk", "3.0"); from gi.repository import Gdk, Gtk; print("GTK 3 OK")'
+python3 -c 'import gi; gi.require_version("Gdk", "3.0"); gi.require_version("GdkPixbuf", "2.0"); gi.require_version("Gtk", "3.0"); from gi.repository import Gdk, GdkPixbuf, Gtk; print("GTK 3 OK")'
 ```
 
-The command must print `GTK 3 OK`. The overlay explicitly selects both
-versions so an installed GDK 4 cannot be chosen accidentally.
+The command must print `GTK 3 OK`. The overlay explicitly selects the GTK 3,
+GDK 3, and GdkPixbuf 2 namespaces so incompatible versions cannot be chosen
+accidentally.
 
 Every alert is also recorded in the local journal:
 

@@ -32,3 +32,6 @@ nvgs-local-ca.crt
 /appscript-bridge/.clasp.json
 /appscript-notification-bridge/.clasp.json
 /.playwright-cli/
+# Machine-specific full-screen alert media
+host/assets/nvgs-alert-background.gif
+host/assets/nvgs-alert-sound.*

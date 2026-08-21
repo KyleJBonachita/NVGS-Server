@@ -224,11 +224,12 @@ class AlertHelperTests(unittest.TestCase):
 
 
 class FullscreenOverlayTests(unittest.TestCase):
-    def test_gdk_and_gtk_are_both_pinned_to_version_3(self):
+    def test_gtk_rendering_namespaces_are_pinned(self):
         requested_versions = []
         gi_module = types.ModuleType("gi")
         repository_module = types.ModuleType("gi.repository")
         repository_module.Gdk = object()
+        repository_module.GdkPixbuf = object()
         repository_module.GLib = object()
         repository_module.Gtk = object()
         gi_module.repository = repository_module
@@ -247,12 +248,13 @@ class FullscreenOverlayTests(unittest.TestCase):
 
         self.assertEqual(
             requested_versions,
-            [("Gdk", "3.0"), ("Gtk", "3.0")],
+            [("Gdk", "3.0"), ("GdkPixbuf", "2.0"), ("Gtk", "3.0")],
         )
         self.assertEqual(
             modules,
             (
                 repository_module.Gdk,
+                repository_module.GdkPixbuf,
                 repository_module.GLib,
                 repository_module.Gtk,
             ),
@@ -320,6 +322,23 @@ class FullscreenOverlayTests(unittest.TestCase):
         self.assertIn('GLib.timeout_add(300, focus_window)', source)
         self.assertIn("Gdk.KEY_Escape", source)
         self.assertIn("Gdk.KEY_KP_Enter", source)
+
+    def test_overlay_is_not_marked_as_a_centered_dialog(self):
+        source = (HOST_DIR / "nvgs_alert_overlay.py").read_text(encoding="utf-8")
+        self.assertNotIn("WindowTypeHint.DIALOG", source)
+        self.assertNotIn("window.set_modal(True)", source)
+        self.assertLess(
+            source.index("window.fullscreen()"),
+            source.index("window.show_all()"),
+        )
+
+    def test_overlay_has_animated_background_and_sound_controls(self):
+        source = (HOST_DIR / "nvgs_alert_overlay.py").read_text(encoding="utf-8")
+        self.assertIn("Gtk.DrawingArea()", source)
+        self.assertIn("PixbufAnimation.new_from_file", source)
+        self.assertIn("background.queue_draw()", source)
+        self.assertIn('sound_button = Gtk.Button(label="MUTE SOUND")', source)
+        self.assertIn("Gdk.KEY_m", source)
 
 
 if __name__ == "__main__":
