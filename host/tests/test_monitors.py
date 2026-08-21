@@ -327,6 +327,9 @@ class FullscreenOverlayTests(unittest.TestCase):
         source = (HOST_DIR / "nvgs_alert_overlay.py").read_text(encoding="utf-8")
         self.assertNotIn("WindowTypeHint.DIALOG", source)
         self.assertNotIn("window.set_modal(True)", source)
+        self.assertNotIn("screen.get_width()", source)
+        self.assertNotIn("screen.get_height()", source)
+        self.assertIn("monitor.get_geometry()", source)
         self.assertLess(
             source.index("window.fullscreen()"),
             source.index("window.show_all()"),

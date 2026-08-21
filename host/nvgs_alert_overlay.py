@@ -88,6 +88,20 @@ def alert_sound_command(sound_path: Path | None) -> tuple[list[str] | None, bool
     return None, False
 
 
+def primary_monitor_size(gdk: Any) -> tuple[int, int] | None:
+    """Return the active display size through GTK's non-deprecated monitor API."""
+    display = gdk.Display.get_default()
+    if display is None:
+        return None
+    monitor = display.get_primary_monitor()
+    if monitor is None and display.get_n_monitors() > 0:
+        monitor = display.get_monitor(0)
+    if monitor is None:
+        return None
+    geometry = monitor.get_geometry()
+    return max(1, geometry.width), max(1, geometry.height)
+
+
 def parse_alert(raw: bytes) -> dict[str, str] | None:
     try:
         payload: Any = json.loads(raw.decode("utf-8"))
@@ -266,6 +280,7 @@ def run_overlay(
     provider = Gtk.CssProvider()
     provider.load_from_data(css)
     screen = Gdk.Screen.get_default()
+    monitor_size = primary_monitor_size(Gdk)
     if screen is not None:
         Gtk.StyleContext.add_provider_for_screen(
             screen,
@@ -284,8 +299,8 @@ def run_overlay(
     window.set_accept_focus(True)
     window.set_focus_on_map(True)
     window.stick()
-    if screen is not None:
-        window.set_default_size(screen.get_width(), screen.get_height())
+    if monitor_size is not None:
+        window.set_default_size(*monitor_size)
 
     stage = Gtk.Overlay()
     stage.set_hexpand(True)
@@ -305,8 +320,8 @@ def run_overlay(
     shell.set_margin_top(32)
     shell.set_margin_bottom(32)
     card_width = 940
-    if screen is not None:
-        card_width = min(card_width, max(420, screen.get_width() - 96))
+    if monitor_size is not None:
+        card_width = min(card_width, max(420, monitor_size[0] - 96))
     shell.set_size_request(card_width, -1)
     accent = Gtk.Box()
     accent.set_name("nvgs-alert-accent")
@@ -579,8 +594,8 @@ def run_overlay(
         if not active_alerts:
             return False
         render_alerts()
-        if screen is not None:
-            window.resize(screen.get_width(), screen.get_height())
+        if monitor_size is not None:
+            window.resize(*monitor_size)
         window.fullscreen()
         window.show_all()
         start_sound_loop()
